@@ -1,0 +1,170 @@
+# API 对接指南
+
+后端契约以 [`agent-hub/docs/api.md`](../../../PythonProjects/agent-hub/docs/api.md) 为准；本文只写前端如何消费。
+
+> 当前前端处于 M0，`src/api/`、`src/types/` 均为空占位；本文中的文件与代码片段是后续实现的规划。
+
+## 1. 地址与代理
+
+| 环境 | Base URL | 说明 |
+|---|---|---|
+| 开发 | `/api/v1`（默认） | Vite 代理到 `http://127.0.0.1:8000` |
+| 生产 | `/api/v1` | Nginx 反代同源，避免 CORS |
+| 直连后端 | `VITE_API_BASE_URL=http://localhost:8000/api/v1` | 需后端配置 CORS |
+
+`src/api/client.ts` 读取 `VITE_API_BASE_URL`，未设置时使用 `/api/v1`。
+
+## 2. Axios 使用方式
+
+```ts
+import { apiClient } from '@/api/client'
+import type { PageResult } from '@/types/api'
+import type { Conversation } from '@/types/chat'
+
+export async function listConversations(cursor?: string): Promise<PageResult<Conversation>> {
+  const { data } = await apiClient.get<PageResult<Conversation>>('/conversations', {
+    params: { limit: 20, cursor },
+  })
+  return data
+}
+```
+
+约定：
+
+- 每个业务域一个 `src/api/<domain>.ts`，页面不直接调 `apiClient`；
+- 函数返回已解包的数据，不把 AxiosResponse 泄漏到页面；
+- 查询参数用 `params`，不要手拼 URL；
+- 类型从 `src/types/` 引入，不在 api 文件里重复定义。
+
+## 3. 认证
+
+```ts
+// 登录成功后
+authStore.setSession(tokens) // 写 localStorage
+authStore.setUser(user)
+
+// 请求拦截器自动附加
+Authorization: Bearer <access_token>
+```
+
+刷新策略（M1）：
+
+1. 收到 401 且存在 refresh token → 调用 `POST /auth/refresh`；
+2. 刷新成功：更新 token，重放原请求一次；
+3. 刷新失败：清空会话，跳 `/login`；
+4. 并发 401 用单飞锁（`useAuth` 内共享 Promise），避免多次刷新。
+
+## 4. SSE 聊天
+
+```ts
+import { fetchEventSource } from '@microsoft/fetch-event-source'
+import type { ChatStreamRequest, ChatEventName } from '@/types/chat'
+
+export function openChatStream(
+  payload: ChatStreamRequest,
+  handlers: {
+    onEvent: (event: ChatEventName, data: unknown) => void
+    onError: (error: Error) => void
+    signal: AbortSignal
+  },
+): Promise<void> {
+  return fetchEventSource('/api/v1/chat/stream', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'text/event-stream',
+      Authorization: `Bearer ${localStorage.getItem('agent-hub.access-token') ?? ''}`,
+    },
+    body: JSON.stringify(payload),
+    signal: handlers.signal,
+    openWhenHidden: true,
+    async onopen(response) {
+      const ok =
+        response.ok && response.headers.get('content-type')?.includes('text/event-stream')
+      if (!ok) throw new Error(`SSE 连接失败：HTTP ${response.status}`)
+    },
+    onmessage(ev) {
+      if (!ev.event || ev.event === 'ping') return
+      const data = ev.data ? JSON.parse(ev.data) : {}
+      handlers.onEvent(ev.event as ChatEventName, data)
+    },
+    onerror(error) {
+      // 抛错终止重连；网络类错误可返回重试毫秒数
+      handlers.onError(error as Error)
+      throw error
+    },
+  })
+}
+```
+
+注意：
+
+- 必须设置 `Accept: text/event-stream`，后端据此返回流；
+- `EventSource` 不支持 POST/自定义头，不要用原生实现；
+- 组件卸载时 `controller.abort()`；
+- 解析失败的单帧记录日志并跳过，不终止整条流；
+- `message.done` / `error` 后主动 `abort()`。
+
+## 5. 错误处理
+
+后端统一错误信封：
+
+```json
+{"error": {"code": "not_found", "message": "会话不存在", "request_id": "..."}}
+```
+
+`apiClient` 已转换为 `ApiRequestError`：
+
+```ts
+import { ApiRequestError } from '@/api/client'
+
+try {
+  await createConversation()
+} catch (error) {
+  if (error instanceof ApiRequestError) {
+    ElMessage.error(error.message)
+    console.warn('request_id=', error.requestId)
+  }
+}
+```
+
+约定：
+
+- 401 由拦截器清理会话，页面不必重复处理；
+- 业务错误展示 `message`，调试信息记录 `code` + `request_id`；
+- 网络错误（status=0）提示「网络异常，请稍后重试」。
+
+## 6. 类型与 OpenAPI
+
+当前 `src/types/` 为手写契约类型。后续可选：
+
+```bash
+# 从后端 OpenAPI 生成类型（规划）
+pnpm dlx openapi-typescript http://localhost:8000/openapi.json -o src/types/openapi.d.ts
+```
+
+生成后仍需保留 UI 层类型（如带本地状态的 `ChatMessage`），不要直接用生成类型做组件状态。
+
+## 7. 并发与缓存
+
+- 同一会话同时只允许一个运行：发送前检查 `chat.streaming`，否则禁用输入；
+- 列表请求用 cursor 分页，不缓存全量；
+- 写操作成功后失效相关 store 的列表缓存（简单 invalidate，不做持久化缓存）；
+- 重复点击提交用 loading 锁，避免重复创建。
+
+## 8. 调试
+
+```bash
+# 直接看 SSE 原始帧
+curl -N -X POST http://localhost:8000/api/v1/chat/stream \
+  -H 'Content-Type: application/json' \
+  -H 'Accept: text/event-stream' \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{"message":"你好"}'
+```
+
+浏览器 DevTools：
+
+- Network → 选中 SSE 请求 → EventStream 面板看事件；
+- 若长时间无输出，检查 Nginx `proxy_buffering off`；
+- 401 检查 localStorage token 与后端时钟偏差。
