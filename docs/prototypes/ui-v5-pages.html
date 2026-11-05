@@ -1,0 +1,2966 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="light dark" />
+<title>Agent Hub · 页面样例（智能体 / 任务 / 知识库 / 设置）</title>
+<style>
+/* ============================================================
+   Agent Hub UI prototype v5 — other pages
+   npm-free, offline single file. All icons are inline symbols.
+   ============================================================ */
+
+/* ---------- tokens ---------- */
+:root{
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+               "Hiragino Sans GB", "Noto Sans SC", "Source Han Sans SC",
+               "Microsoft YaHei", sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", "Cascadia Mono",
+               "Roboto Mono", Menlo, Consolas, monospace;
+
+  --paper:#F0EFE8;
+  --paper-2:#E9E7DD;
+  --surface:#FBFAF5;
+  --surface-2:#F4F3EC;
+  --ink:#141B20;
+  --ink-2:#4F5B63;
+  --ink-3:#606B72;
+  --line:#D7D5C9;
+  --line-2:#E3E1D6;
+
+  --prussian:#17465E;
+  --prussian-soft:#E4ECEF;
+  --amber:#A9741F;
+  --amber-text:#8A5D14;
+  --amber-soft:#F3E9D3;
+  --red:#9C3A2B;
+  --red-soft:#F6E5E0;
+  --green:#3D6A4E;
+  --green-soft:#E4EDE6;
+  --mcp:#5A4E72;
+  --mcp-soft:#ECE8F1;
+
+  --btn-bg:#141B20;
+  --btn-fg:#FBFAF5;
+
+  --shadow-sm:0 1px 2px rgba(20,27,32,.05);
+  --shadow-md:0 1px 2px rgba(20,27,32,.04), 0 10px 28px -18px rgba(20,27,32,.35);
+
+  --sidebar-w:288px;
+  --sidebar-rail:56px;
+  --trace-w:332px;
+}
+
+html[data-theme="dark"]{
+  --paper:#0F1418;
+  --paper-2:#141A1F;
+  --surface:#171F24;
+  --surface-2:#1A2329;
+  --ink:#E8E7DF;
+  --ink-2:#A3AEB4;
+  --ink-3:#85929A;
+  --line:#2A353C;
+  --line-2:#212B31;
+
+  --prussian:#93BED1;
+  --prussian-soft:rgba(147,190,209,.12);
+  --amber:#D4A04A;
+  --amber-text:#E0B76E;
+  --amber-soft:rgba(212,160,74,.13);
+  --red:#DE907E;
+  --red-soft:rgba(222,144,126,.12);
+  --green:#8DBBA0;
+  --green-soft:rgba(141,187,160,.12);
+  --mcp:#B3A4C9;
+  --mcp-soft:rgba(179,164,201,.12);
+
+  --btn-bg:#E8E7DF;
+  --btn-fg:#10171B;
+
+  --shadow-sm:0 1px 0 rgba(255,255,255,.03);
+  --shadow-md:0 1px 0 rgba(255,255,255,.03), 0 16px 40px -24px rgba(0,0,0,.9);
+}
+
+/* ---------- base ---------- */
+*,*::before,*::after{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;
+  font-family:var(--font-sans);
+  font-size:14px;
+  line-height:1.5;
+  color:var(--ink);
+  background:var(--paper);
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
+  overflow:hidden;
+}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+a{color:inherit;text-decoration:none}
+ul,ol,dl,dd{margin:0;padding:0;list-style:none}
+h1,h2,h3,h4,p{margin:0}
+svg{display:block}
+:focus-visible{outline:2px solid var(--prussian);outline-offset:2px;border-radius:3px}
+::selection{background:var(--amber-soft);color:var(--ink)}
+
+*{scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{
+  background:var(--line);
+  border:3px solid transparent;
+  background-clip:content-box;
+  border-radius:99px;
+}
+::-webkit-scrollbar-thumb:hover{background-color:var(--ink-3)}
+
+.ic{
+  width:18px;height:18px;flex:none;
+  fill:none;stroke:currentColor;stroke-width:1.6;
+  stroke-linecap:round;stroke-linejoin:round;
+}
+.mono{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+.sr-only{
+  position:absolute;width:1px;height:1px;padding:0;margin:-1px;
+  overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0;
+}
+
+/* ---------- app shell ---------- */
+.app{
+  display:grid;
+  grid-template-columns:var(--sidebar-w) minmax(0,1fr);
+  height:100dvh;
+  min-height:0;
+  transition:grid-template-columns .22s ease;
+}
+.app.trace-collapsed{grid-template-columns:var(--sidebar-w) minmax(0,1fr) 0px}
+.app.trace-collapsed .trace{opacity:0;pointer-events:none;overflow:hidden}
+.app.sidebar-collapsed{grid-template-columns:var(--sidebar-rail) minmax(0,1fr)}
+.app.sidebar-collapsed.trace-collapsed{grid-template-columns:var(--sidebar-rail) minmax(0,1fr) 0px}
+
+/* ============================================================
+   SIDEBAR — single column, DSH-style
+   ============================================================ */
+.sidebar{
+  position:relative;
+  display:flex;flex-direction:column;min-height:0;
+  padding:6px 8px;
+  background:var(--paper-2);
+  border-right:1px solid var(--line);
+  z-index:20;
+  overflow:hidden;
+}
+.sb-top{
+  flex:none;
+  display:flex;align-items:center;justify-content:space-between;
+  gap:6px;height:44px;padding:0 2px 0 6px;
+}
+.sb-brand{
+  display:flex;align-items:center;gap:8px;min-width:0;
+  color:var(--ink);
+  font-size:14px;font-weight:650;letter-spacing:-.01em;
+  white-space:nowrap;
+}
+.sb-brand-mark{
+  width:22px;height:22px;flex:none;
+  fill:none;stroke:currentColor;stroke-width:1.7;
+  stroke-linecap:round;stroke-linejoin:round;
+}
+.sb-brand-mark .hot{fill:var(--amber);stroke:none}
+.sb-toggle{
+  display:grid;place-items:center;flex:none;
+  width:28px;height:28px;border-radius:5px;
+  color:var(--ink-3);
+  transition:color .15s,background .15s;
+}
+.sb-toggle:hover{color:var(--ink);background:var(--surface-2)}
+.sb-toggle .ic{width:16px;height:16px}
+
+.sb-new{
+  display:flex;align-items:center;gap:7px;
+  height:34px;margin:6px 0 8px;padding:0 10px;
+  border:1px solid var(--line);
+  border-radius:6px;
+  background:var(--surface);
+  color:var(--ink);
+  font-size:12.5px;font-weight:550;
+  box-shadow:var(--shadow-sm);
+  white-space:nowrap;
+  transition:border-color .15s,background .15s;
+}
+.sb-new:hover{border-color:var(--ink-3)}
+.sb-new .ic{width:15px;height:15px;flex:none}
+
+.sb-nav{display:flex;flex-direction:column;gap:1px;flex:none}
+.sb-nav-item{
+  display:flex;align-items:center;gap:9px;
+  height:31px;padding:0 9px;
+  border-radius:5px;
+  color:var(--ink-2);
+  font-size:12.5px;white-space:nowrap;
+  transition:background .12s,color .12s;
+}
+.sb-nav-item .ic{width:16px;height:16px;flex:none;color:var(--ink-3)}
+.sb-nav-item:hover{background:rgba(20,27,32,.045);color:var(--ink)}
+html[data-theme="dark"] .sb-nav-item:hover{background:rgba(255,255,255,.05)}
+.sb-nav-item.is-active{background:var(--surface);color:var(--ink);font-weight:600;box-shadow:var(--shadow-sm)}
+.sb-nav-item.is-active .ic{color:var(--prussian)}
+
+.sb-sessions{
+  flex:1;min-height:0;
+  display:flex;flex-direction:column;
+  margin-top:10px;padding-top:10px;
+  border-top:1px solid var(--line);
+}
+.sb-sessions-head{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 8px 6px;
+}
+.sb-sessions-head h2{font-size:11px;font-weight:600;color:var(--ink-3);letter-spacing:.03em}
+.sb-sessions-head .mono{font-size:9.5px;color:var(--ink-3)}
+
+.search{position:relative;display:block;margin:0 4px 6px}
+.search .ic{
+  position:absolute;left:9px;top:50%;transform:translateY(-50%);
+  width:14px;height:14px;color:var(--ink-3);
+}
+.search input{
+  width:100%;height:32px;padding:0 9px 0 30px;
+  border:1px solid transparent;border-radius:6px;
+  background:var(--surface-2);color:var(--ink);
+  font:inherit;font-size:12px;outline:none;
+  transition:border-color .15s,background .15s;
+}
+.search input::placeholder{color:var(--ink-3)}
+.search input:focus{border-color:var(--line);background:var(--surface)}
+
+.session-scroll{flex:1;overflow-y:auto;min-height:0;padding:0 2px 8px}
+.session-group{padding-top:6px}
+.group-label{padding:0 8px 5px;font-size:10.5px;font-weight:500;color:var(--ink-3);letter-spacing:.03em}
+.session{
+  display:block;width:100%;text-align:left;
+  padding:8px 8px 8px 10px;
+  border-radius:6px;
+  border-left:2px solid transparent;
+  transition:background .12s;
+}
+.session:hover{background:rgba(20,27,32,.045)}
+html[data-theme="dark"] .session:hover{background:rgba(255,255,255,.04)}
+.session.is-active{background:var(--surface);border-left-color:var(--ink);box-shadow:var(--shadow-sm)}
+.session-title{display:block;font-size:12.5px;font-weight:550;letter-spacing:-.005em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.session.is-active .session-title{font-weight:650}
+.session-meta{display:flex;align-items:center;gap:5px;margin-top:3px;font-size:10.5px;color:var(--ink-3)}
+.session-meta .dot{width:5px;height:5px}
+.session-meta .sep{opacity:.5}
+
+.dot{display:inline-block;flex:none;width:6px;height:6px;border-radius:50%;background:var(--ink-3)}
+.dot.is-live{background:var(--amber);box-shadow:0 0 0 3px var(--amber-soft);animation:pulse 2.4s ease-in-out infinite}
+.dot.is-ok{background:var(--green)}
+.dot.is-warn{background:var(--red)}
+
+.sb-foot{flex:none;margin-top:auto;padding-top:8px;border-top:1px solid var(--line)}
+.sb-conn{display:flex;align-items:center;gap:6px;padding:0 8px 6px;font-size:10px;color:var(--ink-3)}
+.sb-conn .spacer{flex:1}
+.sb-conn .mono{font-size:9.5px;letter-spacing:.02em}
+.sb-account{
+  display:flex;align-items:center;gap:8px;
+  width:100%;padding:6px 7px;border-radius:6px;text-align:left;
+  transition:background .12s;
+}
+.sb-account:hover{background:var(--surface-2)}
+.sb-account-text{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.sb-account-name{font-size:12px;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sb-account-sub{font-size:10px;color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sb-account-more{width:15px;height:15px;flex:none;color:var(--ink-3)}
+
+.avatar{
+  display:grid;place-items:center;flex:none;
+  width:30px;height:30px;border-radius:50%;
+  background:var(--amber);color:#191307;
+  font-family:var(--font-mono);font-size:11px;font-weight:700;letter-spacing:.02em;
+}
+
+html[data-theme="dark"] .ic-sun{display:block}
+html[data-theme="dark"] .ic-moon{display:none}
+.ic-sun{display:none}
+.ic-moon{display:block}
+
+/* collapsed rail */
+.app.sidebar-collapsed .sidebar{padding:6px 0;align-items:center}
+.app.sidebar-collapsed .sb-top{width:100%;height:44px;justify-content:center;padding:0}
+.app.sidebar-collapsed .sb-brand{display:none}
+.app.sidebar-collapsed .sb-new{
+  width:36px;height:36px;margin:6px auto 8px;padding:0;justify-content:center;
+  border-color:transparent;background:transparent;box-shadow:none;
+}
+.app.sidebar-collapsed .sb-new:hover{background:var(--surface-2)}
+.app.sidebar-collapsed .sb-new span{display:none}
+.app.sidebar-collapsed .sb-nav{width:100%;align-items:center;gap:2px}
+.app.sidebar-collapsed .sb-nav-item{width:36px;height:36px;padding:0;justify-content:center;border-radius:7px}
+.app.sidebar-collapsed .sb-nav-item span{display:none}
+.app.sidebar-collapsed .sb-sessions{display:none}
+.app.sidebar-collapsed .sb-foot{width:100%;display:flex;justify-content:center;padding-top:6px}
+.app.sidebar-collapsed .sb-conn{display:none}
+.app.sidebar-collapsed .sb-account{width:36px;height:36px;padding:0;justify-content:center;margin:0 auto}
+.app.sidebar-collapsed .sb-account-text,
+.app.sidebar-collapsed .sb-account-more{display:none}
+
+/* account menu */
+.account-menu{
+  position:absolute;left:8px;right:8px;bottom:74px;z-index:95;
+  display:none;padding:6px;
+  border:1px solid var(--line);border-radius:8px;
+  background:var(--surface);box-shadow:var(--shadow-md);
+}
+.account-menu.is-open{display:block}
+.app.sidebar-collapsed .account-menu{position:fixed;left:64px;right:auto;bottom:12px;width:240px}
+.account-menu-head{display:flex;align-items:center;gap:9px;padding:6px 7px 9px}
+.account-menu-head .avatar{width:32px;height:32px}
+.account-menu-name{font-size:12.5px;font-weight:600;color:var(--ink)}
+.account-menu-sub{margin-top:1px;font-size:10.5px;color:var(--ink-3)}
+.menu-sep{height:1px;margin:5px 4px;background:var(--line-2)}
+.menu-item{
+  display:flex;align-items:center;gap:8px;
+  width:100%;height:33px;padding:0 7px;
+  border-radius:5px;color:var(--ink-2);
+  font-size:12.5px;text-align:left;
+  transition:background .12s,color .12s;
+}
+.menu-item:hover{background:var(--surface-2);color:var(--ink)}
+.menu-item .ic{width:15px;height:15px;color:var(--ink-3)}
+.menu-item.is-danger{color:var(--red)}
+.menu-item.is-danger .ic{color:var(--red)}
+.menu-version{padding:7px 7px 3px;font-family:var(--font-mono);font-size:9px;color:var(--ink-3);letter-spacing:.03em}
+
+/* responsive sidebar pieces */
+.mobile-sidebar-btn{
+  display:none;place-items:center;flex:none;
+  width:30px;height:30px;margin-right:8px;
+  border:1px solid var(--line);border-radius:5px;
+  background:var(--surface);color:var(--ink-2);
+}
+.mobile-sidebar-btn .ic{width:16px;height:16px}
+.sidebar-scrim{display:none}
+
+/* ============================================================
+   CHAT COLUMN
+   ============================================================ */
+.chat{
+  display:flex;flex-direction:column;
+  min-width:0;min-height:0;
+  background:var(--paper);
+  position:relative;
+}
+.chat-head{
+  flex:none;
+  display:flex;align-items:center;justify-content:space-between;gap:20px;
+  min-height:68px;
+  padding:0 32px;
+  border-bottom:1px solid var(--line);
+  background:var(--paper);
+}
+.chat-heading{flex:1;min-width:0}
+.chat-title{
+  font-size:17px;font-weight:650;letter-spacing:-.012em;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.chat-sub{
+  display:flex;align-items:center;gap:8px;
+  margin-top:3px;
+  font-size:11.5px;color:var(--ink-3);
+  white-space:nowrap;overflow:hidden;
+}
+.chat-sub .mono{font-size:10.5px;color:var(--ink-3)}
+.chat-sub .sep{opacity:.45}
+.chat-actions{display:flex;align-items:center;gap:8px;flex:none}
+
+.status-chip{
+  display:inline-flex;align-items:center;gap:6px;
+  height:26px;padding:0 9px;
+  border:1px solid var(--line);
+  border-radius:5px;
+  background:var(--surface);
+  color:var(--ink-2);
+  font-size:11.5px;font-weight:500;
+  white-space:nowrap;
+}
+.status-chip .dot{width:5px;height:5px}
+.status-chip.is-live{border-color:var(--amber-soft);background:var(--amber-soft);color:var(--amber-text)}
+.status-chip.is-warn{border-color:var(--red-soft);background:var(--red-soft);color:var(--red)}
+.status-chip.is-ok{border-color:var(--green-soft);background:var(--green-soft);color:var(--green)}
+
+.icon-btn{
+  display:grid;place-items:center;
+  width:30px;height:30px;
+  border:1px solid var(--line);
+  border-radius:5px;
+  background:var(--surface);
+  color:var(--ink-2);
+  transition:color .15s,border-color .15s;
+}
+.icon-btn:hover{color:var(--ink);border-color:var(--ink-3)}
+.icon-btn .ic{width:16px;height:16px}
+
+.stream{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden}
+.stream-inner{
+  max-width:812px;
+  margin:0 auto;
+  padding:30px 36px 16px;
+}
+
+/* ---------- timeline bus ---------- */
+.thread{position:relative;padding-bottom:6px}
+.thread::before{
+  content:"";
+  position:absolute;left:21px;top:9px;bottom:6px;
+  width:1px;
+  background:var(--line);
+  -webkit-mask-image:linear-gradient(to bottom,#000 calc(100% - 56px),transparent);
+  mask-image:linear-gradient(to bottom,#000 calc(100% - 56px),transparent);
+}
+.entry{position:relative;padding-left:52px;margin-bottom:26px}
+.entry-tool{margin-bottom:14px}
+.entry:last-child{margin-bottom:8px}
+.node{
+  position:absolute;left:17.5px;top:5px;
+  width:8px;height:8px;
+  background:var(--paper);
+  border:1.5px solid var(--ink-2);
+  border-radius:50%;
+  z-index:1;
+}
+.entry-tool .node{
+  border-radius:1.5px;border-color:var(--amber);background:var(--surface);
+}
+.entry-a2a .node{
+  border-radius:1px;border-color:var(--prussian);
+  transform:rotate(45deg);background:var(--prussian-soft);
+}
+.entry-approval .node{border-color:var(--red);background:var(--red-soft)}
+
+.entry-head{
+  display:flex;align-items:baseline;gap:9px;
+  min-height:18px;
+  margin-bottom:7px;
+}
+.who{font-size:12.5px;font-weight:650;letter-spacing:-.005em}
+.who-sub{font-size:11px;color:var(--ink-3)}
+.entry-head time{
+  font-family:var(--font-mono);
+  font-size:10.5px;color:var(--ink-3);
+  letter-spacing:.01em;
+}
+.entry-head .spacer{flex:1}
+.copy-btn{
+  display:inline-flex;align-items:center;gap:4px;
+  font-size:11px;color:var(--ink-3);
+  opacity:0;transition:opacity .15s,color .15s;
+}
+.entry:hover .copy-btn,.copy-btn:focus-visible{opacity:1}
+.copy-btn:hover{color:var(--ink)}
+.copy-btn .ic{width:13px;height:13px}
+
+/* user message — lives off the bus, right aligned */
+.user-turn{
+  display:flex;flex-direction:column;align-items:flex-end;
+  margin:2px 0 30px;
+}
+.user-meta{
+  display:flex;align-items:center;gap:6px;
+  margin-bottom:6px;
+  font-size:10.5px;color:var(--ink-3);
+}
+.user-meta time{font-family:var(--font-mono);letter-spacing:.01em}
+.meta-sep{opacity:.55}
+.prompt-bubble{
+  max-width:min(560px,74%);
+  padding:13px 16px;
+  border-radius:10px 10px 3px 10px;
+  background:var(--ink);
+  color:var(--paper);
+  font-size:14.5px;line-height:1.72;
+  box-shadow:0 1px 2px rgba(20,27,32,.08);
+}
+html[data-theme="dark"] .prompt-bubble{box-shadow:0 1px 0 rgba(255,255,255,.03)}
+.prompt-bubble p{margin:0}
+.prompt-bubble .attachments{margin-top:11px}
+.prompt-bubble .attach{
+  background:rgba(128,128,128,.18);
+  border-color:rgba(128,128,128,.26);
+  color:inherit;opacity:.9;
+}
+.prompt-bubble .attach .ic{color:inherit;opacity:.7}
+.prompt-bubble .attach .mono{color:inherit;opacity:.6}
+.attachments{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.attach{
+  display:inline-flex;align-items:center;gap:7px;
+  height:28px;padding:0 10px;
+  border:1px solid var(--line);
+  border-radius:5px;
+  background:var(--surface);
+  font-size:11.5px;color:var(--ink-2);
+}
+.attach .ic{width:14px;height:14px;color:var(--ink-3)}
+.attach .mono{font-size:10.5px;color:var(--ink-3)}
+
+/* assistant prose */
+.prose{font-size:14.5px;line-height:1.78;color:var(--ink)}
+.prose > * + *{margin-top:13px}
+.prose h3{
+  font-size:19px;font-weight:650;letter-spacing:-.018em;line-height:1.35;
+  margin-top:2px;
+}
+.prose h4{
+  font-size:13.5px;font-weight:650;letter-spacing:.005em;
+  color:var(--ink);
+  margin-top:22px;
+}
+.prose strong{font-weight:650}
+.prose p{max-width:68ch}
+.prose .cite{
+  display:inline-grid;place-items:center;
+  min-width:14px;height:14px;
+  margin-left:2px;padding:0 3px;
+  border-radius:3px;
+  background:var(--prussian-soft);
+  color:var(--prussian);
+  font-family:var(--font-mono);
+  font-size:9px;font-weight:600;
+  vertical-align:2px;
+  line-height:1;
+}
+.prose .typing{
+  color:var(--ink-3);
+  letter-spacing:.18em;
+  animation:pulse 1.4s ease-in-out infinite;
+}
+.prose blockquote{
+  margin:18px 0 0;
+  padding:2px 0 2px 14px;
+  border-left:2px solid var(--line);
+  color:var(--ink-2);
+  font-size:13px;line-height:1.75;
+}
+.prose ul{max-width:66ch;padding-left:0}
+.prose ul li{
+  position:relative;
+  padding-left:16px;
+  margin-top:7px;
+}
+.prose ul li::before{
+  content:"";
+  position:absolute;left:2px;top:.72em;
+  width:4px;height:1px;
+  background:var(--ink-3);
+}
+.prose code{
+  font-family:var(--font-mono);
+  font-size:.9em;
+  padding:1px 4px;
+  border-radius:3px;
+  background:var(--surface-2);
+  border:1px solid var(--line-2);
+}
+
+/* data table */
+.table-wrap{
+  margin-top:16px;
+  overflow-x:auto;
+  overscroll-behavior-x:contain;
+}
+.data-table{
+  width:100%;
+  min-width:460px;
+  border-collapse:collapse;
+  font-size:13px;
+  font-variant-numeric:tabular-nums;
+}
+.data-table caption{
+  text-align:left;
+  font-size:11px;color:var(--ink-3);
+  padding-bottom:7px;
+}
+.data-table th{
+  text-align:left;
+  padding:7px 8px;
+  font-size:11px;font-weight:500;
+  color:var(--ink-3);
+  letter-spacing:.02em;
+  border-bottom:1px solid var(--line);
+  white-space:nowrap;
+}
+.data-table th.num,.data-table td.num{text-align:right}
+.data-table td{
+  padding:9px 8px;
+  border-bottom:1px solid var(--line-2);
+  color:var(--ink-2);
+}
+.data-table td:first-child{color:var(--ink);font-weight:500}
+.data-table tr:last-child td{border-bottom:1px solid var(--line)}
+.data-table .delta-up{color:var(--red)}
+.data-table .delta-down{color:var(--green)}
+
+/* ---------- tool card ---------- */
+.tool-card{
+  border:1px solid var(--line-2);
+  border-radius:6px;
+  background:var(--surface);
+  box-shadow:var(--shadow-sm);
+  overflow:hidden;
+}
+.tool-card summary{
+  display:flex;align-items:center;gap:10px;
+  padding:9px 12px;
+  cursor:pointer;
+  list-style:none;
+  user-select:none;
+}
+.tool-card summary::-webkit-details-marker{display:none}
+.tool-card summary:hover{background:var(--surface-2)}
+.tool-name{
+  font-family:var(--font-mono);
+  font-size:12px;font-weight:500;
+  color:var(--ink);
+  white-space:nowrap;
+}
+.tool-args{
+  font-family:var(--font-mono);
+  font-size:11.5px;color:var(--ink-3);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  flex:1;min-width:0;
+}
+.tool-result{
+  display:inline-flex;align-items:center;gap:4px;
+  font-size:11px;font-weight:500;color:var(--green);
+  white-space:nowrap;
+}
+.tool-result .ic{width:12px;height:12px;stroke-width:2}
+.tool-time{
+  font-family:var(--font-mono);
+  font-size:10.5px;color:var(--ink-3);
+  white-space:nowrap;
+}
+.chev{width:14px;height:14px;color:var(--ink-3);transition:transform .18s}
+.tool-card[open] .chev{transform:rotate(180deg)}
+.tool-body{
+  border-top:1px solid var(--line-2);
+  padding:9px 12px 11px;
+  background:var(--surface-2);
+}
+.hit{
+  display:flex;align-items:baseline;gap:8px;
+  padding:5px 0;
+  font-size:12px;
+  border-bottom:1px dashed var(--line-2);
+}
+.hit:last-child{border-bottom:0}
+.hit-title{color:var(--ink);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hit-score{font-family:var(--font-mono);font-size:10.5px;color:var(--prussian)}
+.hit-date{font-family:var(--font-mono);font-size:10px;color:var(--ink-3)}
+.tool-note{
+  margin-top:7px;
+  font-family:var(--font-mono);
+  font-size:10px;color:var(--ink-3);
+}
+
+/* ---------- A2A task card ---------- */
+.a2a-card{
+  border:1px solid var(--line);
+  border-left:3px solid var(--amber);
+  border-radius:6px;
+  background:var(--surface);
+  box-shadow:var(--shadow-sm);
+  overflow:hidden;
+}
+.a2a-top{display:flex;align-items:flex-start;gap:11px;padding:13px 15px 11px}
+.agent-badge{
+  display:grid;place-items:center;flex:none;
+  width:28px;height:28px;
+  border:1px solid var(--line);
+  border-radius:5px;
+  background:var(--surface-2);
+  font-family:var(--font-mono);
+  font-size:11px;font-weight:700;
+  color:var(--prussian);
+}
+.a2a-ident{flex:1;min-width:0}
+.a2a-name{
+  display:flex;align-items:center;flex-wrap:wrap;gap:3px 8px;
+  font-size:13px;font-weight:650;letter-spacing:-.005em;
+}
+.tag{
+  display:inline-flex;align-items:center;
+  height:17px;padding:0 5px;
+  border:1px solid var(--line);
+  border-radius:3px;
+  font-family:var(--font-mono);
+  font-size:9.5px;font-weight:400;
+  color:var(--ink-3);
+  white-space:nowrap;
+}
+.a2a-task{margin-top:3px;font-size:12px;color:var(--ink-2)}
+.a2a-status{
+  display:inline-flex;align-items:center;gap:6px;
+  font-size:11.5px;font-weight:500;color:var(--amber-text);
+  white-space:nowrap;
+}
+.progress{
+  height:3px;
+  margin:0 15px;
+  border-radius:99px;
+  background:var(--line-2);
+  overflow:hidden;
+}
+.progress span{
+  display:block;height:100%;
+  border-radius:99px;
+  background:var(--amber);
+  transition:width .4s ease;
+}
+.steps{
+  display:flex;flex-wrap:wrap;align-items:center;
+  gap:0 6px;
+  padding:10px 15px 9px;
+  font-size:11px;color:var(--ink-3);
+}
+.steps .step{display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+.steps .step .ic{width:11px;height:11px;stroke-width:2.2}
+.steps .step.is-done{color:var(--ink-2)}
+.steps .step.is-now{color:var(--amber-text);font-weight:500}
+.steps .step.is-now .dot{width:4px;height:4px;background:var(--amber)}
+.steps .arrow{width:11px;height:11px;color:var(--line);stroke-width:2}
+.a2a-foot{
+  display:flex;align-items:center;gap:10px;
+  padding:8px 15px;
+  border-top:1px solid var(--line-2);
+  background:var(--surface-2);
+  font-family:var(--font-mono);
+  font-size:10px;color:var(--ink-3);
+}
+.a2a-foot .spacer{flex:1}
+.btn-ghost{
+  display:inline-flex;align-items:center;gap:5px;
+  height:24px;padding:0 8px;
+  border:1px solid var(--line);
+  border-radius:4px;
+  background:var(--surface);
+  font-family:var(--font-sans);
+  font-size:11px;color:var(--ink-2);
+  transition:color .15s,border-color .15s;
+}
+.btn-ghost:hover{color:var(--ink);border-color:var(--ink-3)}
+.btn-ghost .ic{width:12px;height:12px}
+
+/* ---------- approval card ---------- */
+.approval-card{
+  border:1px solid var(--line);
+  border-left:3px solid var(--red);
+  border-radius:6px;
+  background:var(--surface);
+  box-shadow:var(--shadow-sm);
+  overflow:hidden;
+}
+.approval-head{
+  display:flex;align-items:center;gap:8px;
+  padding:13px 15px 0;
+}
+.approval-head .ic{width:15px;height:15px;color:var(--red)}
+.approval-title{font-size:13px;font-weight:650;letter-spacing:-.005em}
+.approval-head .status-chip{margin-left:auto;height:22px;font-size:10.5px;padding:0 7px}
+.approval-body{padding:8px 15px 14px}
+.approval-action{font-size:13.5px;line-height:1.6;color:var(--ink)}
+.approval-action b{font-weight:650}
+.risk-list{
+  display:grid;grid-template-columns:auto 1fr;
+  gap:3px 12px;
+  margin-top:11px;
+  font-size:11.5px;
+}
+.risk-list dt{color:var(--ink-3)}
+.risk-list dd{color:var(--ink-2)}
+.approval-actions{
+  display:flex;align-items:center;gap:8px;
+  padding:10px 15px;
+  border-top:1px solid var(--line-2);
+  background:var(--surface-2);
+}
+.approval-actions .spacer{flex:1}
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  height:31px;padding:0 13px;
+  border-radius:5px;
+  font-size:12.5px;font-weight:550;
+  transition:background .15s,color .15s,border-color .15s;
+  white-space:nowrap;
+}
+.btn .ic{width:14px;height:14px}
+.btn-primary{background:var(--btn-bg);color:var(--btn-fg);border:1px solid var(--btn-bg)}
+.btn-primary:hover{background:var(--prussian);border-color:var(--prussian);color:#FBFAF5}
+html[data-theme="dark"] .btn-primary:hover{background:var(--amber);border-color:var(--amber);color:#141B20}
+.btn-outline{background:transparent;color:var(--ink-2);border:1px solid var(--line)}
+.btn-outline:hover{color:var(--ink);border-color:var(--ink-3)}
+.btn[disabled]{opacity:.42;cursor:not-allowed}
+.approval-card.is-resolved .approval-actions{display:none}
+.approval-card.is-resolved{border-left-color:var(--green)}
+.approval-card.is-resolved .approval-head .ic{color:var(--green)}
+.resolved-note{
+  display:none;
+  align-items:center;gap:7px;
+  padding:10px 15px;
+  border-top:1px solid var(--line-2);
+  background:var(--green-soft);
+  font-size:11.5px;color:var(--green);
+}
+.approval-card.is-resolved .resolved-note{display:flex}
+.resolved-note .ic{width:14px;height:14px}
+
+/* thread footer */
+.thread-foot{
+  display:flex;align-items:center;gap:8px;
+  margin-left:52px;
+  padding-top:2px;
+  font-size:11px;color:var(--ink-3);
+}
+.thread-foot .mono{font-size:10px}
+.thread-foot::before{
+  content:"";
+  width:18px;height:1px;background:var(--line);
+}
+
+/* ---------- composer ---------- */
+.composer-wrap{
+  flex:none;
+  padding:10px 32px 14px;
+  background:var(--paper);
+}
+.composer-inner{max-width:812px;margin:0 auto}
+.composer{
+  border:1px solid var(--line);
+  border-radius:9px;
+  background:var(--surface);
+  box-shadow:var(--shadow-md);
+  transition:border-color .15s;
+}
+.composer:focus-within{border-color:var(--ink-3)}
+.composer textarea{
+  display:block;width:100%;
+  min-height:48px;max-height:168px;
+  padding:13px 15px 4px;
+  border:0;outline:none;resize:none;
+  background:transparent;
+  color:var(--ink);
+  font:inherit;font-size:14px;line-height:1.65;
+}
+.composer textarea::placeholder{color:var(--ink-3)}
+.composer-bar{
+  display:flex;align-items:center;gap:6px;
+  padding:5px 8px 7px 9px;
+}
+.composer-tool{
+  display:inline-flex;align-items:center;gap:5px;
+  height:27px;padding:0 8px;
+  border-radius:4px;
+  color:var(--ink-3);
+  font-size:11.5px;
+  transition:background .15s,color .15s;
+}
+.composer-tool:hover{background:var(--surface-2);color:var(--ink)}
+.composer-tool .ic{width:14px;height:14px}
+.model-chip{
+  display:inline-flex;align-items:center;gap:5px;
+  height:23px;padding:0 7px;
+  margin-left:2px;
+  border:1px solid var(--line-2);
+  border-radius:4px;
+  font-family:var(--font-mono);
+  font-size:10px;color:var(--ink-3);
+  white-space:nowrap;
+}
+.model-chip .dot{width:4px;height:4px;background:var(--green)}
+.composer-bar .spacer{flex:1}
+.send{
+  display:grid;place-items:center;
+  width:32px;height:32px;
+  border-radius:6px;
+  background:var(--btn-bg);
+  color:var(--btn-fg);
+  transition:opacity .15s,background .15s;
+}
+.send:hover{background:var(--prussian)}
+html[data-theme="dark"] .send:hover{background:var(--amber);color:#141B20}
+.send .ic{width:16px;height:16px;stroke-width:2}
+.send.is-disabled{opacity:.35;cursor:not-allowed}
+.composer-hint{
+  display:flex;align-items:center;gap:6px;flex-wrap:wrap;
+  margin-top:7px;
+  padding:0 3px;
+  font-size:10.5px;color:var(--ink-3);
+}
+.composer-hint .spacer{flex:1}
+kbd{
+  display:inline-block;
+  padding:1px 4px;
+  border:1px solid var(--line);
+  border-bottom-width:2px;
+  border-radius:3px;
+  background:var(--surface);
+  font-family:var(--font-mono);
+  font-size:9.5px;
+  color:var(--ink-2);
+  line-height:1.4;
+}
+
+/* ============================================================
+   TRACE PANEL
+   ============================================================ */
+.trace{
+  display:flex;flex-direction:column;min-height:0;
+  background:var(--surface);
+  border-left:1px solid var(--line);
+  transition:opacity .18s;
+}
+.trace-scroll{flex:1;overflow-y:auto;min-height:0;padding:22px 18px 24px}
+
+.trace-section{margin-top:22px}
+.trace-section-head{
+  display:flex;align-items:center;gap:6px;
+  margin-bottom:10px;
+}
+.trace-section-head h3{font-size:11.5px;font-weight:600;color:var(--ink-2);letter-spacing:.01em}
+.trace-section-head .count{
+  display:inline-grid;place-items:center;
+  min-width:16px;height:16px;padding:0 4px;
+  border-radius:3px;
+  background:var(--surface-2);
+  font-family:var(--font-mono);font-size:9.5px;color:var(--ink-3);
+}
+.trace-section-head .spacer{flex:1}
+
+/* execution track */
+.track{position:relative;padding-left:22px}
+.track::before{
+  content:"";position:absolute;left:6px;top:6px;bottom:10px;
+  width:1px;background:var(--line-2);
+}
+.track li{position:relative;padding-bottom:14px}
+.track li:last-child{padding-bottom:0}
+.track .marker{
+  position:absolute;left:-22px;top:1px;
+  display:grid;place-items:center;
+  width:13px;height:13px;
+  border-radius:50%;
+  background:var(--surface);
+  border:1px solid var(--line);
+}
+.track .marker .ic{width:9px;height:9px;stroke-width:2.4;color:var(--green)}
+.track .is-now .marker{border-color:var(--amber);background:var(--amber-soft)}
+.track .is-now .marker::after{content:"";width:4px;height:4px;border-radius:50%;background:var(--amber);animation:pulse 2.4s ease-in-out infinite}
+.track .is-wait .marker{border-style:dashed}
+.track .is-wait .marker::after{content:"";width:3px;height:1px;background:var(--ink-3)}
+.track .label{display:flex;align-items:baseline;gap:7px;font-size:12px;color:var(--ink-2)}
+.track .is-now .label{color:var(--ink);font-weight:550}
+.track .label .mono{font-size:9.5px;color:var(--ink-3);margin-left:auto;font-weight:400}
+.track .sub{margin-top:2px;font-family:var(--font-mono);font-size:9.5px;color:var(--ink-3)}
+
+/* citations */
+.cite-list li{
+  padding:9px 0;
+  border-bottom:1px solid var(--line-2);
+}
+.cite-list li:last-child{border-bottom:0}
+.cite-top{display:flex;align-items:baseline;gap:8px}
+.cite-name{flex:1;min-width:0;font-size:12px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cite-score{font-family:var(--font-mono);font-size:10px;color:var(--prussian)}
+.cite-src{margin-top:2px;font-size:10px;color:var(--ink-3)}
+
+/* agents */
+.agent-row{display:flex;align-items:center;gap:9px;padding:8px 0;border-bottom:1px solid var(--line-2)}
+.agent-row:last-child{border-bottom:0}
+.agent-ident{flex:1;min-width:0}
+.agent-name{font-size:12px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.agent-name .mono{font-size:9.5px;color:var(--ink-3)}
+.agent-kind{margin-top:1px;font-size:10px;color:var(--ink-3)}
+.agent-state{display:inline-flex;align-items:center;gap:5px;font-size:10.5px;color:var(--ink-2);white-space:nowrap}
+.agent-state .dot{width:5px;height:5px}
+
+.trace-foot{
+  margin-top:18px;padding-top:12px;
+  border-top:1px solid var(--line-2);
+}
+.text-link{
+  display:inline-flex;align-items:center;gap:5px;
+  font-size:11px;color:var(--ink-2);
+}
+.text-link:hover{color:var(--ink);text-decoration:underline;text-underline-offset:3px}
+.text-link .ic{width:12px;height:12px}
+
+/* ---------- toast ---------- */
+.toast{
+  position:fixed;
+  left:50%;bottom:28px;
+  z-index:100;
+  transform:translate(-50%,10px);
+  display:flex;align-items:center;gap:8px;
+  max-width:min(420px, calc(100vw - 32px));
+  padding:9px 13px;
+  border-radius:6px;
+  background:var(--ink);
+  color:var(--paper);
+  font-size:12px;
+  box-shadow:0 8px 24px -8px rgba(0,0,0,.4);
+  opacity:0;pointer-events:none;
+  transition:opacity .18s, transform .18s;
+}
+html[data-theme="dark"] .toast{background:var(--surface);border:1px solid var(--line);color:var(--ink)}
+.toast.is-visible{opacity:1;transform:translate(-50%,0)}
+.toast .ic{width:14px;height:14px;color:var(--green)}
+
+@keyframes pulse{
+  0%,100%{opacity:1}
+  50%{opacity:.4}
+}
+
+/* ---------- responsive ---------- */
+@media (max-width:1280px){
+  :root{--sidebar-w:272px;--trace-w:304px}
+  .stream-inner{padding:26px 28px 14px}
+  .composer-wrap{padding:8px 24px 12px}
+  .chat-head{padding:0 24px}
+}
+
+@media (max-width:1180px){
+  .app{grid-template-columns:var(--sidebar-w) minmax(0,1fr)}
+  .app.sidebar-collapsed{grid-template-columns:var(--sidebar-rail) minmax(0,1fr)}
+  .app.trace-collapsed{grid-template-columns:var(--sidebar-w) minmax(0,1fr)}
+  .app.sidebar-collapsed.trace-collapsed{grid-template-columns:var(--sidebar-rail) minmax(0,1fr)}
+  .trace{
+    position:fixed;right:0;top:68px;bottom:0;
+    z-index:60;
+    width:var(--trace-w);
+    box-shadow:-24px 0 48px -32px rgba(0,0,0,.4);
+    transform:translateX(101%);
+    transition:transform .22s ease;
+  }
+  .app.trace-open .trace{transform:translateX(0)}
+  .app.trace-collapsed .trace{opacity:1;pointer-events:auto}
+}
+
+@media (max-width:900px){
+  .app,
+  .app.sidebar-collapsed,
+  .app.trace-collapsed,
+  .app.sidebar-collapsed.trace-collapsed{grid-template-columns:minmax(0,1fr)}
+  .sidebar{
+    position:fixed;left:0;top:0;bottom:0;
+    width:min(288px,86vw);
+    z-index:80;
+    transform:translateX(-100%);
+    transition:transform .22s ease;
+    box-shadow:24px 0 48px -32px rgba(0,0,0,.45);
+  }
+  .app.sidebar-open .sidebar{transform:none}
+  .mobile-sidebar-btn{display:grid}
+  .sidebar-scrim{
+    display:block;position:fixed;inset:0;z-index:75;
+    background:rgba(20,27,32,.38);
+    opacity:0;pointer-events:none;
+    transition:opacity .2s;
+  }
+  .app.sidebar-open .sidebar-scrim{opacity:1;pointer-events:auto}
+  .stream-inner{padding:22px 20px 12px}
+  .composer-wrap{padding:8px 16px 12px}
+  .chat-head{padding:0 16px;gap:12px}
+}
+
+@media (max-width:760px){
+  .app{height:100dvh}
+  .chat-head{min-height:60px}
+  .chat-sub{display:none}
+  .chat-actions .status-chip{display:none}
+  .stream-inner{padding:18px 14px 10px}
+  .entry{padding-left:38px}
+  .thread::before{left:15px}
+  .node{left:11.5px}
+  .thread-foot{margin-left:38px}
+  .composer-wrap{padding:6px 10px 10px}
+  .composer-meta .keyhint{display:none}
+  .trace{width:min(340px,88vw);top:60px;bottom:0}
+  .tool-args{display:none}
+  .data-table{font-size:12px}
+  .prose h3{font-size:17px}
+}
+
+/* ============================================================
+   v2 components
+   ============================================================ */
+
+/* turns */
+.turn + .turn{margin-top:30px}
+
+/* process cards: tool / vector search */
+.entry-proc{margin-bottom:14px}
+.entry-proc .node{border-radius:2px}
+.kind{
+  display:inline-flex;align-items:center;justify-content:center;flex:none;
+  height:17px;padding:0 5px;
+  border:1px solid var(--line);
+  border-radius:3px;
+  background:var(--surface-2);
+  color:var(--ink-3);
+  font-size:9.5px;font-weight:500;
+  letter-spacing:.02em;
+  white-space:nowrap;
+}
+.kind-tool .node{border-color:var(--amber);background:var(--surface)}
+.kind-vector .node{border-color:var(--prussian);background:var(--prussian-soft)}
+.kind-tool .tool-card{border-left:2px solid var(--amber)}
+.kind-vector .tool-card{border-left:2px solid var(--prussian)}
+.tool-card summary{gap:8px}
+.vector-meta{
+  padding-bottom:5px;
+  font-family:var(--font-mono);
+  font-size:9.5px;color:var(--ink-3);
+}
+.vhit{padding:6px 0;border-bottom:1px dashed var(--line-2);font-size:12px}
+.vhit:last-of-type{border-bottom:0}
+.vhit-main{display:flex;align-items:baseline;gap:8px}
+.vhit-title{flex:1;min-width:0;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vhit-score{font-family:var(--font-mono);font-size:10.5px;color:var(--prussian)}
+.vhit-sub{
+  margin-top:2px;
+  font-family:var(--font-mono);
+  font-size:9.5px;color:var(--ink-3);
+}
+
+/* A2A delegation group */
+.delegation{
+  border:1px solid var(--line);
+  border-left:3px solid var(--prussian);
+  border-radius:6px;
+  background:var(--surface);
+  box-shadow:var(--shadow-sm);
+  overflow:hidden;
+}
+.delegation-head{
+  display:flex;align-items:center;gap:7px;flex-wrap:wrap;
+  padding:10px 14px;
+  border-bottom:1px solid var(--line-2);
+  background:var(--surface-2);
+}
+.delegation-title{font-size:12.5px;font-weight:650;letter-spacing:-.005em}
+.delegation-count{font-size:10.5px;color:var(--ink-3)}
+.delegation-head .spacer{flex:1}
+.delegation-state{font-family:var(--font-mono);font-size:9.5px;color:var(--ink-3)}
+.a2a-row{
+  display:flex;align-items:flex-start;gap:10px;
+  padding:12px 14px;
+  border-bottom:1px solid var(--line-2);
+}
+.a2a-row + .a2a-row{border-bottom:0}
+.a2a-row-ident{flex:1;min-width:0}
+.a2a-row-ident .a2a-name{font-size:12.5px}
+.a2a-row-ident .a2a-task{font-size:11.5px;margin-top:2px}
+.a2a-row-state{
+  display:flex;flex-direction:column;align-items:flex-end;gap:3px;
+  flex:none;padding-top:1px;
+}
+.a2a-row-meta{font-family:var(--font-mono);font-size:9px;color:var(--ink-3);white-space:nowrap}
+.a2a-status.is-done{color:var(--green)}
+.a2a-row-result{
+  display:flex;align-items:center;gap:5px;
+  margin-top:6px;
+  font-size:10.5px;color:var(--green);
+}
+.a2a-row-result .ic{width:11px;height:11px;stroke-width:2.2}
+.delegation-foot{
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  padding:8px 14px;
+  border-top:1px solid var(--line-2);
+  background:var(--surface-2);
+  font-family:var(--font-mono);
+  font-size:9.5px;color:var(--ink-3);
+}
+.delegation-foot .spacer{flex:1}
+
+/* token usage under the composer */
+.composer-meta{
+  display:flex;align-items:center;justify-content:space-between;
+  gap:6px 18px;flex-wrap:wrap;
+  margin-top:8px;padding:0 3px;
+  font-size:10.5px;color:var(--ink-3);
+}
+.keyhint{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.usage{
+  display:flex;align-items:center;gap:6px;flex-wrap:wrap;
+  margin-left:auto;
+  font-size:10.5px;color:var(--ink-3);
+}
+.usage b{
+  font-family:var(--font-mono);
+  font-size:10px;font-weight:500;color:var(--ink-2);
+  font-variant-numeric:tabular-nums;
+}
+.usage-sep{opacity:.5}
+
+@media (max-width:760px){
+  .prompt-bubble{max-width:88%;font-size:14px}
+  .user-turn{margin-bottom:24px}
+  .composer-meta .keyhint{display:none}
+  .usage{margin-left:0;font-size:10px}
+  .delegation-state{display:none}
+  .a2a-row-state{flex-direction:row;align-items:center;gap:7px}
+  .a2a-row-result{font-size:10px}
+}
+/* ============================================================
+   v3: HITL drawer + compact slot styles
+   ============================================================ */
+.status-chip.is-wait{
+  border-color:var(--amber-soft);
+  background:var(--amber-soft);
+  color:var(--amber-text);
+}
+.status-chip.is-wait .dot{background:var(--amber)}
+.a2a-row-tool{
+  margin-top:2px;
+  font-family:var(--font-mono);
+  font-size:9px;
+  color:var(--ink-3);
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.trace-scroll > .trace-section:first-child{margin-top:0}
+
+.risk-list dd .mono{overflow-wrap:anywhere}
+
+.approval-card.is-rejected{border-left-color:var(--red)}
+.approval-card.is-rejected .approval-head .ic{color:var(--red)}
+.approval-card.is-rejected .resolved-note{background:var(--red-soft);color:var(--red)}
+
+/* ============================================================
+   v4: restored capability cards (skill / tool / MCP)
+   ============================================================ */
+.kind-skill .node{border-color:var(--green);background:var(--green-soft)}
+.kind-mcp .node{border-color:var(--mcp);background:var(--mcp-soft)}
+.kind-skill .tool-card{border-left:2px solid var(--green)}
+.kind-mcp .tool-card{border-left:2px solid var(--mcp)}
+.proc-desc{
+  font-size:12px;line-height:1.65;color:var(--ink-2);
+  margin:0 0 9px;max-width:64ch;
+}
+.chips{display:flex;flex-wrap:wrap;gap:5px}
+.chip{
+  display:inline-flex;align-items:center;
+  height:20px;padding:0 6px;
+  border:1px solid var(--line-2);
+  border-radius:3px;
+  background:var(--surface);
+  font-family:var(--font-mono);
+  font-size:9.5px;color:var(--ink-3);
+}
+.mcp-line{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:11.5px;color:var(--ink-2)}
+.mcp-server{font-family:var(--font-mono);font-size:11.5px;font-weight:500;color:var(--ink)}
+.mcp-ok{display:inline-flex;align-items:center;gap:5px;margin-left:auto;font-size:10.5px;color:var(--green)}
+.mcp-ok .dot{width:4px;height:4px}
+.kv{
+  display:grid;grid-template-columns:auto 1fr;gap:4px 14px;
+  margin-top:9px;
+  font-size:11.5px;
+}
+.kv dt{color:var(--ink-3)}
+.kv dd{color:var(--ink-2)}
+
+/* ============================================================
+   v5: session actions
+   ============================================================ */
+.session-row{position:relative}
+.session-row .session{padding-right:30px}
+.session-more{
+  position:absolute;right:4px;top:7px;
+  display:grid;place-items:center;
+  width:22px;height:22px;border-radius:4px;
+  color:var(--ink-3);
+  opacity:0;
+  transition:opacity .12s,background .12s,color .12s;
+}
+.session-row:hover .session-more,
+.session-row:focus-within .session-more{opacity:1}
+.session-more:hover{background:var(--surface-2);color:var(--ink)}
+.session-more .ic{width:14px;height:14px}
+.session-row.is-archived .session{opacity:.55}
+.session-row.is-renaming .session{display:none}
+.session-row.is-renaming .session-more{display:none}
+.session-rename{
+  display:block;width:100%;height:34px;margin:3px 0;
+  padding:0 9px;
+  border:1px solid var(--prussian);border-radius:5px;
+  background:var(--surface);color:var(--ink);
+  font:inherit;font-size:12.5px;outline:none;
+}
+.session-menu{
+  position:fixed;z-index:120;
+  width:176px;padding:5px;
+  border:1px solid var(--line);border-radius:8px;
+  background:var(--surface);
+  box-shadow:var(--shadow-md);
+  display:none;
+}
+.session-menu.is-open{display:block}
+.session-menu .menu-item{height:32px}
+.session-menu .menu-item .ic{width:14px;height:14px}
+.dialog-backdrop{
+  position:fixed;inset:0;z-index:130;
+  display:none;place-items:center;padding:20px;
+  background:rgba(20,27,32,.42);
+  backdrop-filter:blur(2px);
+}
+.dialog-backdrop.is-open{display:grid}
+.dialog{
+  width:min(420px,100%);
+  padding:20px;
+  border:1px solid var(--line);border-radius:10px;
+  background:var(--surface);
+  box-shadow:var(--shadow-md);
+  outline:none;
+}
+.dialog h2{font-size:17px;font-weight:650;letter-spacing:-.01em}
+.dialog p{margin-top:8px;font-size:12.5px;line-height:1.65;color:var(--ink-2)}
+.dialog-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}
+.btn-danger{background:var(--red);border:1px solid var(--red);color:#FBFAF5}
+.btn-danger:hover{filter:brightness(1.06)}
+html[data-theme="dark"] .btn-danger{color:#141B20}
+@media (hover:none){.session-more{opacity:1}}
+
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.001ms !important;animation-iteration-count:1 !important;transition-duration:.001ms !important}
+}
+</style>
+<style>
+/* ============================================================
+   Other-page samples
+   ============================================================ */
+[hidden]{display:none !important}
+.page-main{
+  min-width:0;min-height:0;
+  display:flex;flex-direction:column;
+  background:var(--paper);overflow:hidden;
+}
+.page-topbar{display:none}
+.page-scroll{flex:1;min-height:0;overflow-y:auto}
+.page{max-width:1080px;margin:0 auto;padding:34px 40px 64px}
+.page[hidden]{display:none}
+
+.page-head{
+  display:flex;align-items:flex-end;justify-content:space-between;gap:24px;
+  padding-bottom:18px;border-bottom:1px solid var(--line);
+}
+.page-heading{min-width:0}
+.page-title{font-size:24px;font-weight:650;letter-spacing:-.022em;line-height:1.2}
+.page-sub{margin-top:6px;font-size:12px;line-height:1.6;color:var(--ink-3);max-width:64ch}
+.page-actions{display:flex;align-items:center;gap:8px;flex:none}
+
+.btn-sm{height:26px;padding:0 9px;font-size:11.5px;border-radius:4px}
+.btn-ghost{background:transparent;border:1px solid transparent;color:var(--ink-2)}
+.btn-ghost:hover{background:var(--surface-2);color:var(--ink)}
+.is-danger-text{color:var(--red)}
+.is-error-text{color:var(--red)}
+.btn.is-danger-text:hover{background:var(--red-soft);color:var(--red)}
+
+.stats{display:flex;flex-wrap:wrap;margin:20px 0 18px;border-bottom:1px solid var(--line-2)}
+.stat{display:flex;flex-direction:column;gap:1px;padding:0 28px 12px 0;margin-right:28px;border-right:1px solid var(--line-2)}
+.stat:last-child{border-right:0;margin-right:0}
+.stat-value{font-family:var(--font-mono);font-size:20px;font-weight:500;line-height:1.1;color:var(--ink);font-variant-numeric:tabular-nums}
+.stat-label{font-size:10px;color:var(--ink-3);letter-spacing:.02em}
+
+.toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 10px}
+.seg{
+  display:inline-flex;align-items:center;gap:1px;
+  padding:2px;border:1px solid var(--line);border-radius:6px;
+  background:var(--surface);
+}
+.seg button{
+  display:inline-flex;align-items:center;gap:5px;
+  height:26px;padding:0 9px;border-radius:4px;
+  font-size:11.5px;color:var(--ink-3);white-space:nowrap;
+  transition:background .12s,color .12s;
+}
+.seg button:hover{color:var(--ink)}
+.seg button.is-active{background:var(--paper-2);color:var(--ink);font-weight:550}
+.seg button span{font-family:var(--font-mono);font-size:9.5px;color:var(--ink-3);font-weight:400}
+.tool-search{
+  display:flex;align-items:center;gap:7px;
+  height:30px;min-width:220px;padding:0 9px;
+  border:1px solid var(--line);border-radius:6px;background:var(--surface);
+}
+.tool-search .ic{width:14px;height:14px;color:var(--ink-3);flex:none}
+.tool-search input{
+  flex:1;min-width:0;border:0;outline:none;background:transparent;
+  font:inherit;font-size:12px;color:var(--ink);
+}
+.tool-search input::placeholder{color:var(--ink-3)}
+
+.input,.select{
+  height:32px;padding:0 9px;
+  border:1px solid var(--line);border-radius:6px;
+  background:var(--surface);color:var(--ink);
+  font:inherit;font-size:12px;outline:none;
+}
+.input:focus,.select:focus{border-color:var(--ink-3)}
+.input[readonly]{background:var(--surface-2);color:var(--ink-2)}
+.select{padding-right:24px}
+.field{display:flex;flex-direction:column;gap:5px;min-width:0}
+.field > span{font-size:10px;color:var(--ink-3);letter-spacing:.02em}
+.note{font-size:10.5px;line-height:1.5;color:var(--ink-3)}
+
+.st{
+  display:inline-flex;align-items:center;gap:5px;
+  height:22px;padding:0 7px;border:1px solid transparent;border-radius:4px;
+  font-size:10.5px;font-weight:500;white-space:nowrap;
+}
+.st .dot{width:5px;height:5px}
+.st-ok{background:var(--green-soft);color:var(--green)}
+.st-ok .dot{background:var(--green)}
+.st-warn{background:var(--amber-soft);color:var(--amber-text)}
+.st-warn .dot{background:var(--amber)}
+.st-error{background:var(--red-soft);color:var(--red)}
+.st-error .dot{background:var(--red)}
+.st-muted{background:var(--surface-2);color:var(--ink-3);border-color:var(--line-2)}
+.st-live{background:var(--amber-soft);color:var(--amber-text)}
+.st-live .dot{background:var(--amber);animation:pulse 2.4s ease-in-out infinite}
+
+/* agents */
+.register-panel{
+  margin:0 0 16px;padding:14px;
+  border:1px solid var(--line);border-radius:8px;background:var(--surface);
+}
+.register-panel[hidden]{display:none}
+.register-grid{display:grid;grid-template-columns:1.4fr .8fr 1fr;gap:12px}
+.register-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:12px}
+.register-actions .note{margin-left:2px}
+.agent-list{border-top:1px solid var(--line)}
+.agent-item{border-bottom:1px solid var(--line)}
+.agent-summary{
+  display:grid;
+  grid-template-columns:30px minmax(0,1.15fr) minmax(0,1fr) 60px 78px 16px;
+  gap:14px;align-items:center;
+  padding:13px 4px;cursor:pointer;list-style:none;
+  transition:background .12s;
+}
+.agent-summary::-webkit-details-marker{display:none}
+.agent-summary:hover{background:rgba(20,27,32,.025)}
+html[data-theme="dark"] .agent-summary:hover{background:rgba(255,255,255,.03)}
+.agent-badge{
+  display:grid;place-items:center;width:28px;height:28px;
+  border:1px solid var(--line);border-radius:5px;
+  background:var(--surface-2);
+  font-family:var(--font-mono);font-size:10px;font-weight:700;color:var(--prussian);
+}
+.agent-main{display:flex;flex-direction:column;gap:2px;min-width:0}
+.agent-name{font-size:12.5px;font-weight:600;letter-spacing:-.005em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.agent-slug{font-family:var(--font-mono);font-size:9.5px;color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.agent-endpoint{font-family:var(--font-mono);font-size:10px;color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.agent-skill-count{font-size:10.5px;color:var(--ink-2);text-align:right;white-space:nowrap}
+.agent-health{justify-self:end}
+.agent-chev{width:14px;height:14px;color:var(--ink-3);transition:transform .18s}
+.agent-item[open] .agent-chev{transform:rotate(180deg)}
+.agent-detail{
+  display:grid;grid-template-columns:1fr 1fr;gap:18px 32px;
+  padding:2px 4px 20px 44px;
+}
+.detail-block{min-width:0}
+.detail-block.wide{grid-column:1/-1}
+.detail-block h4{font-size:10.5px;font-weight:600;color:var(--ink-3);letter-spacing:.03em;margin-bottom:7px}
+.skill-list{display:flex;flex-wrap:wrap;gap:5px}
+.skill-chip{
+  display:inline-flex;align-items:center;height:20px;padding:0 6px;
+  border:1px solid var(--line-2);border-radius:3px;background:var(--surface);
+  font-family:var(--font-mono);font-size:9.5px;color:var(--ink-3);
+}
+.detail-note{margin-top:8px;font-size:11.5px;line-height:1.6;color:var(--ink-3)}
+.empty-state{padding:32px 12px;border-bottom:1px solid var(--line);text-align:center;font-size:12px;color:var(--ink-3)}
+.detail-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.agent-detail .kv,.task-detail .kv{margin-top:0}
+
+/* tasks */
+.task-table{border-top:1px solid var(--line)}
+.task-head,.task-summary{
+  display:grid;
+  grid-template-columns:minmax(0,1.15fr) minmax(0,1fr) 86px 62px minmax(0,1.2fr) 16px;
+  gap:14px;align-items:center;
+}
+.task-head{
+  padding:8px 4px;border-bottom:1px solid var(--line);
+  font-size:10px;color:var(--ink-3);letter-spacing:.02em;
+}
+.task-item{border-bottom:1px solid var(--line)}
+.task-summary{
+  padding:11px 4px;cursor:pointer;list-style:none;
+  transition:background .12s;
+}
+.task-summary::-webkit-details-marker{display:none}
+.task-summary:hover{background:rgba(20,27,32,.025)}
+html[data-theme="dark"] .task-summary:hover{background:rgba(255,255,255,.03)}
+.task-main{display:flex;flex-direction:column;gap:1px;min-width:0}
+.task-id{font-size:10px;color:var(--ink-3)}
+.task-skill{font-size:12px;font-weight:550;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.task-agent{font-size:11.5px;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.task-agent small{font-family:var(--font-mono);font-size:9px;color:var(--ink-3)}
+.task-duration{font-family:var(--font-mono);font-size:10.5px;color:var(--ink-2)}
+.task-conv{font-size:11px;color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.task-chev{width:14px;height:14px;color:var(--ink-3);transition:transform .18s}
+.task-item[open] .task-chev{transform:rotate(180deg)}
+.task-detail{
+  display:grid;grid-template-columns:1fr 1fr;gap:18px 32px;
+  padding:2px 4px 18px;
+}
+.task-timeline{padding-left:2px}
+.task-timeline li{position:relative;padding:0 0 13px 16px;margin-left:3px;border-left:1px solid var(--line-2)}
+.task-timeline li:last-child{padding-bottom:0;border-left-color:transparent}
+.tl-dot{
+  position:absolute;left:-4px;top:3px;width:7px;height:7px;border-radius:50%;
+  background:var(--surface);border:1.5px solid var(--line);
+}
+.task-timeline .is-done .tl-dot{background:var(--green);border-color:var(--green)}
+.task-timeline .is-now .tl-dot{background:var(--amber);border-color:var(--amber)}
+.task-timeline .is-error .tl-dot{background:var(--red);border-color:var(--red)}
+.task-timeline b{font-family:var(--font-mono);font-size:10.5px;font-weight:500;color:var(--ink-2)}
+.task-timeline small{display:block;margin-top:1px;font-size:9.5px;color:var(--ink-3)}
+
+/* knowledge */
+.knowledge-grid{
+  display:grid;grid-template-columns:minmax(0,1.5fr) minmax(320px,.9fr);
+  gap:24px;align-items:start;
+}
+.panel{
+  border:1px solid var(--line);border-radius:8px;
+  background:var(--surface);overflow:hidden;
+}
+.panel-head{display:flex;align-items:center;gap:8px;padding:12px 15px;border-bottom:1px solid var(--line-2)}
+.panel-head h2{font-size:12.5px;font-weight:650;letter-spacing:-.005em}
+.panel-head .count{font-family:var(--font-mono);font-size:9.5px;color:var(--ink-3)}
+.panel-head .spacer{flex:1}
+.panel-desc{padding:12px 15px 0;font-size:11px;line-height:1.6;color:var(--ink-3)}
+.doc-toolbar{display:flex;gap:8px;padding:9px 12px;border-bottom:1px solid var(--line-2)}
+.doc-toolbar .tool-search{flex:1;min-width:0}
+.doc-toolbar .select{width:96px;height:30px}
+.doc-list{padding:0 12px}
+.doc-row{display:flex;align-items:center;gap:10px;padding:10px 3px;border-bottom:1px solid var(--line-2)}
+.doc-row:last-child{border-bottom:0}
+.doc-main{flex:1;min-width:0}
+.doc-title{font-size:12px;font-weight:550;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.doc-meta{margin-top:2px;font-size:9.5px;color:var(--ink-3)}
+.doc-row .st{flex:none}
+.panel-foot{padding:9px 15px;border-top:1px solid var(--line-2);font-size:10px;color:var(--ink-3)}
+.debug-panel{position:sticky;top:24px}
+.debug-form{display:flex;flex-direction:column;gap:9px;padding:11px 15px}
+.debug-row{display:flex;align-items:flex-end;gap:8px}
+.debug-row .field{flex:1}
+.debug-row .select{width:100%}
+.debug-row .btn{flex:none}
+.debug-results{padding:0 15px}
+.result{padding:10px 0;border-top:1px solid var(--line-2)}
+.result-top{display:flex;align-items:baseline;gap:8px}
+.result-title{flex:1;min-width:0;font-size:12px;font-weight:550;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.result-score{font-family:var(--font-mono);font-size:10px;color:var(--prussian)}
+.result-src{margin-top:2px;font-family:var(--font-mono);font-size:9px;color:var(--ink-3)}
+.result-excerpt{margin-top:4px;font-size:10.5px;line-height:1.6;color:var(--ink-2)}
+.debug-meta{padding:9px 15px;border-top:1px solid var(--line-2);font-family:var(--font-mono);font-size:9px;color:var(--ink-3)}
+
+/* settings */
+.settings-grid{display:grid;grid-template-columns:150px minmax(0,1fr);gap:32px;align-items:start;margin-top:24px}
+.settings-nav{position:sticky;top:24px;display:flex;flex-direction:column;gap:2px}
+.settings-nav-item{
+  display:flex;align-items:center;height:30px;padding:0 9px;
+  border-radius:5px;text-align:left;font-size:12px;color:var(--ink-3);
+  transition:background .12s,color .12s;
+}
+.settings-nav-item:hover{background:var(--surface-2);color:var(--ink)}
+.settings-nav-item.is-active{background:var(--surface);color:var(--ink);font-weight:600;box-shadow:var(--shadow-sm)}
+.settings-content{min-width:0}
+.settings-section{
+  padding-bottom:24px;margin-bottom:26px;
+  border-bottom:1px solid var(--line-2);
+  scroll-margin-top:24px;
+}
+.settings-section:last-child{border-bottom:0;margin-bottom:0}
+.section-head h2{font-size:14px;font-weight:650;letter-spacing:-.005em}
+.section-head p{margin-top:3px;font-size:11px;color:var(--ink-3)}
+.profile-row{display:flex;align-items:center;gap:12px;padding:14px 0}
+.profile-row .avatar{width:40px;height:40px;font-size:13px}
+.profile-name{font-size:12.5px;font-weight:600}
+.profile-email{margin-top:2px;font-size:10.5px;color:var(--ink-3)}
+.field-row{
+  display:grid;grid-template-columns:150px minmax(0,1fr);
+  gap:20px;align-items:center;
+  padding:9px 0;border-bottom:1px solid var(--line-2);
+}
+.field-label{font-size:11.5px;color:var(--ink-2)}
+.field-label small{display:block;margin-top:2px;font-size:9.5px;font-weight:400;color:var(--ink-3)}
+.field-row .input{max-width:340px}
+.inline-control{display:flex;align-items:center;gap:8px}
+.inline-control .input{flex:1;max-width:400px}
+.settings-actions{display:flex;gap:8px;margin-top:12px}
+.settings-kv{display:flex;flex-direction:column;margin-top:6px}
+.settings-kv > div{
+  display:grid;grid-template-columns:150px minmax(0,1fr);
+  gap:20px;padding:9px 0;border-bottom:1px solid var(--line-2);
+}
+.settings-kv > div:last-child{border-bottom:0}
+.settings-kv dt{font-size:11.5px;color:var(--ink-3)}
+.settings-kv dd{font-size:11.5px;color:var(--ink-2)}
+.settings-kv dd.mono{font-family:var(--font-mono);font-size:11px}
+
+@media (max-width:1180px){
+  .page{padding:30px 32px 56px}
+  .settings-grid{grid-template-columns:130px minmax(0,1fr);gap:26px}
+}
+@media (max-width:900px){
+  .page-topbar{
+    display:flex;align-items:center;gap:10px;flex:none;
+    height:52px;padding:0 14px;
+    border-bottom:1px solid var(--line);background:var(--paper);
+  }
+  .page-topbar .mobile-sidebar-btn{display:grid;margin-right:0}
+  .page-topbar-title{font-size:13px;font-weight:600}
+  .page{padding:24px 20px 52px}
+  .knowledge-grid{grid-template-columns:1fr}
+  .debug-panel{position:static}
+  .settings-grid{grid-template-columns:1fr;gap:18px;margin-top:18px}
+  .settings-nav{position:static;flex-direction:row;flex-wrap:wrap;gap:4px}
+  .settings-nav-item{height:28px;border:1px solid var(--line);background:var(--surface)}
+  .settings-nav-item.is-active{background:var(--paper-2)}
+  .agent-summary{grid-template-columns:28px minmax(0,1fr) 74px 16px;gap:12px}
+  .agent-endpoint,.agent-skill-count{display:none}
+  .agent-detail{padding-left:4px}
+  .task-head{display:none}
+  .task-summary{grid-template-columns:minmax(0,1fr) 82px 16px;gap:10px}
+  .task-agent,.task-duration,.task-conv{display:none}
+  .task-detail{grid-template-columns:1fr}
+  .register-grid{grid-template-columns:1fr}
+  .toolbar{flex-wrap:wrap}
+  .tool-search{flex:1;min-width:200px}
+}
+@media (max-width:760px){
+  .page{padding:20px 14px 44px}
+  .page-head{flex-direction:column;align-items:flex-start;gap:14px}
+  .page-title{font-size:22px}
+  .page-actions{width:100%}
+  .page-actions .btn{flex:1}
+  .stats{gap:0 16px}
+  .stat{padding-right:16px;margin-right:16px}
+  .stat-value{font-size:18px}
+  .agent-detail,.task-detail{grid-template-columns:1fr}
+  .detail-block.wide{grid-column:auto}
+  .field-row,.settings-kv > div{grid-template-columns:1fr;gap:4px}
+  .settings-actions{flex-wrap:wrap}
+  .debug-row{flex-wrap:wrap}
+  .seg{max-width:100%;overflow-x:auto}
+  .doc-toolbar{flex-wrap:wrap}
+  .doc-toolbar .select{width:100%}
+  .inline-control{flex-wrap:wrap}
+  .inline-control .input{max-width:none}
+}
+</style>
+</head>
+<body>
+
+<!-- inline icon sprite -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <symbol id="i-chat" viewBox="0 0 24 24"><path d="M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v8a2.5 2.5 0 0 1-2.5 2.5H9l-5 3.5V6.5Z"/></symbol>
+    <symbol id="i-stack" viewBox="0 0 24 24"><rect x="9" y="4" width="11" height="11" rx="1.5"/><path d="M15 15v3a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h3"/></symbol>
+    <symbol id="i-bot" viewBox="0 0 24 24"><rect x="4" y="7" width="16" height="12" rx="3"/><path d="M12 3v4M8 12h.01M16 12h.01M9 16h6"/></symbol>
+    <symbol id="i-flow" viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/><path d="M10.5 7h3a3 3 0 0 1 3 3v3.5"/></symbol>
+    <symbol id="i-db" viewBox="0 0 24 24"><ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v6c0 1.7 3.1 3 7 3s7-1.3 7-3V6M5 12v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6"/></symbol>
+    <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 7h9M18 7h2M4 17h3M12 17h8"/><circle cx="15.5" cy="7" r="2"/><circle cx="9.5" cy="17" r="2"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M16 16l4 4"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-chevron" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
+    <symbol id="i-panel" viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M15 4.5v15"/></symbol>
+    <symbol id="i-panel-left" viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M9 4.5v15"/></symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4 7 7 0 1 0 20 14.5Z"/></symbol>
+    <symbol id="i-clip" viewBox="0 0 24 24"><path d="M20 11.5l-7.8 7.8a5 5 0 0 1-7-7l8.5-8.5a3.3 3.3 0 0 1 4.7 4.7l-8.5 8.5a1.7 1.7 0 0 1-2.4-2.4l7.8-7.8"/></symbol>
+    <symbol id="i-at" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M16 12v1.5a2.5 2.5 0 0 0 5 0V12a9 9 0 1 0-3.6 7.1"/></symbol>
+    <symbol id="i-up" viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12l5 5L19 7"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3l7 3v6c0 4.4-3 7.5-7 9-4-1.5-7-4.6-7-9V6l7-3Z"/></symbol>
+    <symbol id="i-stop" viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="1.5"/></symbol>
+    <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+    <symbol id="i-external" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></symbol>
+    <symbol id="i-archive" viewBox="0 0 24 24"><path d="M4 8h16v11a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V8Z"/><path d="M3 4h18v4H3zM10 12h4"/></symbol>
+    <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
+    <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.3" fill="currentColor" stroke="none"/></symbol>
+    <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c0-3.6 3.1-5.5 7-5.5s7 1.9 7 5.5"/></symbol>
+    <symbol id="i-logout" viewBox="0 0 24 24"><path d="M9 4H5a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h4M16 8l4 4-4 4M20 12H9"/></symbol>
+    <symbol id="i-edit" viewBox="0 0 24 24"><path d="M4 20h4l10.5-10.5a2.8 2.8 0 0 0-4-4L4 16v4Z"/><path d="M13.5 6.5l4 4"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v6M14 11v6"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-.8 4M20 5v6h-6"/></symbol>
+    <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 15V4M7 9l5-5 5 5M5 20h14"/></symbol>
+  </defs>
+</svg>
+
+<div class="app" id="app">
+
+  <!-- ================= SIDEBAR ================= -->
+  <aside class="sidebar" id="sidebar" aria-label="侧栏">
+    <div class="sb-top">
+      <a class="sb-brand" href="#" aria-label="Agent Hub 首页">
+        <svg class="sb-brand-mark" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M4.5 6.5h5.2a3.8 3.8 0 0 1 3.8 3.8v3.4a3.8 3.8 0 0 0 3.8 3.8h2.2"/>
+          <circle cx="4.5" cy="6.5" r="1.9"/>
+          <circle class="hot" cx="19.5" cy="17.5" r="2"/>
+        </svg>
+        <span>Agent Hub</span>
+      </a>
+      <button class="sb-toggle" id="sidebarToggle" aria-label="收起侧栏" aria-expanded="true" aria-controls="sidebar" title="收起侧栏">
+        <svg class="ic" aria-hidden="true"><use href="#i-panel-left"/></svg>
+      </button>
+    </div>
+
+    <button class="sb-new" id="newSession" aria-label="新建会话" title="新建会话">
+      <svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg>
+      <span>新建会话</span>
+    </button>
+
+    <nav class="sb-nav" aria-label="主导航">
+      <a class="sb-nav-item" href="ui-v5.html" aria-label="对话" title="对话">
+        <svg class="ic" aria-hidden="true"><use href="#i-chat"/></svg><span>对话</span>
+      </a>
+      <button class="sb-nav-item is-active" data-page="agents" aria-current="page" aria-label="智能体" title="智能体">
+        <svg class="ic" aria-hidden="true"><use href="#i-bot"/></svg><span>智能体</span>
+      </button>
+      <button class="sb-nav-item" data-page="tasks" aria-label="任务" title="任务">
+        <svg class="ic" aria-hidden="true"><use href="#i-flow"/></svg><span>任务</span>
+      </button>
+      <button class="sb-nav-item" data-page="knowledge" aria-label="知识库" title="知识库">
+        <svg class="ic" aria-hidden="true"><use href="#i-db"/></svg><span>知识库</span>
+      </button>
+    </nav>
+
+    <div class="sb-sessions">
+      <div class="sb-sessions-head">
+        <h2>会话</h2>
+        <span class="mono" id="sessionCount">7</span>
+      </div>
+      <label class="search">
+        <svg class="ic" aria-hidden="true"><use href="#i-search"/></svg>
+        <input id="sessionSearch" type="search" placeholder="搜索会话" autocomplete="off" aria-label="搜索会话" />
+      </label>
+      <div class="session-scroll" id="sessionScroll">
+        <div class="session-group">
+          <div class="group-label">今天</div>
+          <button class="session is-active" aria-current="page">
+            <span class="session-title">Q3 客服工单周报</span>
+            <span class="session-meta">
+              <span class="dot is-live" id="sessionStateDot"></span><span id="sessionStateText">待审批</span><span class="sep">·</span>2 分钟前
+            </span>
+          </button>
+          <button class="session">
+            <span class="session-title">退款政策变更的影响面</span>
+            <span class="session-meta">14:20<span class="sep">·</span>37 条消息</span>
+          </button>
+          <button class="session">
+            <span class="session-title">把 release notes 翻成英文</span>
+            <span class="session-meta">11:05<span class="sep">·</span>12 条消息</span>
+          </button>
+        </div>
+
+        <div class="session-group">
+          <div class="group-label">昨天</div>
+          <button class="session">
+            <span class="session-title">审查：payment 模块重试逻辑</span>
+            <span class="session-meta">18:42<span class="sep">·</span>64 条消息</span>
+          </button>
+          <button class="session">
+            <span class="session-title">知识库检索质量排查</span>
+            <span class="session-meta">09:31<span class="sep">·</span>21 条消息</span>
+          </button>
+        </div>
+
+        <div class="session-group">
+          <div class="group-label">10 月</div>
+          <button class="session">
+            <span class="session-title">客服话术改写 · 第二版</span>
+            <span class="session-meta"><span class="dot"></span>已归档<span class="sep">·</span>10 月 29 日</span>
+          </button>
+          <button class="session">
+            <span class="session-title">A2A 智能体接入检查</span>
+            <span class="session-meta">10 月 26 日<span class="sep">·</span>18 条消息</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="sb-foot">
+      <div class="sb-conn">
+        <span class="dot is-ok"></span>
+        <span>A2A 已连接</span>
+        <span class="spacer"></span>
+        <span class="mono">3 ONLINE</span>
+      </div>
+      <button class="sb-account" id="accountBtn" aria-label="账号菜单" aria-haspopup="menu" aria-expanded="false" aria-controls="accountMenu" title="账号菜单">
+        <span class="avatar">AH</span>
+        <span class="sb-account-text">
+          <span class="sb-account-name">个人工作区</span>
+          <span class="sb-account-sub">3 个智能体在线</span>
+        </span>
+        <svg class="ic sb-account-more" aria-hidden="true"><use href="#i-more"/></svg>
+      </button>
+    </div>
+
+    <div class="account-menu" id="accountMenu" role="menu" aria-label="账号菜单">
+      <div class="account-menu-head">
+        <span class="avatar">AH</span>
+        <div>
+          <div class="account-menu-name">个人工作区</div>
+          <div class="account-menu-sub">3 个智能体在线</div>
+        </div>
+      </div>
+      <div class="menu-sep"></div>
+      <button class="menu-item" role="menuitem" data-page="settings" data-section="account">
+        <svg class="ic" aria-hidden="true"><use href="#i-user"/></svg>账号
+      </button>
+      <button class="menu-item" role="menuitem" data-page="settings">
+        <svg class="ic" aria-hidden="true"><use href="#i-sliders"/></svg>设置
+      </button>
+      <button class="menu-item" role="menuitem" id="themeToggle">
+        <svg class="ic ic-moon" aria-hidden="true"><use href="#i-moon"/></svg>
+        <svg class="ic ic-sun" aria-hidden="true"><use href="#i-sun"/></svg>
+        切换主题
+      </button>
+      <div class="menu-sep"></div>
+      <button class="menu-item is-danger" role="menuitem" data-demo="退出登录（原型演示）">
+        <svg class="ic" aria-hidden="true"><use href="#i-logout"/></svg>退出登录
+      </button>
+      <div class="menu-version">Agent Hub v0.1.0 · M0</div>
+    </div>
+  </aside>
+
+  <div class="sidebar-scrim" id="sidebarScrim" aria-hidden="true"></div>
+
+  <main class="page-main">
+    <div class="page-topbar">
+      <button class="mobile-sidebar-btn" id="mobileSidebarBtn" aria-label="打开侧栏" aria-controls="sidebar" aria-expanded="false" title="打开侧栏">
+        <svg class="ic" aria-hidden="true"><use href="#i-menu"/></svg>
+      </button>
+      <span class="page-topbar-title" id="mobilePageTitle">智能体</span>
+    </div>
+
+    <div class="page-scroll" id="pageScroll">
+
+      <!-- ================= AGENTS ================= -->
+      <section class="page" id="page-agents" data-page="agents">
+        <header class="page-head">
+          <div class="page-heading">
+            <h1 class="page-title">智能体</h1>
+            <p class="page-sub">管理通过 A2A 注册的远程智能体，查看 Agent Card、技能与健康状态。</p>
+          </div>
+          <div class="page-actions">
+            <button class="btn btn-outline" data-demo="刷新全部（原型演示）">
+              <svg class="ic" aria-hidden="true"><use href="#i-refresh"/></svg>刷新
+            </button>
+            <button class="btn btn-primary" id="registerAgentBtn">
+              <svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg>注册智能体
+            </button>
+          </div>
+        </header>
+
+        <div class="stats">
+          <div class="stat"><span class="stat-value">3</span><span class="stat-label">已注册</span></div>
+          <div class="stat"><span class="stat-value">2</span><span class="stat-label">健康</span></div>
+          <div class="stat"><span class="stat-value">1</span><span class="stat-label">降级</span></div>
+          <div class="stat"><span class="stat-value">3</span><span class="stat-label">已启用</span></div>
+        </div>
+
+        <div class="register-panel" id="registerPanel" hidden>
+          <div class="register-grid">
+            <label class="field"><span>Agent URL</span><input class="input" placeholder="https://agent.example.com/a2a"></label>
+            <label class="field"><span>Slug</span><input class="input" placeholder="code-assistant"></label>
+            <label class="field"><span>鉴权引用</span><input class="input" placeholder="env:CODE_AGENT_KEY"></label>
+          </div>
+          <div class="register-actions">
+            <button class="btn btn-outline" data-demo="拉取 Agent Card（原型演示）">拉取 Agent Card</button>
+            <button class="btn btn-primary" id="confirmRegister">确认注册</button>
+            <span class="note">先校验 URL 与 Agent Card，密钥只保存引用。</span>
+          </div>
+        </div>
+
+        <div class="toolbar">
+          <div class="seg" role="group" aria-label="按健康状态筛选">
+            <button class="is-active" data-agent-filter="all">全部 <span>3</span></button>
+            <button data-agent-filter="healthy">健康 <span>2</span></button>
+            <button data-agent-filter="degraded">降级 <span>1</span></button>
+            <button data-agent-filter="disabled">已禁用 <span>0</span></button>
+          </div>
+          <label class="tool-search">
+            <svg class="ic" aria-hidden="true"><use href="#i-search"/></svg>
+            <input id="agentSearch" type="search" placeholder="搜索名称或 slug" autocomplete="off">
+          </label>
+        </div>
+
+        <div class="agent-list" id="agentList">
+          <details class="agent-item" data-health="healthy" open>
+            <summary class="agent-summary">
+              <span class="agent-badge">DA</span>
+              <span class="agent-main">
+                <span class="agent-name">data-analyst</span>
+                <span class="agent-slug">data-analyst · A2A 1.0</span>
+              </span>
+              <span class="agent-endpoint">https://data.example.com/a2a</span>
+              <span class="agent-skill-count">2 个技能</span>
+              <span class="agent-health"><span class="st st-ok"><span class="dot is-ok"></span>健康</span></span>
+              <svg class="ic agent-chev" aria-hidden="true"><use href="#i-chevron"/></svg>
+            </summary>
+            <div class="agent-detail">
+              <div class="detail-block">
+                <h4>技能</h4>
+                <div class="skill-list">
+                  <span class="skill-chip">verify_numbers</span>
+                  <span class="skill-chip">analyze_tickets</span>
+                </div>
+                <p class="detail-note">每个技能生成一个工具，例如 <span class="mono">agent_data_analyst__verify_numbers</span>。</p>
+              </div>
+              <div class="detail-block">
+                <h4>连接</h4>
+                <dl class="kv">
+                  <dt>协议</dt><dd>A2A 1.0 · JSON-RPC</dd>
+                  <dt>鉴权</dt><dd><span class="mono">bearer</span> · <span class="mono">env:DATA_AGENT_KEY</span></dd>
+                  <dt>最近检查</dt><dd>23:41:08 · 200 OK · 142ms</dd>
+                </dl>
+              </div>
+              <div class="detail-block wide">
+                <h4>操作</h4>
+                <div class="detail-actions">
+                  <button class="btn btn-outline btn-sm" data-demo="健康检查（原型演示）">健康检查</button>
+                  <button class="btn btn-outline btn-sm" data-demo="刷新 Agent Card（原型演示）">刷新 Card</button>
+                  <button class="btn btn-ghost btn-sm" data-demo="禁用智能体（原型演示）">禁用</button>
+                  <button class="btn btn-ghost btn-sm is-danger-text" data-demo="删除智能体（原型演示）">删除</button>
+                </div>
+              </div>
+            </div>
+          </details>
+
+          <details class="agent-item" data-health="healthy">
+            <summary class="agent-summary">
+              <span class="agent-badge">ER</span>
+              <span class="agent-main">
+                <span class="agent-name">editorial-reviewer</span>
+                <span class="agent-slug">editorial-reviewer · A2A 1.0</span>
+              </span>
+              <span class="agent-endpoint">https://editorial.example.com/a2a</span>
+              <span class="agent-skill-count">1 个技能</span>
+              <span class="agent-health"><span class="st st-ok"><span class="dot is-ok"></span>健康</span></span>
+              <svg class="ic agent-chev" aria-hidden="true"><use href="#i-chevron"/></svg>
+            </summary>
+            <div class="agent-detail">
+              <div class="detail-block">
+                <h4>技能</h4>
+                <div class="skill-list"><span class="skill-chip">review_copy</span></div>
+                <p class="detail-note">工具名 <span class="mono">agent_editorial_reviewer__review_copy</span>。</p>
+              </div>
+              <div class="detail-block">
+                <h4>连接</h4>
+                <dl class="kv">
+                  <dt>协议</dt><dd>A2A 1.0 · JSON-RPC</dd>
+                  <dt>鉴权</dt><dd><span class="mono">bearer</span> · <span class="mono">env:EDITORIAL_KEY</span></dd>
+                  <dt>最近检查</dt><dd>23:40:55 · 200 OK · 96ms</dd>
+                </dl>
+              </div>
+              <div class="detail-block wide">
+                <h4>操作</h4>
+                <div class="detail-actions">
+                  <button class="btn btn-outline btn-sm" data-demo="健康检查（原型演示）">健康检查</button>
+                  <button class="btn btn-outline btn-sm" data-demo="刷新 Agent Card（原型演示）">刷新 Card</button>
+                  <button class="btn btn-ghost btn-sm" data-demo="禁用智能体（原型演示）">禁用</button>
+                  <button class="btn btn-ghost btn-sm is-danger-text" data-demo="删除智能体（原型演示）">删除</button>
+                </div>
+              </div>
+            </div>
+          </details>
+
+          <details class="agent-item" data-health="degraded">
+            <summary class="agent-summary">
+              <span class="agent-badge">CA</span>
+              <span class="agent-main">
+                <span class="agent-name">code-assistant</span>
+                <span class="agent-slug">code-assistant · A2A 1.0</span>
+              </span>
+              <span class="agent-endpoint">https://code.example.com/a2a</span>
+              <span class="agent-skill-count">2 个技能</span>
+              <span class="agent-health"><span class="st st-warn"><span class="dot"></span>降级</span></span>
+              <svg class="ic agent-chev" aria-hidden="true"><use href="#i-chevron"/></svg>
+            </summary>
+            <div class="agent-detail">
+              <div class="detail-block">
+                <h4>技能</h4>
+                <div class="skill-list">
+                  <span class="skill-chip">review_code</span>
+                  <span class="skill-chip">explain_code</span>
+                </div>
+                <p class="detail-note">最近一次调用返回 <span class="mono">502 a2a_unavailable</span>。</p>
+              </div>
+              <div class="detail-block">
+                <h4>连接</h4>
+                <dl class="kv">
+                  <dt>协议</dt><dd>A2A 1.0 · JSON-RPC</dd>
+                  <dt>鉴权</dt><dd><span class="mono">api_key</span> · <span class="mono">env:CODE_AGENT_KEY</span></dd>
+                  <dt>最近检查</dt><dd><span class="is-error-text">23:39:52 · 502 a2a_unavailable</span></dd>
+                </dl>
+              </div>
+              <div class="detail-block wide">
+                <h4>操作</h4>
+                <div class="detail-actions">
+                  <button class="btn btn-outline btn-sm" data-demo="健康检查（原型演示）">健康检查</button>
+                  <button class="btn btn-outline btn-sm" data-demo="刷新 Agent Card（原型演示）">刷新 Card</button>
+                  <button class="btn btn-ghost btn-sm" data-demo="禁用智能体（原型演示）">禁用</button>
+                  <button class="btn btn-ghost btn-sm is-danger-text" data-demo="删除智能体（原型演示）">删除</button>
+                </div>
+              </div>
+            </div>
+          </details>
+          <div class="empty-state" id="agentEmpty" hidden>没有匹配的智能体。清除筛选后重试。</div>
+        </div>
+      </section>
+
+      <!-- ================= TASKS ================= -->
+      <section class="page" id="page-tasks" data-page="tasks" hidden>
+        <header class="page-head">
+          <div class="page-heading">
+            <h1 class="page-title">任务</h1>
+            <p class="page-sub">跟踪主智能体发起的 A2A 任务，查看状态、产出与耗时。</p>
+          </div>
+          <div class="page-actions">
+            <button class="btn btn-outline" data-demo="刷新任务（原型演示）">
+              <svg class="ic" aria-hidden="true"><use href="#i-refresh"/></svg>刷新
+            </button>
+          </div>
+        </header>
+
+        <div class="stats">
+          <div class="stat"><span class="stat-value">4</span><span class="stat-label">全部任务</span></div>
+          <div class="stat"><span class="stat-value">1</span><span class="stat-label">运行中</span></div>
+          <div class="stat"><span class="stat-value">2</span><span class="stat-label">已完成</span></div>
+          <div class="stat"><span class="stat-value">1</span><span class="stat-label">失败</span></div>
+        </div>
+
+        <div class="toolbar">
+          <div class="seg" role="group" aria-label="按状态筛选任务">
+            <button class="is-active" data-task-filter="all">全部 <span>4</span></button>
+            <button data-task-filter="working">运行中 <span>1</span></button>
+            <button data-task-filter="completed">已完成 <span>2</span></button>
+            <button data-task-filter="failed">失败 <span>1</span></button>
+          </div>
+        </div>
+
+        <div class="task-table">
+          <div class="task-head">
+            <span>任务</span><span>远程智能体</span><span>状态</span><span>耗时</span><span>所属会话</span><span></span>
+          </div>
+
+          <details class="task-item" data-state="working" open>
+            <summary class="task-summary">
+              <span class="task-main"><span class="task-id mono">task_2e91</span><span class="task-skill">review_copy</span></span>
+              <span class="task-agent">editorial-reviewer <small>a2a</small></span>
+              <span><span class="st st-live"><span class="dot is-live"></span>运行中</span></span>
+              <span class="task-duration mono">00:12</span>
+              <span class="task-conv">退款政策变更的影响面</span>
+              <svg class="ic task-chev" aria-hidden="true"><use href="#i-chevron"/></svg>
+            </summary>
+            <div class="task-detail">
+              <div class="detail-block">
+                <h4>请求</h4>
+                <dl class="kv">
+                  <dt>工具</dt><dd><span class="mono">agent_editorial_reviewer__review_copy</span></dd>
+                  <dt>参数</dt><dd>审阅“退款政策变更说明”的措辞</dd>
+                  <dt>Run</dt><dd><span class="mono">run_4c1d_e8</span></dd>
+                </dl>
+              </div>
+              <div class="detail-block">
+                <h4>状态时间线</h4>
+                <ol class="task-timeline">
+                  <li class="is-done"><span class="tl-dot"></span><div><b>submitted</b><small>23:44:02</small></div></li>
+                  <li class="is-now"><span class="tl-dot"></span><div><b>working</b><small>23:44:03 · 已运行 12s</small></div></li>
+                  <li><span class="tl-dot"></span><div><b>completed</b><small>等待中</small></div></li>
+                </ol>
+              </div>
+              <div class="detail-block wide">
+                <h4>产出</h4>
+                <p class="detail-note">尚未产出。任务完成后写入 artifact，并更新所属会话。</p>
+                <div class="detail-actions">
+                  <button class="btn btn-outline btn-sm is-danger-text" data-demo="取消任务（原型演示）">取消任务</button>
+                  <a class="btn btn-ghost btn-sm" href="ui-v5.html">打开会话</a>
+                </div>
+              </div>
+            </div>
+          </details>
+
+          <details class="task-item" data-state="completed">
+            <summary class="task-summary">
+              <span class="task-main"><span class="task-id mono">task_7c1e</span><span class="task-skill">review_copy</span></span>
+              <span class="task-agent">editorial-reviewer <small>a2a</small></span>
+              <span><span class="st st-ok"><span class="dot is-ok"></span>已完成</span></span>
+              <span class="task-duration mono">1.8s</span>
+              <span class="task-conv">Q3 客服工单周报</span>
+              <svg class="ic task-chev" aria-hidden="true"><use href="#i-chevron"/></svg>
+            </summary>
+            <div class="task-detail">
+              <div class="detail-block">
+                <h4>请求</h4>
+                <dl class="kv">
+                  <dt>工具</dt><dd><span class="mono">agent_editorial_reviewer__review_copy</span></dd>
+                  <dt>参数</dt><dd>审阅周报措辞，标注生硬表达</dd>
+                  <dt>Run</dt><dd><span class="mono">run_9a8b7c</span></dd>
+                </dl>
+              </div>
+              <div class="detail-block">
+                <h4>产出</h4>
+                <p class="detail-note">artifact：3 处措辞建议，1 处需要补充数字来源。</p>
+                <div class="detail-actions">
+                  <a class="btn btn-ghost btn-sm" href="ui-v5.html">打开会话</a>
+                </div>
+              </div>
+            </div>
+          </details>
+
+          <details class="task-item" data-state="completed">
+            <summary class="task-summary">
+              <span class="task-main"><span class="task-id mono">task_9b2a</span><span class="task-skill">verify_numbers</span></span>
+              <span class="task-agent">data-analyst <small>a2a</small></span>
+              <span><span class="st st-ok"><span class="dot is-ok"></span>已完成</span></span>
+              <span class="task-duration mono">1.2s</span>
+              <span class="task-conv">Q3 客服工单周报</span>
+              <svg class="ic task-chev" aria-hidden="true"><use href="#i-chevron"/></svg>
+            </summary>
+            <div class="task-detail">
+              <div class="detail-block">
+                <h4>请求</h4>
+                <dl class="kv">
+                  <dt>工具</dt><dd><span class="mono">agent_data_analyst__verify_numbers</span></dd>
+                  <dt>参数</dt><dd>核对周报数字与知识库来源</dd>
+                  <dt>Run</dt><dd><span class="mono">run_9a8b7c</span></dd>
+                </dl>
+              </div>
+              <div class="detail-block">
+                <h4>产出</h4>
+                <p class="detail-note">artifact：12/12 项数字核对通过，2 处引用待补。</p>
+                <div class="detail-actions">
+                  <a class="btn btn-ghost btn-sm" href="ui-v5.html">打开会话</a>
+                </div>
+              </div>
+            </div>
+          </details>
+
+          <details class="task-item" data-state="failed">
+            <summary class="task-summary">
+              <span class="task-main"><span class="task-id mono">task_1a77</span><span class="task-skill">review_code</span></span>
+              <span class="task-agent">code-assistant <small>a2a</small></span>
+              <span><span class="st st-error"><span class="dot is-warn"></span>失败</span></span>
+              <span class="task-duration mono">6.4s</span>
+              <span class="task-conv">审查：payment 模块重试逻辑</span>
+              <svg class="ic task-chev" aria-hidden="true"><use href="#i-chevron"/></svg>
+            </summary>
+            <div class="task-detail">
+              <div class="detail-block">
+                <h4>错误</h4>
+                <p class="detail-note is-error-text"><span class="mono">502 a2a_unavailable</span> · 远程 Agent 在 60s 内未响应。</p>
+                <p class="detail-note">失败发生在 <span class="mono">working</span> 阶段，已记录到任务详情，可在会话中重试。</p>
+              </div>
+              <div class="detail-block">
+                <h4>时间线</h4>
+                <ol class="task-timeline">
+                  <li class="is-done"><span class="tl-dot"></span><div><b>submitted</b><small>23:38:11</small></div></li>
+                  <li class="is-error"><span class="tl-dot"></span><div><b>failed</b><small>23:38:17 · 502</small></div></li>
+                </ol>
+              </div>
+              <div class="detail-block wide">
+                <h4>操作</h4>
+                <div class="detail-actions">
+                  <a class="btn btn-ghost btn-sm" href="ui-v5.html">打开会话</a>
+                </div>
+              </div>
+            </div>
+          </details>
+        </div>
+      </section>
+
+      <!-- ================= KNOWLEDGE ================= -->
+      <section class="page" id="page-knowledge" data-page="knowledge" hidden>
+        <header class="page-head">
+          <div class="page-heading">
+            <h1 class="page-title">知识库</h1>
+            <p class="page-sub">pgvector HNSW · cosine · 128 篇文档，按 category 过滤。</p>
+          </div>
+          <div class="page-actions">
+            <button class="btn btn-primary" data-demo="上传文档（原型演示）">
+              <svg class="ic" aria-hidden="true"><use href="#i-upload"/></svg>上传文档
+            </button>
+          </div>
+        </header>
+
+        <div class="stats">
+          <div class="stat"><span class="stat-value">128</span><span class="stat-label">文档</span></div>
+          <div class="stat"><span class="stat-value">1,842</span><span class="stat-label">片段</span></div>
+          <div class="stat"><span class="stat-value">124</span><span class="stat-label">就绪</span></div>
+          <div class="stat"><span class="stat-value">1</span><span class="stat-label">失败</span></div>
+        </div>
+
+        <div class="knowledge-grid">
+          <section class="panel doc-panel">
+            <div class="panel-head">
+              <h2>文档</h2>
+              <span class="count">5 / 128</span>
+              <span class="spacer"></span>
+              <button class="text-link" data-demo="查看全部文档（原型演示）">查看全部</button>
+            </div>
+            <div class="doc-toolbar">
+              <label class="tool-search">
+                <svg class="ic" aria-hidden="true"><use href="#i-search"/></svg>
+                <input id="docSearch" type="search" placeholder="搜索文档" autocomplete="off">
+              </label>
+              <select class="select" id="docCategory" aria-label="分类筛选">
+                <option>全部分类</option>
+                <option>客服</option>
+                <option>产品</option>
+              </select>
+            </div>
+            <div class="doc-list">
+              <div class="doc-row" data-category="客服">
+                <div class="doc-main"><div class="doc-title">Q3 客服复盘 v2</div><div class="doc-meta">客服 · 24 chunks · 09-30 更新</div></div>
+                <span class="st st-ok">就绪</span>
+              </div>
+              <div class="doc-row" data-category="客服">
+                <div class="doc-main"><div class="doc-title">工单分类规范 v3</div><div class="doc-meta">客服 · 12 chunks · 09-18 更新</div></div>
+                <span class="st st-ok">就绪</span>
+              </div>
+              <div class="doc-row" data-category="客服">
+                <div class="doc-main"><div class="doc-title">退款处理 SOP</div><div class="doc-meta">客服 · 18 chunks · 08-02 更新</div></div>
+                <span class="st st-ok">就绪</span>
+              </div>
+              <div class="doc-row" data-category="客服">
+                <div class="doc-main"><div class="doc-title">售后话术库</div><div class="doc-meta">客服 · 入库中 · 07-21 上传</div></div>
+                <span class="st st-warn">入库中</span>
+              </div>
+              <div class="doc-row" data-category="产品">
+                <div class="doc-main"><div class="doc-title">产品发布说明 Q3</div><div class="doc-meta">产品 · 0 chunks · 07-15 上传</div></div>
+                <span class="st st-error">失败</span>
+              </div>
+              <div class="empty-state" id="docEmpty" hidden>没有匹配的文档。</div>
+            </div>
+            <div class="panel-foot">支持 Markdown / TXT / PDF · 异步入库，失败可重试。</div>
+          </section>
+
+          <section class="panel debug-panel">
+            <div class="panel-head">
+              <h2>检索调试</h2>
+              <span class="tag">pgvector</span>
+            </div>
+            <p class="panel-desc">直接调用 <span class="mono">POST /api/v1/knowledge/search</span>，验证召回与相似度。</p>
+            <div class="debug-form">
+              <label class="field">
+                <span>查询</span>
+                <input class="input" value="退款需要保留吊牌吗">
+              </label>
+              <div class="debug-row">
+                <label class="field"><span>top_k</span><select class="select"><option>5</option><option>10</option></select></label>
+                <label class="field"><span>分类</span><select class="select"><option>售后</option><option>客服</option><option>产品</option></select></label>
+                <button class="btn btn-primary" data-demo="执行检索（原型演示）">检索</button>
+              </div>
+            </div>
+            <div class="debug-results">
+              <div class="result">
+                <div class="result-top"><span class="result-title">退款政策</span><span class="result-score">0.83</span></div>
+                <div class="result-src">chunk_51de · 退款政策.md · 09-18</div>
+                <p class="result-excerpt">退货需要保留吊牌与包装，签收后 7 天内可申请退款…</p>
+              </div>
+              <div class="result">
+                <div class="result-top"><span class="result-title">退款处理 SOP</span><span class="result-score">0.79</span></div>
+                <div class="result-src">chunk_a72c · 退款处理 SOP.md · 08-02</div>
+                <p class="result-excerpt">收到退货后 48 小时内完成质检，原路退回至支付账户…</p>
+              </div>
+              <div class="result">
+                <div class="result-top"><span class="result-title">售后话术库</span><span class="result-score">0.74</span></div>
+                <div class="result-src">chunk_7a2e · 售后话术库.md · 07-21</div>
+                <p class="result-excerpt">对客户解释退款时效时，避免承诺固定到账时间…</p>
+              </div>
+            </div>
+            <div class="debug-meta">42ms · top_k=5 · cosine</div>
+          </section>
+        </div>
+      </section>
+
+      <!-- ================= SETTINGS ================= -->
+      <section class="page page-settings" id="page-settings" data-page="settings" hidden>
+        <header class="page-head">
+          <div class="page-heading">
+            <h1 class="page-title">设置</h1>
+            <p class="page-sub">账号、模型、A2A 端点与界面偏好。</p>
+          </div>
+        </header>
+
+        <div class="settings-grid">
+          <nav class="settings-nav" aria-label="设置分区">
+            <button class="settings-nav-item is-active" data-scroll="settings-account">账号</button>
+            <button class="settings-nav-item" data-scroll="settings-model">模型</button>
+            <button class="settings-nav-item" data-scroll="settings-a2a">A2A</button>
+            <button class="settings-nav-item" data-scroll="settings-interface">界面</button>
+            <button class="settings-nav-item" data-scroll="settings-about">关于</button>
+          </nav>
+
+          <div class="settings-content">
+            <section class="settings-section" id="settings-account">
+              <div class="section-head">
+                <h2>账号</h2>
+                <p>登录身份与个人资料。</p>
+              </div>
+              <div class="profile-row">
+                <span class="avatar">AH</span>
+                <div>
+                  <div class="profile-name">个人工作区</div>
+                  <div class="profile-email">you@example.com</div>
+                </div>
+              </div>
+              <div class="field-row">
+                <div class="field-label">展示名<small>显示在会话与审批记录中</small></div>
+                <input class="input" value="个人工作区">
+              </div>
+              <div class="field-row">
+                <div class="field-label">邮箱<small>用于登录，暂不支持修改</small></div>
+                <input class="input" value="you@example.com" readonly>
+              </div>
+              <div class="settings-actions">
+                <button class="btn btn-primary" data-demo="保存资料（原型演示）">保存资料</button>
+                <button class="btn btn-outline" data-demo="修改密码（原型演示）">修改密码</button>
+                <button class="btn btn-ghost is-danger-text" data-demo="退出登录（原型演示）">退出登录</button>
+              </div>
+            </section>
+
+            <section class="settings-section" id="settings-model">
+              <div class="section-head">
+                <h2>模型</h2>
+                <p>来自 <span class="mono">GET /api/v1/system/info</span>，只读。</p>
+              </div>
+              <dl class="settings-kv">
+                <div><dt>对话模型</dt><dd class="mono">deepseek-chat</dd></div>
+                <div><dt>Embedding</dt><dd class="mono">text-embedding-3-small · 1536d</dd></div>
+                <div><dt>温度</dt><dd class="mono">0.3</dd></div>
+                <div><dt>超时</dt><dd class="mono">60s</dd></div>
+              </dl>
+            </section>
+
+            <section class="settings-section" id="settings-a2a">
+              <div class="section-head">
+                <h2>A2A</h2>
+                <p>本服务对外暴露的 Agent Card 与 JSON-RPC 端点。</p>
+              </div>
+              <div class="field-row">
+                <div class="field-label">Agent Card URL</div>
+                <div class="inline-control">
+                  <input class="input mono" id="a2aUrl" value="http://localhost:8000/a2a" readonly>
+                  <button class="btn btn-outline" id="copyA2A">复制</button>
+                </div>
+              </div>
+              <dl class="settings-kv">
+                <div><dt>入站鉴权</dt><dd>JWT Bearer</dd></div>
+                <div><dt>服务状态</dt><dd><span class="st st-ok"><span class="dot is-ok"></span>已启用</span></dd></div>
+              </dl>
+            </section>
+
+            <section class="settings-section" id="settings-interface">
+              <div class="section-head">
+                <h2>界面</h2>
+                <p>只影响当前浏览器。</p>
+              </div>
+              <div class="field-row">
+                <div class="field-label">主题</div>
+                <div class="seg" role="group" aria-label="主题">
+                  <button data-theme-choice="light">浅色</button>
+                  <button data-theme-choice="dark">深色</button>
+                </div>
+              </div>
+              <div class="field-row">
+                <div class="field-label">语言</div>
+                <select class="select"><option>简体中文</option><option>English</option></select>
+              </div>
+              <div class="field-row">
+                <div class="field-label">消息密度</div>
+                <div class="seg" role="group" aria-label="消息密度">
+                  <button class="is-active">舒适</button>
+                  <button>紧凑</button>
+                </div>
+              </div>
+            </section>
+
+            <section class="settings-section" id="settings-about">
+              <div class="section-head">
+                <h2>关于</h2>
+                <p>Agent Hub 前端与后端版本信息。</p>
+              </div>
+              <dl class="settings-kv">
+                <div><dt>版本</dt><dd class="mono">0.1.0 · M0</dd></div>
+                <div><dt>构建</dt><dd class="mono">2026-11-05</dd></div>
+                <div><dt>文档</dt><dd><button class="text-link" data-demo="接口文档（原型演示）">查看接口文档</button></dd></div>
+              </dl>
+            </section>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </main>
+</div>
+
+<div class="session-menu" id="sessionMenu" role="menu" aria-label="会话操作">
+  <button class="menu-item" role="menuitem" data-session-action="rename">
+    <svg class="ic" aria-hidden="true"><use href="#i-edit"/></svg>重命名
+  </button>
+  <button class="menu-item" role="menuitem" data-session-action="archive">
+    <svg class="ic" aria-hidden="true"><use href="#i-archive"/></svg>归档
+  </button>
+  <div class="menu-sep"></div>
+  <button class="menu-item is-danger" role="menuitem" data-session-action="delete">
+    <svg class="ic" aria-hidden="true"><use href="#i-trash"/></svg>删除会话
+  </button>
+</div>
+
+<div class="dialog-backdrop" id="deleteDialog">
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="deleteTitle" tabindex="-1">
+    <h2 id="deleteTitle">删除会话？</h2>
+    <p>“<span id="deleteSessionName"></span>”及其消息将被删除，此操作不可撤销。</p>
+    <div class="dialog-actions">
+      <button class="btn btn-outline" id="cancelDelete">取消</button>
+      <button class="btn btn-danger" id="confirmDelete">删除会话</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite">
+  <svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>
+  <span id="toastText"></span>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var root = document.documentElement;
+  var app = document.getElementById('app');
+  var toast = document.getElementById('toast');
+  var toastText = document.getElementById('toastText');
+  var sidebarToggle = document.getElementById('sidebarToggle');
+  var mobileSidebarBtn = document.getElementById('mobileSidebarBtn');
+  var sidebarScrim = document.getElementById('sidebarScrim');
+  var accountBtn = document.getElementById('accountBtn');
+  var accountMenu = document.getElementById('accountMenu');
+  var narrowSidebar = window.matchMedia('(max-width: 900px)');
+  var pageScroll = document.getElementById('pageScroll');
+  var mobilePageTitle = document.getElementById('mobilePageTitle');
+  var pageTitles = { agents: '智能体', tasks: '任务', knowledge: '知识库', settings: '设置' };
+  var sessionMenu = document.getElementById('sessionMenu');
+  var sessionCount = document.getElementById('sessionCount');
+  var deleteDialog = document.getElementById('deleteDialog');
+  var deleteSessionName = document.getElementById('deleteSessionName');
+  var confirmDelete = document.getElementById('confirmDelete');
+  var cancelDelete = document.getElementById('cancelDelete');
+  var sessionMenuTarget = null;
+  var sessionMenuAnchor = null;
+  var deleteSessionTarget = null;
+  var toastTimer = null;
+
+  /* ---------- theme ---------- */
+  try {
+    var savedTheme = localStorage.getItem('ah-theme');
+    if (savedTheme === 'dark' || savedTheme === 'light') root.dataset.theme = savedTheme;
+  } catch (e) {}
+
+  function showToast(text) {
+    toastText.textContent = text;
+    toast.classList.add('is-visible');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { toast.classList.remove('is-visible'); }, 2400);
+  }
+
+  function syncThemeControls() {
+    document.querySelectorAll('[data-theme-choice]').forEach(function (btn) {
+      btn.classList.toggle('is-active', btn.getAttribute('data-theme-choice') === root.dataset.theme);
+    });
+  }
+
+  function applyTheme(theme) {
+    root.dataset.theme = theme;
+    try { localStorage.setItem('ah-theme', theme); } catch (e) {}
+    syncThemeControls();
+  }
+
+  /* ---------- sidebar + account menu ---------- */
+  function setAccountMenu(open) {
+    accountMenu.classList.toggle('is-open', open);
+    accountBtn.setAttribute('aria-expanded', String(open));
+  }
+
+  function setMobileSidebar(open) {
+    app.classList.toggle('sidebar-open', open);
+    mobileSidebarBtn.setAttribute('aria-expanded', String(open));
+    sidebarToggle.setAttribute('aria-expanded', String(open));
+    if (!open) setAccountMenu(false);
+  }
+
+  function setSidebarCollapsed(collapsed) {
+    app.classList.toggle('sidebar-collapsed', collapsed);
+    sidebarToggle.setAttribute('aria-expanded', String(!collapsed));
+    sidebarToggle.setAttribute('aria-label', collapsed ? '展开侧栏' : '收起侧栏');
+    sidebarToggle.setAttribute('title', collapsed ? '展开侧栏' : '收起侧栏');
+    setAccountMenu(false);
+  }
+
+  sidebarToggle.addEventListener('click', function () {
+    if (narrowSidebar.matches) {
+      setMobileSidebar(!app.classList.contains('sidebar-open'));
+    } else {
+      setSidebarCollapsed(!app.classList.contains('sidebar-collapsed'));
+    }
+  });
+
+  mobileSidebarBtn.addEventListener('click', function () {
+    setMobileSidebar(!app.classList.contains('sidebar-open'));
+  });
+
+  sidebarScrim.addEventListener('click', function () { setMobileSidebar(false); });
+
+  accountBtn.addEventListener('click', function () {
+    setAccountMenu(!accountMenu.classList.contains('is-open'));
+  });
+
+  document.addEventListener('click', function (event) {
+    if (!accountMenu.contains(event.target) && !accountBtn.contains(event.target)) {
+      setAccountMenu(false);
+    }
+  });
+
+  document.addEventListener('keydown', function (event) {
+    if (event.key === 'Escape') {
+      setAccountMenu(false);
+      if (narrowSidebar.matches) setMobileSidebar(false);
+    }
+  });
+
+  accountMenu.querySelectorAll('.menu-item').forEach(function (item) {
+    item.addEventListener('click', function () { setAccountMenu(false); });
+  });
+
+  narrowSidebar.addEventListener('change', function () {
+    setAccountMenu(false);
+    app.classList.remove('sidebar-open');
+    mobileSidebarBtn.setAttribute('aria-expanded', 'false');
+    if (narrowSidebar.matches) {
+      app.classList.remove('sidebar-collapsed');
+      sidebarToggle.setAttribute('aria-expanded', 'false');
+    } else {
+      sidebarToggle.setAttribute('aria-expanded', String(!app.classList.contains('sidebar-collapsed')));
+    }
+  });
+
+  if (narrowSidebar.matches) {
+    app.classList.remove('sidebar-collapsed');
+    sidebarToggle.setAttribute('aria-expanded', 'false');
+  }
+
+  /* ---------- pages ---------- */
+  function syncSettingsNav(id) {
+    document.querySelectorAll('[data-scroll]').forEach(function (item) {
+      item.classList.toggle('is-active', item.getAttribute('data-scroll') === id);
+    });
+  }
+
+  function showPage(name, section) {
+    if (!pageTitles[name]) name = 'agents';
+    if (section && !document.getElementById(section)) section = 'settings-' + section;
+    document.querySelectorAll('.page').forEach(function (page) {
+      page.hidden = page.getAttribute('data-page') !== name;
+    });
+    document.querySelectorAll('.sb-nav-item[data-page]').forEach(function (item) {
+      var active = item.getAttribute('data-page') === name;
+      item.classList.toggle('is-active', active);
+      if (active) item.setAttribute('aria-current', 'page');
+      else item.removeAttribute('aria-current');
+    });
+    mobilePageTitle.textContent = pageTitles[name];
+    document.title = pageTitles[name] + ' · Agent Hub';
+    pageScroll.scrollTop = 0;
+    try { history.replaceState(null, '', '#' + name); } catch (e) {}
+    setAccountMenu(false);
+    if (narrowSidebar.matches) setMobileSidebar(false);
+    if (name === 'settings') syncSettingsNav(section || 'settings-account');
+    if (section) {
+      requestAnimationFrame(function () {
+        var target = document.getElementById(section);
+        if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        syncSettingsNav(section);
+      });
+    }
+  }
+
+  document.querySelectorAll('.sb-nav-item[data-page], .account-menu .menu-item[data-page]').forEach(function (item) {
+    item.addEventListener('click', function () {
+      showPage(item.getAttribute('data-page'), item.getAttribute('data-section'));
+    });
+  });
+
+  document.querySelectorAll('[data-scroll]').forEach(function (item) {
+    item.addEventListener('click', function () {
+      var id = item.getAttribute('data-scroll');
+      var target = document.getElementById(id);
+      if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      syncSettingsNav(id);
+    });
+  });
+
+  document.getElementById('themeToggle').addEventListener('click', function () {
+    var next = root.dataset.theme === 'dark' ? 'light' : 'dark';
+    applyTheme(next);
+    showToast(next === 'dark' ? '已切换到深色主题' : '已切换到浅色主题');
+  });
+
+  document.querySelectorAll('[data-theme-choice]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      applyTheme(btn.getAttribute('data-theme-choice'));
+    });
+  });
+  syncThemeControls();
+
+  document.querySelectorAll('.settings-section .seg').forEach(function (seg) {
+    seg.querySelectorAll('button').forEach(function (btn) {
+      if (btn.hasAttribute('data-theme-choice')) return;
+      btn.addEventListener('click', function () {
+        seg.querySelectorAll('button').forEach(function (b) { b.classList.remove('is-active'); });
+        btn.classList.add('is-active');
+      });
+    });
+  });
+
+  /* ---------- sidebar sessions ---------- */
+  var sessions = Array.prototype.slice.call(document.querySelectorAll('.session'));
+
+  sessions.forEach(function (item) {
+    var row = document.createElement('div');
+    row.className = 'session-row';
+    item.parentNode.insertBefore(row, item);
+    row.appendChild(item);
+
+    var more = document.createElement('button');
+    more.type = 'button';
+    more.className = 'session-more';
+    more.title = '会话操作';
+    more.setAttribute('aria-label', '会话操作');
+    more.setAttribute('aria-haspopup', 'menu');
+    more.setAttribute('aria-expanded', 'false');
+    more.innerHTML = '<svg class="ic" aria-hidden="true"><use href="#i-more"/></svg>';
+    row.appendChild(more);
+
+    more.addEventListener('click', function (event) {
+      event.stopPropagation();
+      openSessionMenu(row, more);
+    });
+    row.addEventListener('contextmenu', function (event) {
+      event.preventDefault();
+      openSessionMenu(row, null, event.clientX, event.clientY);
+    });
+  });
+
+  function openSessionMenu(row, anchor, x, y) {
+    if (sessionMenu.classList.contains('is-open') && sessionMenuTarget === row) {
+      closeSessionMenu();
+      return;
+    }
+    setAccountMenu(false);
+    if (sessionMenuAnchor) sessionMenuAnchor.setAttribute('aria-expanded', 'false');
+    sessionMenuTarget = row;
+    sessionMenuAnchor = anchor || null;
+    if (sessionMenuAnchor) sessionMenuAnchor.setAttribute('aria-expanded', 'true');
+
+    var left, top;
+    if (typeof x === 'number' && typeof y === 'number') {
+      left = x; top = y;
+    } else {
+      var rect = anchor.getBoundingClientRect();
+      left = rect.right - 176;
+      top = rect.bottom + 4;
+    }
+    left = Math.min(Math.max(8, left), window.innerWidth - 184);
+    top = Math.min(Math.max(8, top), window.innerHeight - 132);
+    sessionMenu.style.left = left + 'px';
+    sessionMenu.style.top = top + 'px';
+    sessionMenu.classList.add('is-open');
+    var first = sessionMenu.querySelector('.menu-item');
+    if (first) first.focus();
+  }
+
+  function closeSessionMenu() {
+    sessionMenu.classList.remove('is-open');
+    if (sessionMenuAnchor) {
+      sessionMenuAnchor.setAttribute('aria-expanded', 'false');
+      sessionMenuAnchor = null;
+    }
+    sessionMenuTarget = null;
+  }
+
+  function startRename(row) {
+    var btn = row.querySelector('.session');
+    var title = row.querySelector('.session-title');
+    var more = row.querySelector('.session-more');
+    if (!btn || !title || !more) return;
+    var old = title.textContent;
+    var input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'session-rename';
+    input.value = old;
+    input.setAttribute('aria-label', '重命名会话');
+    row.classList.add('is-renaming');
+    row.appendChild(input);
+    input.focus();
+    input.select();
+    var done = false;
+    function finish(save) {
+      if (done) return;
+      done = true;
+      var next = input.value.trim();
+      if (!save || !next) next = old;
+      title.textContent = next;
+      row.classList.remove('is-renaming');
+      input.remove();
+      row.insertBefore(btn, more);
+      if (save && next !== old) showToast('会话已重命名');
+    }
+    input.addEventListener('keydown', function (event) {
+      if (event.key === 'Enter') { event.preventDefault(); finish(true); }
+      if (event.key === 'Escape') { event.preventDefault(); finish(false); }
+    });
+    input.addEventListener('blur', function () { finish(true); });
+  }
+
+  function archiveSession(row) {
+    row.classList.add('is-archived');
+    showToast('会话已归档（原型）');
+  }
+
+  function openDeleteDialog(row) {
+    deleteSessionTarget = row;
+    var title = row.querySelector('.session-title');
+    deleteSessionName.textContent = title ? title.textContent : '';
+    deleteDialog.classList.add('is-open');
+    var dialog = deleteDialog.querySelector('.dialog');
+    if (dialog) dialog.focus();
+  }
+
+  function closeDeleteDialog() {
+    deleteDialog.classList.remove('is-open');
+    deleteSessionTarget = null;
+  }
+
+  sessionMenu.querySelectorAll('[data-session-action]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var action = btn.getAttribute('data-session-action');
+      var row = sessionMenuTarget;
+      closeSessionMenu();
+      if (!row) return;
+      if (action === 'rename') startRename(row);
+      if (action === 'archive') archiveSession(row);
+      if (action === 'delete') openDeleteDialog(row);
+    });
+  });
+
+  deleteDialog.addEventListener('click', function (event) {
+    if (event.target === deleteDialog) closeDeleteDialog();
+  });
+  cancelDelete.addEventListener('click', closeDeleteDialog);
+  confirmDelete.addEventListener('click', function () {
+    var row = deleteSessionTarget;
+    if (!row) { closeDeleteDialog(); return; }
+    var session = row.querySelector('.session');
+    var wasActive = session && session.classList.contains('is-active');
+    row.remove();
+    closeDeleteDialog();
+    var remaining = Array.prototype.slice.call(document.querySelectorAll('.session'));
+    if (wasActive && remaining.length) {
+      remaining[0].classList.add('is-active');
+      remaining[0].setAttribute('aria-current', 'page');
+    }
+    sessionCount.textContent = String(remaining.length);
+    document.querySelectorAll('.session-group').forEach(function (group) {
+      group.hidden = !group.querySelector('.session');
+    });
+    showToast('会话已删除');
+  });
+
+  document.addEventListener('click', function (event) {
+    if (!sessionMenu.contains(event.target)) closeSessionMenu();
+  });
+  document.addEventListener('scroll', function () { closeSessionMenu(); }, true);
+  document.addEventListener('keydown', function (event) {
+    if (event.key === 'Escape') {
+      closeSessionMenu();
+      closeDeleteDialog();
+    }
+  });
+
+  var sessionSearch = document.getElementById('sessionSearch');
+  if (sessionSearch) {
+    sessionSearch.addEventListener('input', function () {
+      var q = sessionSearch.value.trim().toLowerCase();
+      var allSessions = Array.prototype.slice.call(document.querySelectorAll('.session'));
+      allSessions.forEach(function (item) {
+        var title = item.querySelector('.session-title').textContent.toLowerCase();
+        var match = q === '' || title.indexOf(q) !== -1;
+        item.hidden = !match;
+        var row = item.closest('.session-row');
+        if (row) row.hidden = !match;
+      });
+      document.querySelectorAll('.session-group').forEach(function (group) {
+        var visible = Array.prototype.some.call(group.querySelectorAll('.session'), function (s) {
+          return !s.hidden;
+        });
+        group.hidden = !visible;
+      });
+    });
+  }
+
+  document.querySelectorAll('.session').forEach(function (item) {
+    item.addEventListener('click', function () { window.location.href = 'ui-v5.html'; });
+  });
+  var newSession = document.getElementById('newSession');
+  if (newSession) newSession.addEventListener('click', function () { window.location.href = 'ui-v5.html'; });
+
+  /* ---------- agents ---------- */
+  var agentFilter = 'all';
+  var agentQuery = '';
+
+  function filterAgents() {
+    var visible = 0;
+    document.querySelectorAll('.agent-item').forEach(function (item) {
+      var health = item.getAttribute('data-health');
+      var text = item.textContent.toLowerCase();
+      var match = (agentFilter === 'all' || health === agentFilter)
+        && (agentQuery === '' || text.indexOf(agentQuery) !== -1);
+      item.hidden = !match;
+      if (match) visible += 1;
+    });
+    var empty = document.getElementById('agentEmpty');
+    if (empty) empty.hidden = visible > 0;
+  }
+
+  document.querySelectorAll('[data-agent-filter]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      agentFilter = btn.getAttribute('data-agent-filter');
+      document.querySelectorAll('[data-agent-filter]').forEach(function (b) {
+        b.classList.toggle('is-active', b === btn);
+      });
+      filterAgents();
+    });
+  });
+
+  var agentSearch = document.getElementById('agentSearch');
+  if (agentSearch) {
+    agentSearch.addEventListener('input', function () {
+      agentQuery = agentSearch.value.trim().toLowerCase();
+      filterAgents();
+    });
+  }
+
+  var registerPanel = document.getElementById('registerPanel');
+  var registerAgentBtn = document.getElementById('registerAgentBtn');
+  if (registerAgentBtn) {
+    registerAgentBtn.addEventListener('click', function () {
+      registerPanel.hidden = !registerPanel.hidden;
+    });
+  }
+  var confirmRegister = document.getElementById('confirmRegister');
+  if (confirmRegister) {
+    confirmRegister.addEventListener('click', function () {
+      registerPanel.hidden = true;
+      showToast('注册请求已提交（原型）');
+    });
+  }
+
+  /* ---------- tasks ---------- */
+  document.querySelectorAll('[data-task-filter]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var filter = btn.getAttribute('data-task-filter');
+      document.querySelectorAll('[data-task-filter]').forEach(function (b) {
+        b.classList.toggle('is-active', b === btn);
+      });
+      document.querySelectorAll('.task-item').forEach(function (item) {
+        item.hidden = filter !== 'all' && item.getAttribute('data-state') !== filter;
+      });
+    });
+  });
+
+  /* ---------- knowledge document filter ---------- */
+  var docSearch = document.getElementById('docSearch');
+  var docCategory = document.getElementById('docCategory');
+
+  function filterDocs() {
+    var query = docSearch ? docSearch.value.trim().toLowerCase() : '';
+    var category = docCategory ? docCategory.value : '';
+    var visible = 0;
+    document.querySelectorAll('.doc-row').forEach(function (row) {
+      var text = row.textContent.toLowerCase();
+      var match = (query === '' || text.indexOf(query) !== -1)
+        && (category === '' || category === '全部分类' || row.getAttribute('data-category') === category);
+      row.hidden = !match;
+      if (match) visible += 1;
+    });
+    var empty = document.getElementById('docEmpty');
+    if (empty) empty.hidden = visible > 0;
+  }
+
+  if (docSearch) docSearch.addEventListener('input', filterDocs);
+  if (docCategory) docCategory.addEventListener('change', filterDocs);
+
+  /* ---------- copy A2A url ---------- */
+  function fallbackCopy(text) {
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand('copy'); showToast('已复制'); }
+    catch (e) { showToast('复制失败，请手动选择'); }
+    document.body.removeChild(ta);
+  }
+
+  var copyA2A = document.getElementById('copyA2A');
+  if (copyA2A) {
+    copyA2A.addEventListener('click', function () {
+      var url = document.getElementById('a2aUrl').value;
+      if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(url).then(function () {
+          showToast('已复制 A2A 地址');
+        }).catch(function () { fallbackCopy(url); });
+      } else {
+        fallbackCopy(url);
+      }
+    });
+  }
+
+  /* ---------- demo actions ---------- */
+  document.querySelectorAll('[data-demo]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      showToast(btn.getAttribute('data-demo'));
+    });
+  });
+
+  /* ---------- initial page ---------- */
+  var hash = window.location.hash.replace('#', '');
+  if (pageTitles[hash]) showPage(hash);
+  else if (hash.indexOf('settings') === 0) showPage('settings', hash);
+  else showPage('agents');
+})();
+</script>
+</body>
+</html>

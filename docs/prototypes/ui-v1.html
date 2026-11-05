@@ -1,0 +1,1933 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="light dark" />
+<title>Agent Hub · 对话工作台（原型 v1）</title>
+<style>
+/* ============================================================
+   Agent Hub UI prototype v1 — "Dispatch Desk"
+   npm-free, offline single file. All icons are inline symbols.
+   ============================================================ */
+
+/* ---------- tokens ---------- */
+:root{
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+               "Hiragino Sans GB", "Noto Sans SC", "Source Han Sans SC",
+               "Microsoft YaHei", sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", "Cascadia Mono",
+               "Roboto Mono", Menlo, Consolas, monospace;
+
+  --paper:#F0EFE8;
+  --paper-2:#E9E7DD;
+  --surface:#FBFAF5;
+  --surface-2:#F4F3EC;
+  --ink:#141B20;
+  --ink-2:#4F5B63;
+  --ink-3:#606B72;
+  --line:#D7D5C9;
+  --line-2:#E3E1D6;
+
+  --prussian:#17465E;
+  --prussian-soft:#E4ECEF;
+  --amber:#A9741F;
+  --amber-text:#8A5D14;
+  --amber-soft:#F3E9D3;
+  --red:#9C3A2B;
+  --red-soft:#F6E5E0;
+  --green:#3D6A4E;
+  --green-soft:#E4EDE6;
+
+  --rail:#13191D;
+  --rail-ink:#E8E7DE;
+  --rail-muted:#8C979D;
+  --rail-line:rgba(255,255,255,.09);
+
+  --btn-bg:#141B20;
+  --btn-fg:#FBFAF5;
+
+  --shadow-sm:0 1px 2px rgba(20,27,32,.05);
+  --shadow-md:0 1px 2px rgba(20,27,32,.04), 0 10px 28px -18px rgba(20,27,32,.35);
+
+  --nav-w:68px;
+  --sessions-w:284px;
+  --trace-w:332px;
+}
+
+html[data-theme="dark"]{
+  --paper:#0F1418;
+  --paper-2:#141A1F;
+  --surface:#171F24;
+  --surface-2:#1A2329;
+  --ink:#E8E7DF;
+  --ink-2:#A3AEB4;
+  --ink-3:#85929A;
+  --line:#2A353C;
+  --line-2:#212B31;
+
+  --prussian:#93BED1;
+  --prussian-soft:rgba(147,190,209,.12);
+  --amber:#D4A04A;
+  --amber-text:#E0B76E;
+  --amber-soft:rgba(212,160,74,.13);
+  --red:#DE907E;
+  --red-soft:rgba(222,144,126,.12);
+  --green:#8DBBA0;
+  --green-soft:rgba(141,187,160,.12);
+
+  --rail:#080C0F;
+  --rail-ink:#E8E7DF;
+  --rail-muted:#849097;
+
+  --btn-bg:#E8E7DF;
+  --btn-fg:#10171B;
+
+  --shadow-sm:0 1px 0 rgba(255,255,255,.03);
+  --shadow-md:0 1px 0 rgba(255,255,255,.03), 0 16px 40px -24px rgba(0,0,0,.9);
+}
+
+/* ---------- base ---------- */
+*,*::before,*::after{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;
+  font-family:var(--font-sans);
+  font-size:14px;
+  line-height:1.5;
+  color:var(--ink);
+  background:var(--paper);
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
+  overflow:hidden;
+}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+a{color:inherit;text-decoration:none}
+ul,ol,dl,dd{margin:0;padding:0;list-style:none}
+h1,h2,h3,h4,p{margin:0}
+svg{display:block}
+:focus-visible{outline:2px solid var(--prussian);outline-offset:2px;border-radius:3px}
+::selection{background:var(--amber-soft);color:var(--ink)}
+
+*{scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{
+  background:var(--line);
+  border:3px solid transparent;
+  background-clip:content-box;
+  border-radius:99px;
+}
+::-webkit-scrollbar-thumb:hover{background-color:var(--ink-3)}
+
+.ic{
+  width:18px;height:18px;flex:none;
+  fill:none;stroke:currentColor;stroke-width:1.6;
+  stroke-linecap:round;stroke-linejoin:round;
+}
+.mono{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+.sr-only{
+  position:absolute;width:1px;height:1px;padding:0;margin:-1px;
+  overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0;
+}
+
+/* ---------- app shell ---------- */
+.app{
+  display:grid;
+  grid-template-columns:var(--nav-w) var(--sessions-w) minmax(0,1fr) var(--trace-w);
+  height:100dvh;
+  min-height:0;
+  transition:grid-template-columns .22s ease;
+}
+.app.trace-collapsed{grid-template-columns:var(--nav-w) var(--sessions-w) minmax(0,1fr) 0px}
+.app.trace-collapsed .trace{opacity:0;pointer-events:none;overflow:hidden}
+
+/* ============================================================
+   RAIL — the dark spine
+   ============================================================ */
+.rail{
+  display:flex;flex-direction:column;align-items:center;
+  background:var(--rail);
+  color:var(--rail-ink);
+  padding:14px 0 16px;
+  min-height:0;
+  z-index:20;
+}
+.brand{
+  display:grid;place-items:center;
+  width:40px;height:40px;
+  border-radius:8px;
+  color:var(--rail-ink);
+}
+.brand:hover{background:rgba(255,255,255,.06)}
+.brand-mark{width:26px;height:26px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.brand-mark .hot{fill:var(--amber);stroke:none}
+
+.rail-nav{
+  display:flex;flex-direction:column;align-items:center;gap:4px;
+  margin-top:20px;
+  width:100%;
+}
+.rail-item{
+  position:relative;
+  display:flex;flex-direction:column;align-items:center;gap:5px;
+  width:56px;
+  padding:9px 0 8px;
+  border-radius:7px;
+  color:var(--rail-muted);
+  font-size:10.5px;
+  letter-spacing:.02em;
+  transition:color .15s, background .15s;
+}
+.rail-item .ic{width:20px;height:20px}
+.rail-item:hover{color:var(--rail-ink);background:rgba(255,255,255,.05)}
+.rail-item.is-active{color:var(--rail-ink);background:rgba(255,255,255,.07)}
+.rail-item.is-active::before{
+  content:"";position:absolute;left:-6px;top:12px;bottom:12px;
+  width:2px;border-radius:2px;background:var(--amber);
+}
+.rail-foot{
+  margin-top:auto;
+  display:flex;flex-direction:column;align-items:center;gap:10px;
+  padding-top:14px;
+  border-top:1px solid var(--rail-line);
+  width:36px;
+}
+.rail-icon{
+  display:grid;place-items:center;
+  width:34px;height:34px;border-radius:7px;
+  color:var(--rail-muted);
+  transition:color .15s, background .15s;
+}
+.rail-icon:hover{color:var(--rail-ink);background:rgba(255,255,255,.06)}
+.rail-icon .ic{width:17px;height:17px}
+html[data-theme="dark"] .ic-sun{display:block}
+html[data-theme="dark"] .ic-moon{display:none}
+.ic-sun{display:none}
+.ic-moon{display:block}
+.avatar{
+  display:grid;place-items:center;
+  width:30px;height:30px;border-radius:50%;
+  background:var(--amber);
+  color:#191307;
+  font-family:var(--font-mono);
+  font-size:11px;font-weight:700;
+  letter-spacing:.02em;
+}
+.rail-version{
+  font-family:var(--font-mono);
+  font-size:9.5px;
+  color:var(--rail-muted);
+  letter-spacing:.04em;
+}
+
+/* ============================================================
+   SESSIONS COLUMN
+   ============================================================ */
+.sessions{
+  display:flex;flex-direction:column;min-height:0;
+  background:var(--paper-2);
+  border-right:1px solid var(--line);
+}
+.sessions-head{
+  display:flex;align-items:center;justify-content:space-between;gap:8px;
+  padding:18px 16px 12px;
+}
+.sessions-title{font-size:17px;font-weight:650;letter-spacing:-.01em}
+.btn-new{
+  display:inline-flex;align-items:center;gap:5px;
+  height:30px;padding:0 10px;
+  border:1px solid var(--line);
+  border-radius:6px;
+  background:var(--surface);
+  color:var(--ink);
+  font-size:12px;font-weight:500;
+  box-shadow:var(--shadow-sm);
+  transition:border-color .15s, background .15s;
+}
+.btn-new:hover{border-color:var(--ink-3);background:var(--surface)}
+.btn-new .ic{width:14px;height:14px}
+
+.search{
+  position:relative;
+  display:block;
+  margin:0 16px 12px;
+}
+.search .ic{
+  position:absolute;left:10px;top:50%;transform:translateY(-50%);
+  width:15px;height:15px;color:var(--ink-3);
+}
+.search input{
+  width:100%;height:34px;
+  padding:0 10px 0 32px;
+  border:1px solid transparent;
+  border-radius:6px;
+  background:var(--surface-2);
+  color:var(--ink);
+  font:inherit;font-size:12.5px;
+  outline:none;
+  transition:border-color .15s, background .15s;
+}
+.search input::placeholder{color:var(--ink-3)}
+.search input:focus{border-color:var(--line);background:var(--surface)}
+
+.session-scroll{flex:1;overflow-y:auto;padding:0 8px 12px;min-height:0}
+.session-group{padding-top:10px}
+.group-label{
+  padding:0 10px 6px;
+  font-size:11px;font-weight:500;
+  color:var(--ink-3);
+  letter-spacing:.03em;
+}
+.session{
+  display:block;width:100%;text-align:left;
+  padding:9px 10px 9px 12px;
+  border-radius:6px;
+  border-left:2px solid transparent;
+  transition:background .12s;
+}
+.session:hover{background:rgba(20,27,32,.045)}
+html[data-theme="dark"] .session:hover{background:rgba(255,255,255,.04)}
+.session.is-active{background:var(--surface);border-left-color:var(--ink);box-shadow:var(--shadow-sm)}
+.session-title{
+  display:block;
+  font-size:13px;font-weight:550;letter-spacing:-.005em;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.session.is-active .session-title{font-weight:650}
+.session-meta{
+  display:flex;align-items:center;gap:6px;
+  margin-top:4px;
+  font-size:11px;color:var(--ink-3);
+}
+.session-meta .dot{width:5px;height:5px}
+.session-meta .sep{opacity:.5}
+
+.dot{
+  display:inline-block;flex:none;
+  width:6px;height:6px;border-radius:50%;
+  background:var(--ink-3);
+}
+.dot.is-live{background:var(--amber);box-shadow:0 0 0 3px var(--amber-soft);animation:pulse 2.4s ease-in-out infinite}
+.dot.is-ok{background:var(--green)}
+.dot.is-warn{background:var(--red)}
+
+.sessions-foot{
+  flex:none;
+  display:flex;align-items:center;justify-content:space-between;gap:8px;
+  padding:10px 16px;
+  border-top:1px solid var(--line);
+  font-size:11px;color:var(--ink-3);
+}
+.conn{display:flex;align-items:center;gap:7px}
+.sessions-foot .mono{font-size:10px;letter-spacing:.02em}
+
+/* ============================================================
+   CHAT COLUMN
+   ============================================================ */
+.chat{
+  display:flex;flex-direction:column;
+  min-width:0;min-height:0;
+  background:var(--paper);
+  position:relative;
+}
+.chat-head{
+  flex:none;
+  display:flex;align-items:center;justify-content:space-between;gap:20px;
+  min-height:68px;
+  padding:0 32px;
+  border-bottom:1px solid var(--line);
+  background:var(--paper);
+}
+.chat-heading{min-width:0}
+.chat-title{
+  font-size:17px;font-weight:650;letter-spacing:-.012em;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.chat-sub{
+  display:flex;align-items:center;gap:8px;
+  margin-top:3px;
+  font-size:11.5px;color:var(--ink-3);
+  white-space:nowrap;overflow:hidden;
+}
+.chat-sub .mono{font-size:10.5px;color:var(--ink-3)}
+.chat-sub .sep{opacity:.45}
+.chat-actions{display:flex;align-items:center;gap:8px;flex:none}
+
+.status-chip{
+  display:inline-flex;align-items:center;gap:6px;
+  height:26px;padding:0 9px;
+  border:1px solid var(--line);
+  border-radius:5px;
+  background:var(--surface);
+  color:var(--ink-2);
+  font-size:11.5px;font-weight:500;
+  white-space:nowrap;
+}
+.status-chip .dot{width:5px;height:5px}
+.status-chip.is-live{border-color:var(--amber-soft);background:var(--amber-soft);color:var(--amber-text)}
+.status-chip.is-warn{border-color:var(--red-soft);background:var(--red-soft);color:var(--red)}
+.status-chip.is-ok{border-color:var(--green-soft);background:var(--green-soft);color:var(--green)}
+
+.icon-btn{
+  display:grid;place-items:center;
+  width:30px;height:30px;
+  border:1px solid var(--line);
+  border-radius:5px;
+  background:var(--surface);
+  color:var(--ink-2);
+  transition:color .15s,border-color .15s;
+}
+.icon-btn:hover{color:var(--ink);border-color:var(--ink-3)}
+.icon-btn .ic{width:16px;height:16px}
+
+.stream{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden}
+.stream-inner{
+  max-width:812px;
+  margin:0 auto;
+  padding:30px 36px 16px;
+}
+
+/* ---------- timeline bus ---------- */
+.thread{position:relative;padding-bottom:6px}
+.thread::before{
+  content:"";
+  position:absolute;left:21px;top:9px;bottom:6px;
+  width:1px;
+  background:var(--line);
+  -webkit-mask-image:linear-gradient(to bottom,#000 calc(100% - 56px),transparent);
+  mask-image:linear-gradient(to bottom,#000 calc(100% - 56px),transparent);
+}
+.entry{position:relative;padding-left:52px;margin-bottom:26px}
+.entry-tool{margin-bottom:14px}
+.entry:last-child{margin-bottom:8px}
+.node{
+  position:absolute;left:17.5px;top:5px;
+  width:8px;height:8px;
+  background:var(--paper);
+  border:1.5px solid var(--ink-2);
+  border-radius:50%;
+  z-index:1;
+}
+.entry-user .node{background:var(--ink);border-color:var(--ink)}
+.entry-tool .node{
+  border-radius:1.5px;border-color:var(--amber);background:var(--surface);
+}
+.entry-a2a .node{
+  border-radius:1px;border-color:var(--prussian);
+  transform:rotate(45deg);background:var(--prussian-soft);
+}
+.entry-approval .node{border-color:var(--red);background:var(--red-soft)}
+
+.entry-head{
+  display:flex;align-items:baseline;gap:9px;
+  min-height:18px;
+  margin-bottom:7px;
+}
+.who{font-size:12.5px;font-weight:650;letter-spacing:-.005em}
+.who-sub{font-size:11px;color:var(--ink-3)}
+.entry-head time{
+  font-family:var(--font-mono);
+  font-size:10.5px;color:var(--ink-3);
+  letter-spacing:.01em;
+}
+.entry-head .spacer{flex:1}
+.copy-btn{
+  display:inline-flex;align-items:center;gap:4px;
+  font-size:11px;color:var(--ink-3);
+  opacity:0;transition:opacity .15s,color .15s;
+}
+.entry:hover .copy-btn,.copy-btn:focus-visible{opacity:1}
+.copy-btn:hover{color:var(--ink)}
+.copy-btn .ic{width:13px;height:13px}
+
+/* user message */
+.prompt-bubble{
+  display:inline-block;
+  max-width:100%;
+  padding:12px 16px;
+  border:1px solid var(--line-2);
+  border-radius:7px;
+  background:var(--surface-2);
+  font-size:14.5px;line-height:1.7;
+  color:var(--ink);
+}
+.attachments{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.attach{
+  display:inline-flex;align-items:center;gap:7px;
+  height:28px;padding:0 10px;
+  border:1px solid var(--line);
+  border-radius:5px;
+  background:var(--surface);
+  font-size:11.5px;color:var(--ink-2);
+}
+.attach .ic{width:14px;height:14px;color:var(--ink-3)}
+.attach .mono{font-size:10.5px;color:var(--ink-3)}
+
+/* assistant prose */
+.prose{font-size:14.5px;line-height:1.78;color:var(--ink)}
+.prose > * + *{margin-top:13px}
+.prose h3{
+  font-size:19px;font-weight:650;letter-spacing:-.018em;line-height:1.35;
+  margin-top:2px;
+}
+.prose h4{
+  font-size:13.5px;font-weight:650;letter-spacing:.005em;
+  color:var(--ink);
+  margin-top:22px;
+}
+.prose strong{font-weight:650}
+.prose p{max-width:68ch}
+.prose .cite{
+  display:inline-grid;place-items:center;
+  min-width:14px;height:14px;
+  margin-left:2px;padding:0 3px;
+  border-radius:3px;
+  background:var(--prussian-soft);
+  color:var(--prussian);
+  font-family:var(--font-mono);
+  font-size:9px;font-weight:600;
+  vertical-align:2px;
+  line-height:1;
+}
+.prose .typing{
+  color:var(--ink-3);
+  letter-spacing:.18em;
+  animation:pulse 1.4s ease-in-out infinite;
+}
+.prose blockquote{
+  margin:18px 0 0;
+  padding:2px 0 2px 14px;
+  border-left:2px solid var(--line);
+  color:var(--ink-2);
+  font-size:13px;line-height:1.75;
+}
+.prose ul{max-width:66ch;padding-left:0}
+.prose ul li{
+  position:relative;
+  padding-left:16px;
+  margin-top:7px;
+}
+.prose ul li::before{
+  content:"";
+  position:absolute;left:2px;top:.72em;
+  width:4px;height:1px;
+  background:var(--ink-3);
+}
+.prose code{
+  font-family:var(--font-mono);
+  font-size:.9em;
+  padding:1px 4px;
+  border-radius:3px;
+  background:var(--surface-2);
+  border:1px solid var(--line-2);
+}
+
+/* data table */
+.table-wrap{
+  margin-top:16px;
+  overflow-x:auto;
+  overscroll-behavior-x:contain;
+}
+.data-table{
+  width:100%;
+  min-width:460px;
+  border-collapse:collapse;
+  font-size:13px;
+  font-variant-numeric:tabular-nums;
+}
+.data-table caption{
+  text-align:left;
+  font-size:11px;color:var(--ink-3);
+  padding-bottom:7px;
+}
+.data-table th{
+  text-align:left;
+  padding:7px 8px;
+  font-size:11px;font-weight:500;
+  color:var(--ink-3);
+  letter-spacing:.02em;
+  border-bottom:1px solid var(--line);
+  white-space:nowrap;
+}
+.data-table th.num,.data-table td.num{text-align:right}
+.data-table td{
+  padding:9px 8px;
+  border-bottom:1px solid var(--line-2);
+  color:var(--ink-2);
+}
+.data-table td:first-child{color:var(--ink);font-weight:500}
+.data-table tr:last-child td{border-bottom:1px solid var(--line)}
+.data-table .delta-up{color:var(--red)}
+.data-table .delta-down{color:var(--green)}
+
+/* ---------- tool card ---------- */
+.tool-card{
+  border:1px solid var(--line-2);
+  border-radius:6px;
+  background:var(--surface);
+  box-shadow:var(--shadow-sm);
+  overflow:hidden;
+}
+.tool-card summary{
+  display:flex;align-items:center;gap:10px;
+  padding:9px 12px;
+  cursor:pointer;
+  list-style:none;
+  user-select:none;
+}
+.tool-card summary::-webkit-details-marker{display:none}
+.tool-card summary:hover{background:var(--surface-2)}
+.tool-name{
+  font-family:var(--font-mono);
+  font-size:12px;font-weight:500;
+  color:var(--ink);
+  white-space:nowrap;
+}
+.tool-args{
+  font-family:var(--font-mono);
+  font-size:11.5px;color:var(--ink-3);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  flex:1;min-width:0;
+}
+.tool-result{
+  display:inline-flex;align-items:center;gap:4px;
+  font-size:11px;font-weight:500;color:var(--green);
+  white-space:nowrap;
+}
+.tool-result .ic{width:12px;height:12px;stroke-width:2}
+.tool-time{
+  font-family:var(--font-mono);
+  font-size:10.5px;color:var(--ink-3);
+  white-space:nowrap;
+}
+.chev{width:14px;height:14px;color:var(--ink-3);transition:transform .18s}
+.tool-card[open] .chev{transform:rotate(180deg)}
+.tool-body{
+  border-top:1px solid var(--line-2);
+  padding:9px 12px 11px;
+  background:var(--surface-2);
+}
+.hit{
+  display:flex;align-items:baseline;gap:8px;
+  padding:5px 0;
+  font-size:12px;
+  border-bottom:1px dashed var(--line-2);
+}
+.hit:last-child{border-bottom:0}
+.hit-title{color:var(--ink);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hit-score{font-family:var(--font-mono);font-size:10.5px;color:var(--prussian)}
+.hit-date{font-family:var(--font-mono);font-size:10px;color:var(--ink-3)}
+.tool-note{
+  margin-top:7px;
+  font-family:var(--font-mono);
+  font-size:10px;color:var(--ink-3);
+}
+
+/* ---------- A2A task card ---------- */
+.a2a-card{
+  border:1px solid var(--line);
+  border-left:3px solid var(--amber);
+  border-radius:6px;
+  background:var(--surface);
+  box-shadow:var(--shadow-sm);
+  overflow:hidden;
+}
+.a2a-top{display:flex;align-items:flex-start;gap:11px;padding:13px 15px 11px}
+.agent-badge{
+  display:grid;place-items:center;flex:none;
+  width:28px;height:28px;
+  border:1px solid var(--line);
+  border-radius:5px;
+  background:var(--surface-2);
+  font-family:var(--font-mono);
+  font-size:11px;font-weight:700;
+  color:var(--prussian);
+}
+.a2a-ident{flex:1;min-width:0}
+.a2a-name{
+  display:flex;align-items:center;gap:8px;
+  font-size:13px;font-weight:650;letter-spacing:-.005em;
+}
+.tag{
+  display:inline-flex;align-items:center;
+  height:17px;padding:0 5px;
+  border:1px solid var(--line);
+  border-radius:3px;
+  font-family:var(--font-mono);
+  font-size:9.5px;font-weight:400;
+  color:var(--ink-3);
+  white-space:nowrap;
+}
+.a2a-task{margin-top:3px;font-size:12px;color:var(--ink-2)}
+.a2a-status{
+  display:inline-flex;align-items:center;gap:6px;
+  font-size:11.5px;font-weight:500;color:var(--amber-text);
+  white-space:nowrap;
+}
+.progress{
+  height:3px;
+  margin:0 15px;
+  border-radius:99px;
+  background:var(--line-2);
+  overflow:hidden;
+}
+.progress span{
+  display:block;height:100%;
+  border-radius:99px;
+  background:var(--amber);
+  transition:width .4s ease;
+}
+.steps{
+  display:flex;flex-wrap:wrap;align-items:center;
+  gap:0 6px;
+  padding:10px 15px 9px;
+  font-size:11px;color:var(--ink-3);
+}
+.steps .step{display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+.steps .step .ic{width:11px;height:11px;stroke-width:2.2}
+.steps .step.is-done{color:var(--ink-2)}
+.steps .step.is-now{color:var(--amber-text);font-weight:500}
+.steps .step.is-now .dot{width:4px;height:4px;background:var(--amber)}
+.steps .arrow{width:11px;height:11px;color:var(--line);stroke-width:2}
+.a2a-foot{
+  display:flex;align-items:center;gap:10px;
+  padding:8px 15px;
+  border-top:1px solid var(--line-2);
+  background:var(--surface-2);
+  font-family:var(--font-mono);
+  font-size:10px;color:var(--ink-3);
+}
+.a2a-foot .spacer{flex:1}
+.btn-ghost{
+  display:inline-flex;align-items:center;gap:5px;
+  height:24px;padding:0 8px;
+  border:1px solid var(--line);
+  border-radius:4px;
+  background:var(--surface);
+  font-family:var(--font-sans);
+  font-size:11px;color:var(--ink-2);
+  transition:color .15s,border-color .15s;
+}
+.btn-ghost:hover{color:var(--ink);border-color:var(--ink-3)}
+.btn-ghost .ic{width:12px;height:12px}
+
+/* ---------- approval card ---------- */
+.approval-card{
+  border:1px solid var(--line);
+  border-left:3px solid var(--red);
+  border-radius:6px;
+  background:var(--surface);
+  box-shadow:var(--shadow-sm);
+  overflow:hidden;
+}
+.approval-head{
+  display:flex;align-items:center;gap:8px;
+  padding:13px 15px 0;
+}
+.approval-head .ic{width:15px;height:15px;color:var(--red)}
+.approval-title{font-size:13px;font-weight:650;letter-spacing:-.005em}
+.approval-head .status-chip{margin-left:auto;height:22px;font-size:10.5px;padding:0 7px}
+.approval-body{padding:8px 15px 14px}
+.approval-action{font-size:13.5px;line-height:1.6;color:var(--ink)}
+.approval-action b{font-weight:650}
+.risk-list{
+  display:grid;grid-template-columns:auto 1fr;
+  gap:3px 12px;
+  margin-top:11px;
+  font-size:11.5px;
+}
+.risk-list dt{color:var(--ink-3)}
+.risk-list dd{color:var(--ink-2)}
+.approval-actions{
+  display:flex;align-items:center;gap:8px;
+  padding:10px 15px;
+  border-top:1px solid var(--line-2);
+  background:var(--surface-2);
+}
+.approval-actions .spacer{flex:1}
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  height:31px;padding:0 13px;
+  border-radius:5px;
+  font-size:12.5px;font-weight:550;
+  transition:background .15s,color .15s,border-color .15s;
+  white-space:nowrap;
+}
+.btn .ic{width:14px;height:14px}
+.btn-primary{background:var(--btn-bg);color:var(--btn-fg);border:1px solid var(--btn-bg)}
+.btn-primary:hover{background:var(--prussian);border-color:var(--prussian);color:#FBFAF5}
+html[data-theme="dark"] .btn-primary:hover{background:var(--amber);border-color:var(--amber);color:#141B20}
+.btn-outline{background:transparent;color:var(--ink-2);border:1px solid var(--line)}
+.btn-outline:hover{color:var(--ink);border-color:var(--ink-3)}
+.btn[disabled]{opacity:.42;cursor:not-allowed}
+.approval-card.is-resolved .approval-actions{display:none}
+.approval-card.is-resolved{border-left-color:var(--green)}
+.approval-card.is-resolved .approval-head .ic{color:var(--green)}
+.resolved-note{
+  display:none;
+  align-items:center;gap:7px;
+  padding:10px 15px;
+  border-top:1px solid var(--line-2);
+  background:var(--green-soft);
+  font-size:11.5px;color:var(--green);
+}
+.approval-card.is-resolved .resolved-note{display:flex}
+.resolved-note .ic{width:14px;height:14px}
+
+/* thread footer */
+.thread-foot{
+  display:flex;align-items:center;gap:8px;
+  margin-left:52px;
+  padding-top:2px;
+  font-size:11px;color:var(--ink-3);
+}
+.thread-foot .mono{font-size:10px}
+.thread-foot::before{
+  content:"";
+  width:18px;height:1px;background:var(--line);
+}
+
+/* ---------- composer ---------- */
+.composer-wrap{
+  flex:none;
+  padding:10px 32px 14px;
+  background:var(--paper);
+}
+.composer-inner{max-width:812px;margin:0 auto}
+.composer{
+  border:1px solid var(--line);
+  border-radius:9px;
+  background:var(--surface);
+  box-shadow:var(--shadow-md);
+  transition:border-color .15s;
+}
+.composer:focus-within{border-color:var(--ink-3)}
+.composer textarea{
+  display:block;width:100%;
+  min-height:48px;max-height:168px;
+  padding:13px 15px 4px;
+  border:0;outline:none;resize:none;
+  background:transparent;
+  color:var(--ink);
+  font:inherit;font-size:14px;line-height:1.65;
+}
+.composer textarea::placeholder{color:var(--ink-3)}
+.composer-bar{
+  display:flex;align-items:center;gap:6px;
+  padding:5px 8px 7px 9px;
+}
+.composer-tool{
+  display:inline-flex;align-items:center;gap:5px;
+  height:27px;padding:0 8px;
+  border-radius:4px;
+  color:var(--ink-3);
+  font-size:11.5px;
+  transition:background .15s,color .15s;
+}
+.composer-tool:hover{background:var(--surface-2);color:var(--ink)}
+.composer-tool .ic{width:14px;height:14px}
+.model-chip{
+  display:inline-flex;align-items:center;gap:5px;
+  height:23px;padding:0 7px;
+  margin-left:2px;
+  border:1px solid var(--line-2);
+  border-radius:4px;
+  font-family:var(--font-mono);
+  font-size:10px;color:var(--ink-3);
+  white-space:nowrap;
+}
+.model-chip .dot{width:4px;height:4px;background:var(--green)}
+.composer-bar .spacer{flex:1}
+.send{
+  display:grid;place-items:center;
+  width:32px;height:32px;
+  border-radius:6px;
+  background:var(--btn-bg);
+  color:var(--btn-fg);
+  transition:opacity .15s,background .15s;
+}
+.send:hover{background:var(--prussian)}
+html[data-theme="dark"] .send:hover{background:var(--amber);color:#141B20}
+.send .ic{width:16px;height:16px;stroke-width:2}
+.send.is-disabled{opacity:.35;cursor:not-allowed}
+.composer-hint{
+  display:flex;align-items:center;gap:6px;flex-wrap:wrap;
+  margin-top:7px;
+  padding:0 3px;
+  font-size:10.5px;color:var(--ink-3);
+}
+.composer-hint .spacer{flex:1}
+kbd{
+  display:inline-block;
+  padding:1px 4px;
+  border:1px solid var(--line);
+  border-bottom-width:2px;
+  border-radius:3px;
+  background:var(--surface);
+  font-family:var(--font-mono);
+  font-size:9.5px;
+  color:var(--ink-2);
+  line-height:1.4;
+}
+
+/* ============================================================
+   TRACE PANEL
+   ============================================================ */
+.trace{
+  display:flex;flex-direction:column;min-height:0;
+  background:var(--surface);
+  border-left:1px solid var(--line);
+  transition:opacity .18s;
+}
+.trace-head{
+  flex:none;
+  display:flex;align-items:center;justify-content:space-between;
+  min-height:68px;
+  padding:0 18px;
+  border-bottom:1px solid var(--line);
+}
+.trace-title{display:flex;align-items:baseline;gap:7px}
+.trace-title h2{font-size:13px;font-weight:650;letter-spacing:-.005em}
+.trace-title span{font-size:10.5px;color:var(--ink-3)}
+.trace-scroll{flex:1;overflow-y:auto;min-height:0;padding:16px 18px 24px}
+
+.run-line{display:flex;align-items:center;gap:8px;font-size:12px}
+.run-line strong{font-weight:600;color:var(--ink)}
+.run-line .mono{margin-left:auto;font-size:10px;color:var(--ink-3)}
+.run-line .dot{width:6px;height:6px}
+
+.metrics{
+  display:grid;grid-template-columns:1fr 1fr;
+  gap:0 16px;
+  margin-top:12px;
+  border-top:1px solid var(--line-2);
+}
+.metric{padding:10px 0 9px;border-bottom:1px solid var(--line-2)}
+.metric dt{font-size:10.5px;color:var(--ink-3)}
+.metric dd{margin-top:2px;font-family:var(--font-mono);font-size:13px;font-weight:500;color:var(--ink)}
+.metric dd small{font-family:var(--font-sans);font-size:10px;font-weight:400;color:var(--ink-3);margin-left:2px}
+
+.trace-section{margin-top:22px}
+.trace-section-head{
+  display:flex;align-items:center;gap:6px;
+  margin-bottom:10px;
+}
+.trace-section-head h3{font-size:11.5px;font-weight:600;color:var(--ink-2);letter-spacing:.01em}
+.trace-section-head .count{
+  display:inline-grid;place-items:center;
+  min-width:16px;height:16px;padding:0 4px;
+  border-radius:3px;
+  background:var(--surface-2);
+  font-family:var(--font-mono);font-size:9.5px;color:var(--ink-3);
+}
+.trace-section-head .spacer{flex:1}
+
+/* execution track */
+.track{position:relative;padding-left:22px}
+.track::before{
+  content:"";position:absolute;left:6px;top:6px;bottom:10px;
+  width:1px;background:var(--line-2);
+}
+.track li{position:relative;padding-bottom:14px}
+.track li:last-child{padding-bottom:0}
+.track .marker{
+  position:absolute;left:-22px;top:1px;
+  display:grid;place-items:center;
+  width:13px;height:13px;
+  border-radius:50%;
+  background:var(--surface);
+  border:1px solid var(--line);
+}
+.track .marker .ic{width:9px;height:9px;stroke-width:2.4;color:var(--green)}
+.track .is-now .marker{border-color:var(--amber);background:var(--amber-soft)}
+.track .is-now .marker::after{content:"";width:4px;height:4px;border-radius:50%;background:var(--amber);animation:pulse 2.4s ease-in-out infinite}
+.track .is-wait .marker{border-style:dashed}
+.track .is-wait .marker::after{content:"";width:3px;height:1px;background:var(--ink-3)}
+.track .label{display:flex;align-items:baseline;gap:7px;font-size:12px;color:var(--ink-2)}
+.track .is-now .label{color:var(--ink);font-weight:550}
+.track .label .mono{font-size:9.5px;color:var(--ink-3);margin-left:auto;font-weight:400}
+.track .sub{margin-top:2px;font-family:var(--font-mono);font-size:9.5px;color:var(--ink-3)}
+
+/* citations */
+.cite-list li{
+  padding:9px 0;
+  border-bottom:1px solid var(--line-2);
+}
+.cite-list li:last-child{border-bottom:0}
+.cite-top{display:flex;align-items:baseline;gap:8px}
+.cite-name{flex:1;min-width:0;font-size:12px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cite-score{font-family:var(--font-mono);font-size:10px;color:var(--prussian)}
+.cite-src{margin-top:2px;font-size:10px;color:var(--ink-3)}
+
+/* agents */
+.agent-row{display:flex;align-items:center;gap:9px;padding:8px 0;border-bottom:1px solid var(--line-2)}
+.agent-row:last-child{border-bottom:0}
+.agent-ident{flex:1;min-width:0}
+.agent-name{font-size:12px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.agent-name .mono{font-size:9.5px;color:var(--ink-3)}
+.agent-kind{margin-top:1px;font-size:10px;color:var(--ink-3)}
+.agent-state{display:inline-flex;align-items:center;gap:5px;font-size:10.5px;color:var(--ink-2);white-space:nowrap}
+.agent-state .dot{width:5px;height:5px}
+
+.trace-foot{
+  margin-top:18px;padding-top:12px;
+  border-top:1px solid var(--line-2);
+}
+.text-link{
+  display:inline-flex;align-items:center;gap:5px;
+  font-size:11px;color:var(--ink-2);
+}
+.text-link:hover{color:var(--ink);text-decoration:underline;text-underline-offset:3px}
+.text-link .ic{width:12px;height:12px}
+
+/* ---------- toast ---------- */
+.toast{
+  position:fixed;
+  left:50%;bottom:28px;
+  z-index:100;
+  transform:translate(-50%,10px);
+  display:flex;align-items:center;gap:8px;
+  max-width:min(420px, calc(100vw - 32px));
+  padding:9px 13px;
+  border-radius:6px;
+  background:var(--ink);
+  color:var(--paper);
+  font-size:12px;
+  box-shadow:0 8px 24px -8px rgba(0,0,0,.4);
+  opacity:0;pointer-events:none;
+  transition:opacity .18s, transform .18s;
+}
+html[data-theme="dark"] .toast{background:var(--surface);border:1px solid var(--line);color:var(--ink)}
+.toast.is-visible{opacity:1;transform:translate(-50%,0)}
+.toast .ic{width:14px;height:14px;color:var(--green)}
+
+@keyframes pulse{
+  0%,100%{opacity:1}
+  50%{opacity:.4}
+}
+
+/* ---------- responsive ---------- */
+@media (max-width:1280px){
+  :root{--sessions-w:264px;--trace-w:304px}
+  .stream-inner{padding:26px 28px 14px}
+  .composer-wrap{padding:8px 24px 12px}
+  .chat-head{padding:0 24px}
+}
+
+@media (max-width:1180px){
+  .app{grid-template-columns:var(--nav-w) var(--sessions-w) minmax(0,1fr)}
+  .trace{
+    position:fixed;right:0;top:0;bottom:0;
+    z-index:60;
+    width:var(--trace-w);
+    box-shadow:-24px 0 48px -32px rgba(0,0,0,.4);
+    transform:translateX(101%);
+    transition:transform .22s ease;
+  }
+  .app.trace-open .trace{transform:translateX(0)}
+  .app.trace-collapsed{grid-template-columns:var(--nav-w) var(--sessions-w) minmax(0,1fr)}
+  .app.trace-collapsed .trace{opacity:1;pointer-events:auto}
+}
+
+@media (max-width:900px){
+  .app{grid-template-columns:var(--nav-w) minmax(0,1fr)}
+  .sessions{display:none}
+  .stream-inner{padding:22px 20px 12px}
+  .composer-wrap{padding:8px 16px 12px}
+  .chat-head{padding:0 16px}
+}
+
+@media (max-width:760px){
+  .app{grid-template-columns:1fr;height:100dvh}
+  .rail{
+    position:fixed;left:0;right:0;bottom:0;
+    flex-direction:row;
+    width:auto;height:58px;
+    padding:0 6px;
+    border-top:1px solid var(--rail-line);
+    z-index:70;
+  }
+  .brand,.rail-foot{display:none}
+  .rail-nav{
+    flex-direction:row;justify-content:space-around;align-items:stretch;
+    margin:0;width:100%;gap:0;
+  }
+  .rail-item{width:auto;flex:1;justify-content:center;padding:6px 0 5px;gap:3px;border-radius:0}
+  .rail-item .ic{width:19px;height:19px}
+  .rail-item.is-active{background:transparent;color:var(--amber)}
+  .rail-item.is-active::before{left:50%;top:0;bottom:auto;transform:translateX(-50%);width:20px;height:2px}
+  .chat{padding-bottom:58px}
+  .chat-head{min-height:60px}
+  .chat-sub .sep,.chat-sub .mono{display:none}
+  .chat-actions .status-chip{display:none}
+  .stream-inner{padding:18px 14px 10px}
+  .entry{padding-left:38px}
+  .thread::before{left:15px}
+  .node{left:11.5px}
+  .thread-foot{margin-left:38px}
+  .composer-wrap{padding:6px 10px 10px}
+  .composer-hint{display:none}
+  .trace{width:min(340px,88vw)}
+  .tool-args{display:none}
+  .data-table{font-size:12px}
+  .prose h3{font-size:17px}
+}
+
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.001ms !important;animation-iteration-count:1 !important;transition-duration:.001ms !important}
+}
+</style>
+</head>
+<body>
+
+<!-- inline icon sprite -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <symbol id="i-chat" viewBox="0 0 24 24"><path d="M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v8a2.5 2.5 0 0 1-2.5 2.5H9l-5 3.5V6.5Z"/></symbol>
+    <symbol id="i-stack" viewBox="0 0 24 24"><rect x="9" y="4" width="11" height="11" rx="1.5"/><path d="M15 15v3a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h3"/></symbol>
+    <symbol id="i-bot" viewBox="0 0 24 24"><rect x="4" y="7" width="16" height="12" rx="3"/><path d="M12 3v4M8 12h.01M16 12h.01M9 16h6"/></symbol>
+    <symbol id="i-flow" viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/><path d="M10.5 7h3a3 3 0 0 1 3 3v3.5"/></symbol>
+    <symbol id="i-db" viewBox="0 0 24 24"><ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v6c0 1.7 3.1 3 7 3s7-1.3 7-3V6M5 12v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6"/></symbol>
+    <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 7h9M18 7h2M4 17h3M12 17h8"/><circle cx="15.5" cy="7" r="2"/><circle cx="9.5" cy="17" r="2"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M16 16l4 4"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-chevron" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
+    <symbol id="i-panel" viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M15 4.5v15"/></symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4 7 7 0 1 0 20 14.5Z"/></symbol>
+    <symbol id="i-clip" viewBox="0 0 24 24"><path d="M20 11.5l-7.8 7.8a5 5 0 0 1-7-7l8.5-8.5a3.3 3.3 0 0 1 4.7 4.7l-8.5 8.5a1.7 1.7 0 0 1-2.4-2.4l7.8-7.8"/></symbol>
+    <symbol id="i-at" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M16 12v1.5a2.5 2.5 0 0 0 5 0V12a9 9 0 1 0-3.6 7.1"/></symbol>
+    <symbol id="i-up" viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12l5 5L19 7"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3l7 3v6c0 4.4-3 7.5-7 9-4-1.5-7-4.6-7-9V6l7-3Z"/></symbol>
+    <symbol id="i-stop" viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="1.5"/></symbol>
+    <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+    <symbol id="i-external" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></symbol>
+    <symbol id="i-archive" viewBox="0 0 24 24"><path d="M4 8h16v11a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V8Z"/><path d="M3 4h18v4H3zM10 12h4"/></symbol>
+  </defs>
+</svg>
+
+<div class="app" id="app">
+
+  <!-- ================= RAIL ================= -->
+  <nav class="rail" aria-label="主导航">
+    <a class="brand" href="#" aria-label="Agent Hub 首页">
+      <svg class="brand-mark" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M4.5 6.5h5.2a3.8 3.8 0 0 1 3.8 3.8v3.4a3.8 3.8 0 0 0 3.8 3.8h2.2"/>
+        <circle cx="4.5" cy="6.5" r="1.9"/>
+        <circle class="hot" cx="19.5" cy="17.5" r="2"/>
+      </svg>
+    </a>
+
+    <div class="rail-nav">
+      <button class="rail-item is-active" aria-current="page" title="对话">
+        <svg class="ic" aria-hidden="true"><use href="#i-chat"/></svg>
+        <span>对话</span>
+      </button>
+      <button class="rail-item" title="会话">
+        <svg class="ic" aria-hidden="true"><use href="#i-stack"/></svg>
+        <span>会话</span>
+      </button>
+      <button class="rail-item" title="智能体">
+        <svg class="ic" aria-hidden="true"><use href="#i-bot"/></svg>
+        <span>智能体</span>
+      </button>
+      <button class="rail-item" title="任务">
+        <svg class="ic" aria-hidden="true"><use href="#i-flow"/></svg>
+        <span>任务</span>
+      </button>
+      <button class="rail-item" title="知识库">
+        <svg class="ic" aria-hidden="true"><use href="#i-db"/></svg>
+        <span>知识库</span>
+      </button>
+      <button class="rail-item" title="设置">
+        <svg class="ic" aria-hidden="true"><use href="#i-sliders"/></svg>
+        <span>设置</span>
+      </button>
+    </div>
+
+    <div class="rail-foot">
+      <button class="rail-icon" id="themeToggle" aria-label="切换深浅主题" title="切换主题">
+        <svg class="ic ic-moon" aria-hidden="true"><use href="#i-moon"/></svg>
+        <svg class="ic ic-sun" aria-hidden="true"><use href="#i-sun"/></svg>
+      </button>
+      <button class="avatar" title="账号">AH</button>
+      <span class="rail-version">v0.1</span>
+    </div>
+  </nav>
+
+  <!-- ================= SESSIONS ================= -->
+  <aside class="sessions" aria-label="会话列表">
+    <div class="sessions-head">
+      <h2 class="sessions-title">会话</h2>
+      <button class="btn-new" id="newSession">
+        <svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg>
+        新建
+      </button>
+    </div>
+
+    <label class="search">
+      <svg class="ic" aria-hidden="true"><use href="#i-search"/></svg>
+      <input id="sessionSearch" type="search" placeholder="搜索会话" autocomplete="off" aria-label="搜索会话" />
+    </label>
+
+    <div class="session-scroll" id="sessionScroll">
+      <div class="session-group">
+        <div class="group-label">今天</div>
+        <button class="session is-active" aria-current="page">
+          <span class="session-title">Q3 客服工单周报</span>
+          <span class="session-meta">
+            <span class="dot is-live"></span>运行中<span class="sep">·</span>2 分钟前
+          </span>
+        </button>
+        <button class="session">
+          <span class="session-title">退款政策变更的影响面</span>
+          <span class="session-meta">14:20<span class="sep">·</span>37 条消息</span>
+        </button>
+        <button class="session">
+          <span class="session-title">把 release notes 翻成英文</span>
+          <span class="session-meta">11:05<span class="sep">·</span>12 条消息</span>
+        </button>
+      </div>
+
+      <div class="session-group">
+        <div class="group-label">昨天</div>
+        <button class="session">
+          <span class="session-title">审查：payment 模块重试逻辑</span>
+          <span class="session-meta">18:42<span class="sep">·</span>64 条消息</span>
+        </button>
+        <button class="session">
+          <span class="session-title">知识库检索质量排查</span>
+          <span class="session-meta">09:31<span class="sep">·</span>21 条消息</span>
+        </button>
+      </div>
+
+      <div class="session-group">
+        <div class="group-label">10 月</div>
+        <button class="session">
+          <span class="session-title">客服话术改写 · 第二版</span>
+          <span class="session-meta"><span class="dot"></span>已归档<span class="sep">·</span>10 月 29 日</span>
+        </button>
+        <button class="session">
+          <span class="session-title">A2A 智能体接入检查</span>
+          <span class="session-meta">10 月 26 日<span class="sep">·</span>18 条消息</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="sessions-foot">
+      <span class="conn"><span class="dot is-ok"></span>A2A 网关已连接</span>
+      <span class="mono">3 ONLINE</span>
+    </div>
+  </aside>
+
+  <!-- ================= CHAT ================= -->
+  <main class="chat">
+    <header class="chat-head">
+      <div class="chat-heading">
+        <h1 class="chat-title">Q3 客服工单周报</h1>
+        <div class="chat-sub">
+          <span>main-agent</span>
+          <span class="sep">/</span>
+          <span>知识库 3 段引用</span>
+          <span class="sep">/</span>
+          <span class="mono">run_8f3a2c</span>
+        </div>
+      </div>
+      <div class="chat-actions">
+        <span class="status-chip is-live"><span class="dot is-live"></span>运行中</span>
+        <button class="icon-btn" id="traceToggle" title="运行详情" aria-label="切换运行详情面板" aria-controls="trace" aria-expanded="true">
+          <svg class="ic" aria-hidden="true"><use href="#i-panel"/></svg>
+        </button>
+        <button class="icon-btn" title="更多操作" aria-label="更多操作" data-demo="更多操作（原型演示）">
+          <svg class="ic" aria-hidden="true"><use href="#i-sliders"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <div class="stream" id="stream">
+      <div class="stream-inner">
+        <ol class="thread" id="thread">
+
+          <!-- user -->
+          <li class="entry entry-user">
+            <span class="node" aria-hidden="true"></span>
+            <div class="entry-head">
+              <span class="who">你</span>
+              <span class="who-sub">通过 Web 工作台</span>
+              <span class="spacer"></span>
+              <time>22:41</time>
+            </div>
+            <div class="entry-body">
+              <p class="prompt-bubble">把本季度 128 条客服工单按问题类型归类，写一份给团队看的周报。数字要能追溯来源，写完让编辑智能体过一遍措辞，先别发出去。</p>
+              <div class="attachments">
+                <span class="attach">
+                  <svg class="ic" aria-hidden="true"><use href="#i-clip"/></svg>
+                  q3-support-tickets.csv
+                  <span class="mono">128 行 · 24 KB</span>
+                </span>
+              </div>
+            </div>
+          </li>
+
+          <!-- assistant intro -->
+          <li class="entry entry-assistant">
+            <span class="node" aria-hidden="true"></span>
+            <div class="entry-head">
+              <span class="who">main-agent</span>
+              <span class="who-sub">调度员</span>
+              <span class="spacer"></span>
+              <button class="copy-btn" data-copy="我先对齐知识库里的分类口径，再对工单做聚合；周报草稿会引用具体来源，最后交给 editorial-reviewer 审阅措辞。">
+                <svg class="ic" aria-hidden="true"><use href="#i-copy"/></svg>复制
+              </button>
+              <time>22:41</time>
+            </div>
+            <div class="entry-body prose">
+              <p>我先对齐知识库里的分类口径，再对工单做聚合；周报草稿会引用具体来源，最后交给 editorial-reviewer 审阅措辞。</p>
+            </div>
+          </li>
+
+          <!-- tool: knowledge.search (open) -->
+          <li class="entry entry-tool">
+            <span class="node" aria-hidden="true"></span>
+            <div class="entry-body">
+              <details class="tool-card" open>
+                <summary>
+                  <span class="tool-name">knowledge.search</span>
+                  <span class="tool-args">"退款口径 · 工单分类"</span>
+                  <span class="tool-result"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>完成</span>
+                  <span class="tool-time">0.8s</span>
+                  <svg class="ic chev" aria-hidden="true"><use href="#i-chevron"/></svg>
+                </summary>
+                <div class="tool-body">
+                  <div class="hit">
+                    <span class="hit-title">工单分类规范 v3</span>
+                    <span class="hit-score">0.92</span>
+                    <span class="hit-date">09-18</span>
+                  </div>
+                  <div class="hit">
+                    <span class="hit-title">退款处理 SOP</span>
+                    <span class="hit-score">0.87</span>
+                    <span class="hit-date">08-02</span>
+                  </div>
+                  <div class="hit">
+                    <span class="hit-title">售后话术库 · 分类索引</span>
+                    <span class="hit-score">0.81</span>
+                    <span class="hit-date">07-21</span>
+                  </div>
+                  <div class="tool-note">top_k=3 · collection support-kb · 12.4k tokens</div>
+                </div>
+              </details>
+            </div>
+          </li>
+
+          <!-- tool: aggregate (closed) -->
+          <li class="entry entry-tool">
+            <span class="node" aria-hidden="true"></span>
+            <div class="entry-body">
+              <details class="tool-card">
+                <summary>
+                  <span class="tool-name">tickets.aggregate</span>
+                  <span class="tool-args">issue_type · 128 rows</span>
+                  <span class="tool-result"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>完成</span>
+                  <span class="tool-time">1.4s</span>
+                  <svg class="ic chev" aria-hidden="true"><use href="#i-chevron"/></svg>
+                </summary>
+                <div class="tool-body">
+                  <div class="hit"><span class="hit-title">reads: q3-support-tickets.csv</span><span class="hit-score">128 / 128</span></div>
+                  <div class="hit"><span class="hit-title">group_by: issue_type</span><span class="hit-score">5 groups</span></div>
+                  <div class="tool-note">sandbox · read-only · 1.4s</div>
+                </div>
+              </details>
+            </div>
+          </li>
+
+          <!-- assistant report -->
+          <li class="entry entry-assistant">
+            <span class="node" aria-hidden="true"></span>
+            <div class="entry-head">
+              <span class="who">main-agent</span>
+              <span class="who-sub">周报草稿</span>
+              <span class="spacer"></span>
+              <button class="copy-btn" data-copy="Q3 客服工单周报">
+                <svg class="ic" aria-hidden="true"><use href="#i-copy"/></svg>复制
+              </button>
+              <time>22:43</time>
+            </div>
+            <div class="entry-body prose">
+              <h3>Q3 客服工单周报</h3>
+              <p>本季度共收到 <strong>128 条</strong>工单，比上季度减少 6%。退款与退货仍是最集中的问题类型，但平均处理时长从 31 小时降到 24 小时。<span class="cite">1</span></p>
+
+              <div class="table-wrap">
+                <table class="data-table">
+                  <caption>按主标签归类，环比相对 Q2</caption>
+                  <thead>
+                    <tr>
+                      <th scope="col">问题类型</th>
+                      <th scope="col" class="num">数量</th>
+                      <th scope="col" class="num">占比</th>
+                      <th scope="col" class="num">环比</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr><td>退款与退货</td><td class="num">46</td><td class="num">35.9%</td><td class="num delta-up">+8</td></tr>
+                    <tr><td>物流异常</td><td class="num">31</td><td class="num">24.2%</td><td class="num delta-down">−12</td></tr>
+                    <tr><td>商品质量</td><td class="num">24</td><td class="num">18.8%</td><td class="num delta-down">−3</td></tr>
+                    <tr><td>账号与支付</td><td class="num">17</td><td class="num">13.3%</td><td class="num delta-up">+2</td></tr>
+                    <tr><td>其他</td><td class="num">10</td><td class="num">7.8%</td><td class="num delta-down">−1</td></tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <h4>需要团队注意的三处变化</h4>
+              <ul>
+                <li>退款高峰集中在 8 月第二周，与 7 月底促销的退单延后有关。<span class="cite">1</span></li>
+                <li>物流异常减少 12 条，主要因为新承运商在华东区上线。</li>
+                <li>账号与支付类工单里有 6 条指向同一支付渠道的重复扣款，建议单独立案跟进。<span class="cite">2</span></li>
+              </ul>
+
+              <blockquote>口径说明：分类依据《工单分类规范 v3》，多标签工单按主标签计入；“其他”包含 4 条未分类的测试工单。<span class="cite">2</span></blockquote>
+            </div>
+          </li>
+
+          <!-- A2A task -->
+          <li class="entry entry-a2a">
+            <span class="node" aria-hidden="true"></span>
+            <div class="entry-body">
+              <div class="a2a-card">
+                <div class="a2a-top">
+                  <span class="agent-badge" aria-hidden="true">ER</span>
+                  <div class="a2a-ident">
+                    <div class="a2a-name">
+                      editorial-reviewer
+                      <span class="tag">A2A 1.0</span>
+                    </div>
+                    <div class="a2a-task">审阅周报措辞，标注生硬或过度承诺的表达</div>
+                  </div>
+                  <span class="a2a-status"><span class="dot is-live"></span>运行中</span>
+                </div>
+                <div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="5" aria-valuenow="3" aria-label="任务进度 3 / 5">
+                  <span style="width:60%"></span>
+                </div>
+                <div class="steps">
+                  <span class="step is-done"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>读取草稿</span>
+                  <svg class="ic arrow" aria-hidden="true"><use href="#i-arrow"/></svg>
+                  <span class="step is-done"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>语气一致性</span>
+                  <svg class="ic arrow" aria-hidden="true"><use href="#i-arrow"/></svg>
+                  <span class="step is-done"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>数字核对</span>
+                  <svg class="ic arrow" aria-hidden="true"><use href="#i-arrow"/></svg>
+                  <span class="step is-now"><span class="dot"></span>术语替换 · 进行中</span>
+                  <svg class="ic arrow" aria-hidden="true"><use href="#i-arrow"/></svg>
+                  <span class="step">返回修改建议</span>
+                </div>
+                <div class="a2a-foot">
+                  <span>task_7c1e</span>
+                  <span>·</span>
+                  <span>已运行 00:18</span>
+                  <span class="spacer"></span>
+                  <button class="btn-ghost" data-cancel-task>取消任务</button>
+                </div>
+              </div>
+            </div>
+          </li>
+
+          <!-- approval -->
+          <li class="entry entry-approval" id="approvalEntry">
+            <span class="node" aria-hidden="true"></span>
+            <div class="entry-head">
+              <span class="who">审批</span>
+              <span class="who-sub">发送前确认</span>
+              <span class="spacer"></span>
+              <time>22:43</time>
+            </div>
+            <div class="entry-body">
+              <div class="approval-card" id="approvalCard">
+                <div class="approval-head">
+                  <svg class="ic" aria-hidden="true"><use href="#i-shield"/></svg>
+                  <span class="approval-title">需要你的决定</span>
+                  <span class="status-chip is-warn" id="approvalStatus">待审批</span>
+                </div>
+                <div class="approval-body">
+                  <p class="approval-action">批准后，周报将在 <b>editorial-reviewer</b> 审阅通过后自动发布到 <b>#support-weekly</b>，并 @ 值班同事。</p>
+                  <dl class="risk-list">
+                    <dt>可见范围</dt><dd>频道内 12 名成员</dd>
+                    <dt>可撤回</dt><dd>发布后 24 小时内</dd>
+                    <dt>触发条件</dt><dd>审阅通过且无阻断问题</dd>
+                    <dt>发起方</dt><dd>main-agent · run_8f3a2c</dd>
+                  </dl>
+                </div>
+                <div class="approval-actions">
+                  <span class="spacer"></span>
+                  <button class="btn btn-outline" data-decision="reject">拒绝</button>
+                  <button class="btn btn-primary" data-decision="approve">批准并发送</button>
+                </div>
+                <div class="resolved-note">
+                  <svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>
+                  <span id="resolvedText">已预批准，审阅通过后将发送到 #support-weekly。</span>
+                </div>
+              </div>
+            </div>
+          </li>
+
+        </ol>
+
+        <div class="thread-foot">
+          <span>本轮由 main-agent 调度</span>
+          <span>·</span>
+          <span class="mono">2 A2A endpoints</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- composer -->
+    <div class="composer-wrap">
+      <div class="composer-inner">
+        <div class="composer">
+          <textarea id="composerInput" rows="1" placeholder="继续调度…（Enter 发送，Shift+Enter 换行）" aria-label="输入消息"></textarea>
+          <div class="composer-bar">
+            <button class="composer-tool" title="添加附件" data-demo="附件选择（原型演示）">
+              <svg class="ic" aria-hidden="true"><use href="#i-clip"/></svg>
+              附件
+            </button>
+            <button class="composer-tool" title="提及智能体" data-demo="智能体选择（原型演示）">
+              <svg class="ic" aria-hidden="true"><use href="#i-at"/></svg>
+              智能体
+            </button>
+            <span class="model-chip"><span class="dot"></span>deepseek-chat · T 0.3</span>
+            <span class="spacer"></span>
+            <button class="send" id="sendBtn" aria-label="发送消息">
+              <svg class="ic" aria-hidden="true"><use href="#i-up"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="composer-hint">
+          <span><kbd>Enter</kbd> 发送</span>
+          <span>·</span>
+          <span><kbd>Shift</kbd> + <kbd>Enter</kbd> 换行</span>
+          <span class="spacer"></span>
+          <span>模型输出可能有误，请核对关键数字</span>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- ================= TRACE ================= -->
+  <aside class="trace" id="trace" aria-label="本轮运行详情">
+    <div class="trace-head">
+      <div class="trace-title">
+        <h2>本轮运行</h2>
+        <span>run_8f3a2c</span>
+      </div>
+      <button class="icon-btn" id="traceClose" title="收起面板" aria-label="收起运行详情">
+        <svg class="ic" aria-hidden="true"><use href="#i-x"/></svg>
+      </button>
+    </div>
+
+    <div class="trace-scroll">
+      <div class="run-line">
+        <span class="dot is-live"></span>
+        <strong>进行中</strong>
+        <span class="mono">已用 00:42</span>
+      </div>
+
+      <dl class="metrics">
+        <div class="metric"><dt>输入 tokens</dt><dd>12.4k</dd></div>
+        <div class="metric"><dt>输出 tokens</dt><dd>1.8k</dd></div>
+        <div class="metric"><dt>模型</dt><dd style="font-size:11.5px">deepseek-chat</dd></div>
+        <div class="metric"><dt>温度</dt><dd>0.3</dd></div>
+      </dl>
+
+      <section class="trace-section">
+        <div class="trace-section-head">
+          <h3>执行轨道</h3>
+          <span class="spacer"></span>
+          <span class="count">5</span>
+        </div>
+        <ol class="track">
+          <li class="is-done">
+            <span class="marker"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg></span>
+            <div class="label">理解任务<span class="mono">0.2s</span></div>
+            <div class="sub">main-agent</div>
+          </li>
+          <li class="is-done">
+            <span class="marker"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg></span>
+            <div class="label">knowledge.search<span class="mono">0.8s</span></div>
+            <div class="sub">3 hits · support-kb</div>
+          </li>
+          <li class="is-done">
+            <span class="marker"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg></span>
+            <div class="label">tickets.aggregate<span class="mono">1.4s</span></div>
+            <div class="sub">128 rows → 5 groups</div>
+          </li>
+          <li class="is-now">
+            <span class="marker"></span>
+            <div class="label">editorial-reviewer<span class="mono">00:18</span></div>
+            <div class="sub">A2A · task_7c1e · 3 / 5</div>
+          </li>
+          <li class="is-wait">
+            <span class="marker"></span>
+            <div class="label">发送审批<span class="mono">—</span></div>
+            <div class="sub">等待你的决定</div>
+          </li>
+        </ol>
+      </section>
+
+      <section class="trace-section">
+        <div class="trace-section-head">
+          <h3>引用来源</h3>
+          <span class="spacer"></span>
+          <span class="count">3</span>
+        </div>
+        <ul class="cite-list">
+          <li>
+            <div class="cite-top"><span class="cite-name">工单分类规范 v3</span><span class="cite-score">0.92</span></div>
+            <div class="cite-src">support-kb · 09-18 · 知识库</div>
+          </li>
+          <li>
+            <div class="cite-top"><span class="cite-name">退款处理 SOP</span><span class="cite-score">0.87</span></div>
+            <div class="cite-src">support-kb · 08-02 · 知识库</div>
+          </li>
+          <li>
+            <div class="cite-top"><span class="cite-name">售后话术库 · 分类索引</span><span class="cite-score">0.81</span></div>
+            <div class="cite-src">support-kb · 07-21 · 知识库</div>
+          </li>
+        </ul>
+      </section>
+
+      <section class="trace-section">
+        <div class="trace-section-head">
+          <h3>智能体</h3>
+          <span class="spacer"></span>
+          <span class="count">3</span>
+        </div>
+        <div class="agent-row">
+          <span class="agent-badge" aria-hidden="true">MA</span>
+          <div class="agent-ident">
+            <div class="agent-name">main-agent <span class="mono">local</span></div>
+            <div class="agent-kind">调度 · deepseek-chat</div>
+          </div>
+          <span class="agent-state"><span class="dot is-ok"></span>在线</span>
+        </div>
+        <div class="agent-row">
+          <span class="agent-badge" aria-hidden="true">ER</span>
+          <div class="agent-ident">
+            <div class="agent-name">editorial-reviewer <span class="mono">a2a</span></div>
+            <div class="agent-kind">copy-review · 运行中</div>
+          </div>
+          <span class="agent-state"><span class="dot is-live"></span>忙碌</span>
+        </div>
+        <div class="agent-row">
+          <span class="agent-badge" aria-hidden="true">DA</span>
+          <div class="agent-ident">
+            <div class="agent-name">data-analyst <span class="mono">a2a</span></div>
+            <div class="agent-kind">sql · csv 分析</div>
+          </div>
+          <span class="agent-state"><span class="dot is-ok"></span>空闲</span>
+        </div>
+      </section>
+
+      <div class="trace-foot">
+        <button class="text-link" data-demo="完整运行日志（原型演示）">
+          查看完整运行日志
+          <svg class="ic" aria-hidden="true"><use href="#i-external"/></svg>
+        </button>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite">
+  <svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>
+  <span id="toastText"></span>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var root = document.documentElement;
+  var app = document.getElementById('app');
+  var stream = document.getElementById('stream');
+  var thread = document.getElementById('thread');
+  var input = document.getElementById('composerInput');
+  var sendBtn = document.getElementById('sendBtn');
+  var toast = document.getElementById('toast');
+  var toastText = document.getElementById('toastText');
+  var approvalCard = document.getElementById('approvalCard');
+  var approvalStatus = document.getElementById('approvalStatus');
+  var resolvedText = document.getElementById('resolvedText');
+  var traceToggle = document.getElementById('traceToggle');
+  var traceClose = document.getElementById('traceClose');
+  var approvalPending = true;
+  var toastTimer = null;
+
+  /* ---------- theme ---------- */
+  try {
+    var savedTheme = localStorage.getItem('ah-theme');
+    if (savedTheme === 'dark' || savedTheme === 'light') root.dataset.theme = savedTheme;
+  } catch (e) { /* file:// storage may be unavailable */ }
+
+  document.getElementById('themeToggle').addEventListener('click', function () {
+    var next = root.dataset.theme === 'dark' ? 'light' : 'dark';
+    root.dataset.theme = next;
+    try { localStorage.setItem('ah-theme', next); } catch (e) {}
+    showToast(next === 'dark' ? '已切换到深色主题' : '已切换到浅色主题');
+  });
+
+  /* ---------- toast ---------- */
+  function showToast(text) {
+    toastText.textContent = text;
+    toast.classList.add('is-visible');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () {
+      toast.classList.remove('is-visible');
+    }, 2400);
+  }
+
+  /* ---------- trace panel ---------- */
+  var wide = window.matchMedia('(min-width: 1181px)');
+
+  function setTraceExpanded(expanded) {
+    traceToggle.setAttribute('aria-expanded', String(expanded));
+  }
+
+  traceToggle.addEventListener('click', function () {
+    if (wide.matches) {
+      var collapsed = app.classList.toggle('trace-collapsed');
+      setTraceExpanded(!collapsed);
+    } else {
+      var open = app.classList.toggle('trace-open');
+      setTraceExpanded(open);
+    }
+  });
+
+  traceClose.addEventListener('click', function () {
+    if (wide.matches) {
+      app.classList.add('trace-collapsed');
+      setTraceExpanded(false);
+    } else {
+      app.classList.remove('trace-open');
+      setTraceExpanded(false);
+    }
+  });
+
+  wide.addEventListener('change', function () {
+    app.classList.remove('trace-open');
+    if (wide.matches) {
+      app.classList.remove('trace-collapsed');
+      setTraceExpanded(true);
+    } else {
+      setTraceExpanded(false);
+    }
+  });
+
+  setTraceExpanded(wide.matches);
+
+  /* ---------- session list ---------- */
+  var sessions = Array.prototype.slice.call(document.querySelectorAll('.session'));
+  sessions.forEach(function (item) {
+    item.addEventListener('click', function () {
+      sessions.forEach(function (s) {
+        s.classList.remove('is-active');
+        s.removeAttribute('aria-current');
+      });
+      item.classList.add('is-active');
+      item.setAttribute('aria-current', 'page');
+    });
+  });
+
+  document.getElementById('newSession').addEventListener('click', function () {
+    showToast('新会话已创建（原型演示）');
+  });
+
+  var search = document.getElementById('sessionSearch');
+  search.addEventListener('input', function () {
+    var q = search.value.trim().toLowerCase();
+    var groups = document.querySelectorAll('.session-group');
+    sessions.forEach(function (item) {
+      var title = item.querySelector('.session-title').textContent.toLowerCase();
+      item.hidden = q !== '' && title.indexOf(q) === -1;
+    });
+    groups.forEach(function (group) {
+      var visible = Array.prototype.some.call(group.querySelectorAll('.session'), function (s) {
+        return !s.hidden;
+      });
+      group.hidden = !visible;
+    });
+  });
+
+  /* ---------- approval ---------- */
+  approvalCard.querySelectorAll('[data-decision]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var decision = btn.getAttribute('data-decision');
+      approvalPending = false;
+      approvalCard.classList.add('is-resolved');
+      if (decision === 'approve') {
+        approvalStatus.textContent = '已批准';
+        approvalStatus.className = 'status-chip is-ok';
+        resolvedText.textContent = '已预批准，审阅通过后将发送到 #support-weekly。';
+        showToast('已预批准，审阅通过后自动发送');
+      } else {
+        approvalStatus.textContent = '已拒绝';
+        approvalStatus.className = 'status-chip';
+        resolvedText.textContent = '已拒绝，main-agent 不会发布这条消息。';
+        showToast('已拒绝本次发送');
+      }
+      updateSendState();
+    });
+  });
+
+  /* ---------- cancel task ---------- */
+  var cancelBtn = document.querySelector('[data-cancel-task]');
+  if (cancelBtn) {
+    cancelBtn.addEventListener('click', function () {
+      cancelBtn.disabled = true;
+      cancelBtn.textContent = '正在取消…';
+      setTimeout(function () {
+        cancelBtn.textContent = '已取消';
+        showToast('任务 task_7c1e 已取消');
+      }, 700);
+    });
+  }
+
+  /* ---------- composer ---------- */
+  function autoGrow() {
+    input.style.height = 'auto';
+    input.style.height = Math.min(input.scrollHeight, 168) + 'px';
+  }
+
+  function updateSendState() {
+    var hasText = input.value.trim().length > 0;
+    sendBtn.classList.toggle('is-disabled', !hasText || approvalPending);
+    sendBtn.disabled = !hasText || approvalPending;
+    sendBtn.title = approvalPending ? '请先处理上方的发送审批' : '发送';
+  }
+
+  input.addEventListener('input', function () {
+    autoGrow();
+    updateSendState();
+  });
+
+  input.addEventListener('keydown', function (event) {
+    if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) {
+      event.preventDefault();
+      send();
+    }
+  });
+
+  sendBtn.addEventListener('click', send);
+
+  function nowTime() {
+    var d = new Date();
+    return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+  }
+
+  function makeEntry(className, who, whoSub, bodyHTML) {
+    var li = document.createElement('li');
+    li.className = 'entry ' + className;
+    li.innerHTML =
+      '<span class="node" aria-hidden="true"></span>' +
+      '<div class="entry-head">' +
+        '<span class="who"></span>' +
+        '<span class="who-sub"></span>' +
+        '<span class="spacer"></span>' +
+        '<time></time>' +
+      '</div>' +
+      '<div class="entry-body"></div>';
+    li.querySelector('.who').textContent = who;
+    li.querySelector('.who-sub').textContent = whoSub;
+    li.querySelector('time').textContent = nowTime();
+    li.querySelector('.entry-body').innerHTML = bodyHTML;
+    return li;
+  }
+
+  function scrollToBottom() {
+    stream.scrollTop = stream.scrollHeight;
+  }
+
+  function send() {
+    var text = input.value.trim();
+    if (!text) return;
+    if (approvalPending) {
+      showToast('请先处理上方的发送审批');
+      return;
+    }
+
+    var bubble = document.createElement('p');
+    bubble.className = 'prompt-bubble';
+    bubble.textContent = text;
+    var userEntry = makeEntry('entry-user', '你', '通过 Web 工作台', '');
+    userEntry.querySelector('.entry-body').appendChild(bubble);
+    thread.appendChild(userEntry);
+
+    input.value = '';
+    autoGrow();
+    updateSendState();
+    scrollToBottom();
+
+    var reply = makeEntry(
+      'entry-assistant',
+      'main-agent',
+      '调度员',
+      '<div class="prose"><p class="typing" aria-label="正在生成">· · ·</p></div>'
+    );
+    thread.appendChild(reply);
+    scrollToBottom();
+
+    setTimeout(function () {
+      reply.querySelector('.entry-body').innerHTML =
+        '<div class="prose"><p>收到，我会把这条补充并入周报，并在下一次发送前再次向你确认。</p></div>';
+      scrollToBottom();
+    }, 1300);
+  }
+
+  /* ---------- copy ---------- */
+  function fallbackCopy(text) {
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    try {
+      document.execCommand('copy');
+      showToast('已复制到剪贴板');
+    } catch (err) {
+      showToast('复制失败，请手动选择文本');
+    }
+    document.body.removeChild(ta);
+  }
+
+  document.querySelectorAll('.copy-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var text = btn.getAttribute('data-copy') || '';
+      if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(text).then(function () {
+          showToast('已复制到剪贴板');
+        }).catch(function () {
+          fallbackCopy(text);
+        });
+      } else {
+        fallbackCopy(text);
+      }
+    });
+  });
+
+  /* ---------- demo affordances ---------- */
+  document.querySelectorAll('[data-demo]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      showToast(btn.getAttribute('data-demo'));
+    });
+  });
+
+  updateSendState();
+  autoGrow();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,2677 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="light dark" />
+<title>Agent Hub · 管理控制台（原型 v8）</title>
+<style>
+/* ============================================================
+   Agent Hub Admin Console — v8
+   Single-file, dependency-free. Reuses the Dispatch Desk tokens.
+   ============================================================ */
+:root{
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+               "Hiragino Sans GB", "Noto Sans SC", "Source Han Sans SC",
+               "Microsoft YaHei", sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", "Cascadia Mono",
+               "Roboto Mono", Menlo, Consolas, monospace;
+
+  --paper:#F0EFE8;
+  --paper-2:#E9E7DD;
+  --surface:#FBFAF5;
+  --surface-2:#F4F3EC;
+  --ink:#141B20;
+  --ink-2:#4F5B63;
+  --ink-3:#606B72;
+  --line:#D7D5C9;
+  --line-2:#E3E1D6;
+
+  --prussian:#17465E;
+  --prussian-soft:#E4ECEF;
+  --amber:#A9741F;
+  --amber-text:#8A5D14;
+  --amber-soft:#F3E9D3;
+  --red:#9C3A2B;
+  --red-soft:#F6E5E0;
+  --green:#3D6A4E;
+  --green-soft:#E4EDE6;
+  --mcp:#5A4E72;
+  --mcp-soft:#ECE8F1;
+
+  --btn-bg:#141B20;
+  --btn-fg:#FBFAF5;
+
+  --shadow-sm:0 1px 2px rgba(20,27,32,.05);
+  --shadow-md:0 1px 2px rgba(20,27,32,.04), 0 10px 28px -18px rgba(20,27,32,.35);
+  --shadow-lg:0 20px 50px -30px rgba(20,27,32,.45);
+
+  --rail:#11181D;
+  --rail-2:#0C1216;
+  --rail-text:#ECEBE4;
+  --rail-muted:rgba(236,235,228,.55);
+  --rail-faint:rgba(236,235,228,.36);
+  --rail-line:rgba(236,235,228,.09);
+  --rail-active:rgba(236,235,228,.075);
+  --rail-amber:#D4A04A;
+}
+
+html[data-theme="dark"]{
+  --paper:#0F1418;
+  --paper-2:#141A1F;
+  --surface:#171F24;
+  --surface-2:#1A2329;
+  --ink:#E8E7DF;
+  --ink-2:#A3AEB4;
+  --ink-3:#85929A;
+  --line:#2A353C;
+  --line-2:#212B31;
+
+  --prussian:#93BED1;
+  --prussian-soft:rgba(147,190,209,.12);
+  --amber:#D4A04A;
+  --amber-text:#E0B76E;
+  --amber-soft:rgba(212,160,74,.13);
+  --red:#DE907E;
+  --red-soft:rgba(222,144,126,.12);
+  --green:#8DBBA0;
+  --green-soft:rgba(141,187,160,.12);
+  --mcp:#B3A4C9;
+  --mcp-soft:rgba(179,164,201,.12);
+
+  --btn-bg:#E8E7DF;
+  --btn-fg:#10171B;
+
+  --shadow-sm:0 1px 0 rgba(255,255,255,.03);
+  --shadow-md:0 1px 0 rgba(255,255,255,.03), 0 16px 40px -24px rgba(0,0,0,.9);
+  --shadow-lg:0 28px 60px -32px rgba(0,0,0,.95);
+
+  --rail:#0A0F12;
+  --rail-2:#070B0D;
+}
+
+/* ---------- base ---------- */
+*,*::before,*::after{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;font-family:var(--font-sans);font-size:13.5px;line-height:1.5;
+  color:var(--ink);background:var(--paper);
+  -webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;
+  overflow:hidden;
+}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+a{color:inherit;text-decoration:none}
+ul,ol,dl,dd{margin:0;padding:0;list-style:none}
+h1,h2,h3,h4,p{margin:0}
+svg{display:block}
+[hidden]{display:none!important}
+:focus-visible{outline:2px solid var(--prussian);outline-offset:2px;border-radius:3px}
+::selection{background:var(--amber-soft);color:var(--ink)}
+*{scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--line);border-radius:10px;border:2px solid transparent;background-clip:padding-box}
+.ic{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.mono{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+.spacer{flex:1}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+
+/* ---------- progress / theme button ---------- */
+.theme-icon-light{display:none}
+html[data-theme="dark"] .theme-icon-light{display:block}
+html[data-theme="dark"] .theme-icon-dark{display:none}
+
+/* ---------- app shell ---------- */
+.admin-app{
+  display:grid;grid-template-columns:252px minmax(0,1fr);
+  height:100vh;overflow:hidden;
+}
+.rail{
+  position:relative;z-index:60;
+  display:flex;flex-direction:column;min-height:0;
+  padding:12px 10px 10px;
+  color:var(--rail-text);background:var(--rail);
+  border-right:1px solid var(--rail-line);
+}
+.rail-brand{display:flex;align-items:center;gap:8px;padding:2px 6px 12px}
+.brand-lockup{display:flex;align-items:center;gap:9px;min-width:0}
+.brand-mark{
+  display:grid;place-items:center;flex:none;
+  width:30px;height:30px;border:1px solid var(--rail-line);border-radius:6px;
+  background:var(--rail-2);color:var(--rail-amber);
+}
+.brand-mark .ic{width:18px;height:18px;stroke-width:1.6}
+.brand-text{display:flex;flex-direction:column;gap:1px;min-width:0}
+.brand-text b{font-size:13.5px;font-weight:650;letter-spacing:-.015em;white-space:nowrap}
+.brand-text small{font-size:9.5px;color:var(--rail-muted);letter-spacing:.02em}
+.admin-badge{
+  flex:none;margin-left:auto;padding:2px 5px;
+  border:1px solid rgba(212,160,74,.34);border-radius:3px;
+  color:var(--rail-amber);font-size:8.5px;line-height:1.3;
+}
+.rail-back{
+  display:flex;align-items:center;gap:6px;
+  margin:0 4px 12px;padding:6px 7px;
+  border:1px solid var(--rail-line);border-radius:5px;
+  color:var(--rail-muted);font-size:10.5px;
+  transition:color .12s,background .12s;
+}
+.rail-back:hover{color:var(--rail-text);background:var(--rail-active)}
+.rail-back .ic{width:13px;height:13px}
+
+.rail-nav{display:flex;flex-direction:column;gap:12px;min-height:0;overflow-y:auto;padding:0 2px 12px}
+.rail-group{display:flex;flex-direction:column;gap:2px}
+.rail-label{padding:0 8px 4px;font-size:9px;color:var(--rail-faint);letter-spacing:.03em}
+.rail-link{
+  position:relative;display:flex;align-items:center;gap:8px;
+  width:100%;height:31px;padding:0 8px;border-radius:5px;
+  text-align:left;color:var(--rail-muted);font-size:11.5px;
+  transition:background .12s,color .12s;
+}
+.rail-link .ic{width:15px;height:15px;color:var(--rail-faint);transition:color .12s}
+.rail-link:hover{background:var(--rail-active);color:var(--rail-text)}
+.rail-link:hover .ic{color:var(--rail-muted)}
+.rail-link.is-active{background:var(--rail-active);color:var(--rail-text);font-weight:550}
+.rail-link.is-active::before{
+  content:"";position:absolute;left:-2px;top:7px;bottom:7px;width:2px;
+  border-radius:2px;background:var(--rail-amber);
+}
+.rail-link.is-active .ic{color:var(--rail-amber)}
+.rail-count{
+  margin-left:auto;font-family:var(--font-mono);font-size:8.5px;
+  color:var(--rail-faint);
+}
+.rail-link.is-active .rail-count{color:var(--rail-muted)}
+
+.rail-foot{margin-top:auto;padding:9px 2px 2px;border-top:1px solid var(--rail-line)}
+.rail-health{
+  display:flex;align-items:center;gap:6px;
+  padding:4px 7px 10px;font-size:9.5px;color:var(--rail-muted);
+}
+.rail-health .dot{width:5px;height:5px;background:#8DBBA0;border-radius:50%;box-shadow:0 0 0 3px rgba(141,187,160,.12)}
+.rail-health .mono{margin-left:auto;font-size:8.5px;color:var(--rail-faint)}
+.rail-account{
+  display:flex;align-items:center;gap:8px;
+  padding:8px 7px;border-top:1px solid var(--rail-line);
+}
+.rail-avatar{
+  display:grid;place-items:center;flex:none;
+  width:27px;height:27px;border-radius:50%;
+  background:var(--rail-2);border:1px solid var(--rail-line);
+  color:var(--rail-text);font-family:var(--font-mono);font-size:9px;
+}
+.rail-account-main{flex:1;min-width:0}
+.rail-account-main b{display:block;font-size:11px;font-weight:550;color:var(--rail-text)}
+.rail-account-main small{display:block;margin-top:1px;font-size:8.5px;color:var(--rail-faint)}
+.rail-logout{
+  display:grid;place-items:center;width:25px;height:25px;
+  border-radius:4px;color:var(--rail-faint);
+}
+.rail-logout:hover{background:var(--rail-active);color:var(--rail-text)}
+.rail-logout .ic{width:14px;height:14px}
+
+.rail-scrim{
+  display:none;position:fixed;inset:0;z-index:50;
+  background:rgba(7,11,13,.55);
+}
+
+/* ---------- main / topbar ---------- */
+.admin-main{display:flex;flex-direction:column;min-width:0;min-height:0;background:var(--paper)}
+.topbar{
+  flex:none;display:flex;align-items:center;gap:14px;
+  height:58px;padding:0 26px;
+  background:var(--surface);border-bottom:1px solid var(--line);
+}
+.mobile-menu{display:none}
+.crumb{
+  display:flex;align-items:center;gap:8px;min-width:0;
+  font-size:10.5px;color:var(--ink-3);white-space:nowrap;
+}
+.crumb .ic{width:11px;height:11px;color:var(--line)}
+.crumb b{font-weight:550;color:var(--ink-2);overflow:hidden;text-overflow:ellipsis}
+.crumb-sep{color:var(--line);font-size:10px}
+.topbar-tools{display:flex;align-items:center;gap:7px;margin-left:auto;min-width:0}
+.env-chip{
+  display:inline-flex;align-items:center;gap:5px;
+  height:25px;padding:0 7px;
+  border:1px solid var(--line);border-radius:4px;
+  background:var(--surface-2);font-size:9px;color:var(--ink-3);
+  white-space:nowrap;
+}
+.env-chip .dot{width:4px;height:4px;background:var(--green);border-radius:50%}
+.global-search{
+  display:flex;align-items:center;gap:6px;
+  width:240px;height:29px;padding:0 8px;
+  border:1px solid var(--line);border-radius:5px;background:var(--paper);
+}
+.global-search .ic{width:13px;height:13px;color:var(--ink-3)}
+.global-search input{
+  width:100%;min-width:0;border:0;outline:none;background:transparent;
+  color:var(--ink);font:inherit;font-size:10.5px;
+}
+.global-search input::placeholder{color:var(--ink-3)}
+.icon-btn{
+  display:grid;place-items:center;flex:none;
+  width:29px;height:29px;border:1px solid transparent;border-radius:5px;
+  color:var(--ink-3);transition:background .12s,color .12s,border-color .12s;
+}
+.icon-btn:hover{background:var(--surface-2);color:var(--ink);border-color:var(--line-2)}
+.icon-btn .ic{width:15px;height:15px}
+.bell{position:relative}
+.bell-dot{position:absolute;top:6px;right:6px;width:5px;height:5px;border-radius:50%;background:var(--amber);border:1px solid var(--surface)}
+.topbar-avatar{
+  display:grid;place-items:center;flex:none;
+  width:28px;height:28px;margin-left:2px;border-radius:50%;
+  background:var(--ink);color:var(--paper);
+  font-family:var(--font-mono);font-size:9px;
+}
+
+/* ---------- page scaffold ---------- */
+.admin-scroll{flex:1;min-height:0;overflow-y:auto}
+.admin-page{
+  width:100%;max-width:1240px;margin:0 auto;
+  padding:28px 34px 64px;
+}
+.admin-page-head{
+  display:flex;align-items:flex-end;justify-content:space-between;gap:24px;
+  padding-bottom:16px;border-bottom:1px solid var(--line);
+}
+.page-title{font-size:23px;font-weight:650;letter-spacing:-.022em;line-height:1.2}
+.page-sub{margin-top:5px;font-size:11.5px;line-height:1.6;color:var(--ink-3);max-width:68ch}
+.head-actions{display:flex;align-items:center;gap:7px;flex:none;flex-wrap:wrap}
+
+/* ---------- buttons ---------- */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:5px;
+  height:30px;padding:0 11px;
+  border:1px solid transparent;border-radius:4px;
+  font-size:11px;font-weight:500;white-space:nowrap;
+  transition:background .12s,color .12s,border-color .12s;
+}
+.btn .ic{width:13px;height:13px}
+.btn-primary{background:var(--btn-bg);color:var(--btn-fg)}
+.btn-primary:hover{background:var(--prussian);color:var(--surface)}
+html[data-theme="dark"] .btn-primary:hover{background:var(--amber);color:#11181D}
+.btn-outline{border-color:var(--line);background:var(--surface);color:var(--ink-2)}
+.btn-outline:hover{border-color:var(--ink-3);color:var(--ink);background:var(--surface-2)}
+.btn-ghost{border-color:transparent;background:transparent;color:var(--ink-2)}
+.btn-ghost:hover{background:var(--surface-2);color:var(--ink)}
+.btn-danger{background:var(--red-soft);color:var(--red)}
+.btn-sm{height:25px;padding:0 8px;font-size:10px;border-radius:3px}
+.btn-sm .ic{width:11px;height:11px}
+.btn[disabled]{opacity:.42;cursor:not-allowed}
+.text-link{
+  display:inline-flex;align-items:center;gap:4px;
+  color:var(--prussian);font-size:10px;
+}
+.text-link:hover{text-decoration:underline;text-underline-offset:2px}
+.text-link .ic{width:10px;height:10px}
+.text-link.is-danger{color:var(--red)}
+
+/* ---------- status / badges ---------- */
+.st{
+  display:inline-flex;align-items:center;gap:4px;
+  height:19px;padding:0 6px;
+  border:1px solid transparent;border-radius:3px;
+  font-size:9px;font-weight:500;white-space:nowrap;
+}
+.st .dot{width:4px;height:4px;border-radius:50%}
+.st-ok{background:var(--green-soft);color:var(--green)}
+.st-ok .dot{background:var(--green)}
+.st-live{background:var(--amber-soft);color:var(--amber-text)}
+.st-live .dot{background:var(--amber);animation:pulse 2.4s ease-in-out infinite}
+.st-warn{background:var(--amber-soft);color:var(--amber-text)}
+.st-warn .dot{background:var(--amber)}
+.st-error{background:var(--red-soft);color:var(--red)}
+.st-error .dot{background:var(--red)}
+.st-muted{background:var(--surface-2);color:var(--ink-3);border-color:var(--line-2)}
+.st-muted .dot{background:var(--ink-3)}
+@keyframes pulse{0%,100%{opacity:.45}50%{opacity:1}}
+
+.role-badge{
+  display:inline-flex;align-items:center;
+  height:20px;padding:0 6px;
+  border:1px solid var(--line-2);border-radius:3px;
+  background:var(--surface-2);
+  font-size:9px;color:var(--ink-2);white-space:nowrap;
+}
+.role-badge.admin{background:var(--amber-soft);border-color:rgba(169,116,31,.2);color:var(--amber-text)}
+.role-badge.ops{background:var(--prussian-soft);border-color:rgba(23,70,94,.16);color:var(--prussian)}
+.role-badge.support{background:var(--green-soft);border-color:rgba(61,106,78,.14);color:var(--green)}
+.role-badge.editor{background:var(--mcp-soft);border-color:rgba(90,78,114,.16);color:var(--mcp)}
+.role-badge.auditor{background:var(--surface-2);color:var(--ink-3)}
+.type-chip{
+  display:inline-flex;align-items:center;height:18px;padding:0 5px;
+  border:1px solid var(--line-2);border-radius:3px;
+  background:var(--surface-2);font-size:8.5px;color:var(--ink-3);
+}
+.type-chip.directory{background:var(--prussian-soft);border-color:transparent;color:var(--prussian)}
+.type-chip.button{background:var(--amber-soft);border-color:transparent;color:var(--amber-text)}
+.badge{
+  display:inline-flex;align-items:center;height:18px;padding:0 5px;
+  border-radius:3px;background:var(--surface-2);
+  font-family:var(--font-mono);font-size:8.5px;color:var(--ink-3);
+}
+.tag{
+  display:inline-flex;align-items:center;height:17px;padding:0 4px;
+  border:1px solid var(--line-2);border-radius:3px;
+  background:var(--surface-2);font-family:var(--font-mono);font-size:8px;color:var(--ink-3);
+}
+
+/* ---------- metric strip ---------- */
+.metric-strip{
+  display:grid;grid-template-columns:repeat(5,minmax(0,1fr));
+  margin:18px 0 18px;
+  border-top:1px solid var(--line);border-bottom:1px solid var(--line);
+}
+.metric{padding:12px 16px 11px;border-right:1px solid var(--line-2)}
+.metric:last-child{border-right:0}
+.metric-label{display:block;font-size:9px;color:var(--ink-3);letter-spacing:.02em}
+.metric-value{
+  display:block;margin-top:2px;
+  font-family:var(--font-mono);font-size:22px;font-weight:500;line-height:1.2;
+  color:var(--ink);font-variant-numeric:tabular-nums;
+}
+.metric-value small{font-family:var(--font-sans);font-size:9px;font-weight:400;color:var(--ink-3);margin-left:4px}
+.metric-foot{display:flex;align-items:center;gap:5px;margin-top:3px;font-size:8.5px;color:var(--ink-3)}
+.delta{color:var(--green);font-family:var(--font-mono)}
+.delta.is-warn{color:var(--amber-text)}
+.delta.is-bad{color:var(--red)}
+
+/* ---------- panels ---------- */
+.grid-2{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:14px;margin-top:14px}
+.panel{
+  min-width:0;
+  border:1px solid var(--line);border-radius:6px;
+  background:var(--surface);
+  box-shadow:var(--shadow-sm);
+}
+.panel-head{
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  min-height:44px;padding:9px 14px;
+  border-bottom:1px solid var(--line-2);
+}
+.panel-head h2{font-size:12px;font-weight:600;letter-spacing:-.005em}
+.panel-head p{font-size:9.5px;color:var(--ink-3);margin-top:1px}
+.panel-meta{font-size:9px;color:var(--ink-3)}
+.panel-head .spacer{flex:1}
+.panel-body{padding:14px}
+.panel-foot{
+  display:flex;align-items:center;gap:8px;
+  padding:8px 14px;border-top:1px solid var(--line-2);
+  background:var(--surface-2);font-size:9px;color:var(--ink-3);
+}
+
+/* chart */
+.chart-bars{
+  display:flex;align-items:stretch;gap:10px;
+  height:156px;padding:12px 4px 0;
+}
+.bar-col{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:5px;min-width:0}
+.bar{
+  width:100%;max-width:36px;height:var(--h);min-height:4px;
+  border-radius:2px 2px 0 0;background:var(--prussian);
+  transition:opacity .12s;
+}
+.bar-col:hover .bar{opacity:.72}
+.bar-col.is-today .bar{background:var(--amber)}
+.bar-label{font-family:var(--font-mono);font-size:8px;color:var(--ink-3)}
+.bar-value{font-family:var(--font-mono);font-size:8px;color:var(--ink-3);margin-top:auto}
+
+/* status list */
+.status-list{display:flex;flex-direction:column}
+.status-row{
+  display:flex;align-items:center;gap:8px;
+  padding:8px 0;border-bottom:1px solid var(--line-2);
+  font-size:10.5px;
+}
+.status-row:last-child{border-bottom:0;padding-bottom:0}
+.status-row:first-child{padding-top:0}
+.status-dot{width:5px;height:5px;border-radius:50%;flex:none}
+.status-dot.ok{background:var(--green)}
+.status-dot.warn{background:var(--amber)}
+.status-dot.bad{background:var(--red)}
+.status-name{flex:1;color:var(--ink-2)}
+.status-meta{font-family:var(--font-mono);font-size:8.5px;color:var(--ink-3)}
+.status-state{font-size:9px;color:var(--green);white-space:nowrap}
+.status-state.warn{color:var(--amber-text)}
+.status-state.bad{color:var(--red)}
+
+/* recent audit mini */
+.audit-mini{display:flex;flex-direction:column}
+.audit-mini-row{
+  display:flex;align-items:flex-start;gap:8px;
+  padding:8px 0;border-bottom:1px solid var(--line-2);
+}
+.audit-mini-row:last-child{border-bottom:0;padding-bottom:0}
+.audit-mini-row:first-child{padding-top:0}
+.audit-mini-time{width:58px;flex:none;font-family:var(--font-mono);font-size:8.5px;color:var(--ink-3);padding-top:2px}
+.audit-mini-main{flex:1;min-width:0;font-size:10.5px;line-height:1.5;color:var(--ink-3)}
+.audit-mini-main b{font-weight:550;color:var(--ink-2)}
+.audit-mini-res{
+  margin-top:2px;font-family:var(--font-mono);font-size:8.5px;color:var(--ink-3);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+
+/* todo */
+.todo-list{display:flex;flex-direction:column}
+.todo-row{
+  display:flex;align-items:center;gap:9px;
+  padding:9px 0;border-bottom:1px solid var(--line-2);
+  font-size:10.5px;color:var(--ink-2);
+}
+.todo-row:last-child{border-bottom:0;padding-bottom:0}
+.todo-row:first-child{padding-top:0}
+.todo-row:hover{color:var(--ink)}
+.todo-row .ic{width:14px;height:14px;color:var(--ink-3)}
+.todo-row b{font-family:var(--font-mono);font-weight:500;color:var(--ink);font-size:10px}
+.todo-row .spacer{flex:1}
+.todo-row .text-link{flex:none}
+
+/* ---------- toolbar / forms ---------- */
+.toolbar{
+  display:flex;align-items:center;gap:7px;flex-wrap:wrap;
+  margin:14px 0 10px;
+}
+.summary-line{
+  display:flex;align-items:center;gap:6px;flex-wrap:wrap;
+  margin-top:14px;font-size:10px;color:var(--ink-3);
+}
+.summary-line b{font-family:var(--font-mono);font-size:11px;font-weight:500;color:var(--ink-2)}
+.summary-line .sep{opacity:.45}
+.search-field{
+  display:flex;align-items:center;gap:6px;
+  height:29px;min-width:210px;padding:0 8px;
+  border:1px solid var(--line);border-radius:5px;background:var(--surface);
+}
+.search-field .ic{width:13px;height:13px;color:var(--ink-3);flex:none}
+.search-field input{
+  flex:1;min-width:0;border:0;outline:none;background:transparent;
+  font:inherit;font-size:10.5px;color:var(--ink);
+}
+.search-field input::placeholder{color:var(--ink-3)}
+.select,.input,.textarea{
+  height:30px;padding:0 8px;
+  border:1px solid var(--line);border-radius:4px;
+  background:var(--surface);color:var(--ink);
+  font:inherit;font-size:10.5px;
+  outline:none;
+  transition:border-color .12s;
+}
+.select:focus,.input:focus,.textarea:focus{border-color:var(--ink-3)}
+.select{cursor:pointer}
+.textarea{height:auto;min-height:70px;padding:7px 8px;resize:vertical;line-height:1.55}
+.field{display:flex;flex-direction:column;gap:4px;min-width:0}
+.field > span{font-size:9px;color:var(--ink-3)}
+.field > small{font-size:8.5px;color:var(--ink-3)}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:11px}
+.field-row{
+  display:flex;align-items:center;justify-content:space-between;gap:16px;
+  padding:10px 0;border-bottom:1px solid var(--line-2);
+}
+.field-row:last-child{border-bottom:0;padding-bottom:0}
+.field-row:first-child{padding-top:0}
+.field-row-main{min-width:0}
+.field-row-main b{display:block;font-size:10.5px;font-weight:550;color:var(--ink-2)}
+.field-row-main small{display:block;margin-top:1px;font-size:9px;color:var(--ink-3);line-height:1.5}
+.seg{
+  display:inline-flex;align-items:center;gap:1px;
+  padding:2px;border:1px solid var(--line);border-radius:5px;
+  background:var(--surface);
+}
+.seg button{
+  display:inline-flex;align-items:center;gap:4px;
+  height:23px;padding:0 8px;border-radius:3px;
+  font-size:9.5px;color:var(--ink-3);white-space:nowrap;
+  transition:background .12s,color .12s;
+}
+.seg button:hover{color:var(--ink)}
+.seg button.is-active{background:var(--surface-2);color:var(--ink);font-weight:550}
+.seg button .count{font-family:var(--font-mono);font-size:8px;color:var(--ink-3)}
+
+/* toggle */
+.switch{position:relative;display:inline-flex;flex:none;width:30px;height:17px;cursor:pointer}
+.switch input{position:absolute;opacity:0;width:1px;height:1px}
+.switch span{
+  position:absolute;inset:0;border-radius:9px;
+  border:1px solid var(--line);background:var(--line-2);
+  transition:background .15s,border-color .15s;
+}
+.switch span::after{
+  content:"";position:absolute;top:2px;left:2px;
+  width:11px;height:11px;border-radius:50%;
+  background:var(--surface);box-shadow:0 1px 1px rgba(20,27,32,.18);
+  transition:transform .15s;
+}
+.switch input:checked + span{background:var(--prussian);border-color:var(--prussian)}
+.switch input:checked + span::after{transform:translateX(13px)}
+.switch input:focus-visible + span{outline:2px solid var(--prussian);outline-offset:2px}
+
+/* ---------- tables ---------- */
+.table-wrap{
+  width:100%;overflow-x:auto;
+  border:1px solid var(--line);border-radius:6px;
+  background:var(--surface);
+}
+.data-table{width:100%;border-collapse:collapse;font-size:10.5px;min-width:720px}
+.data-table th{
+  height:34px;padding:0 11px;
+  border-bottom:1px solid var(--line);
+  background:var(--surface-2);
+  text-align:left;font-size:8.5px;font-weight:500;color:var(--ink-3);
+  letter-spacing:.02em;white-space:nowrap;
+}
+.data-table td{
+  padding:9px 11px;
+  border-bottom:1px solid var(--line-2);
+  color:var(--ink-2);vertical-align:middle;
+}
+.data-table tbody tr:last-child td{border-bottom:0}
+.data-table tbody tr:hover td{background:rgba(20,27,32,.022)}
+html[data-theme="dark"] .data-table tbody tr:hover td{background:rgba(255,255,255,.025)}
+.data-table .num{text-align:right;font-family:var(--font-mono);font-size:9.5px}
+.data-table .actions{text-align:right;white-space:nowrap}
+.data-table .actions button{margin-left:7px}
+.table-foot{
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  padding:8px 11px;border-top:1px solid var(--line-2);
+  background:var(--surface-2);
+  font-size:9px;color:var(--ink-3);
+}
+.table-foot .spacer{flex:1}
+.pagination{display:flex;align-items:center;gap:3px}
+.pagination button{
+  display:grid;place-items:center;min-width:22px;height:22px;padding:0 6px;
+  border:1px solid var(--line);border-radius:3px;background:var(--surface);
+  font-size:9px;color:var(--ink-3);
+}
+.pagination button.is-active{background:var(--ink);border-color:var(--ink);color:var(--paper)}
+.empty-state{
+  padding:34px 18px;text-align:center;
+  font-size:10.5px;color:var(--ink-3);
+}
+
+/* user cell */
+.user-cell{display:flex;align-items:center;gap:8px;min-width:160px}
+.avatar{
+  display:grid;place-items:center;flex:none;
+  width:28px;height:28px;border-radius:50%;
+  background:var(--surface-2);border:1px solid var(--line);
+  color:var(--ink-2);font-family:var(--font-mono);font-size:8.5px;
+}
+.avatar.sm{width:25px;height:25px;font-size:8px}
+.avatar.admin{background:var(--ink);border-color:var(--ink);color:var(--paper)}
+.user-cell-main{min-width:0}
+.user-cell-main b{display:block;font-size:10.5px;font-weight:550;color:var(--ink);white-space:nowrap}
+.user-cell-main span{display:block;margin-top:1px;font-size:9px;color:var(--ink-3);white-space:nowrap}
+.user-cell.is-self b::after{content:"你";margin-left:4px;font-family:var(--font-sans);font-size:7.5px;color:var(--ink-3);border:1px solid var(--line);border-radius:2px;padding:0 3px}
+
+/* ---------- roles ---------- */
+.roles-layout{display:grid;grid-template-columns:268px minmax(0,1fr);gap:14px;margin-top:14px;align-items:start}
+.role-panel{overflow:hidden}
+.role-list{display:flex;flex-direction:column;padding:6px}
+.role-item{
+  display:flex;align-items:flex-start;gap:7px;width:100%;
+  padding:8px;border-radius:5px;text-align:left;
+  transition:background .12s;
+}
+.role-item:hover{background:var(--surface-2)}
+.role-item.is-active{background:var(--surface-2)}
+.role-item-main{flex:1;min-width:0}
+.role-item-main b{display:flex;align-items:center;gap:5px;font-size:10.5px;font-weight:550;color:var(--ink-2)}
+.role-item-main small{display:block;margin-top:2px;font-size:8.5px;line-height:1.4;color:var(--ink-3)}
+.role-item .ic{width:12px;height:12px;color:var(--ink-3);margin-top:2px;flex:none}
+.role-item.is-active .role-item-main b{color:var(--ink)}
+.lock-mini{font-size:7.5px;color:var(--amber-text);border:1px solid rgba(169,116,31,.22);border-radius:2px;padding:0 3px}
+.permission-panel .panel-head{align-items:flex-start}
+.permission-panel .panel-head h2{font-size:13px}
+.permission-panel .panel-head p{margin-top:2px;max-width:66ch}
+.lock-note{
+  display:inline-flex;align-items:center;gap:4px;
+  font-size:8.5px;color:var(--amber-text);
+  border:1px solid rgba(169,116,31,.22);border-radius:3px;padding:2px 5px;
+}
+.lock-note .ic{width:10px;height:10px}
+.perm-table{min-width:560px}
+.perm-table th{text-align:center}
+.perm-table th:first-child{text-align:left}
+.perm-table td{text-align:center;padding-top:7px;padding-bottom:7px}
+.perm-table td:first-child{text-align:left;color:var(--ink-2)}
+.perm-table .perm-group td{
+  background:var(--surface-2);color:var(--ink-3);
+  font-size:8.5px;font-weight:500;letter-spacing:.02em;
+}
+.perm-table input[type="checkbox"]{accent-color:var(--prussian);width:13px;height:13px}
+.perm-table input[type="checkbox"]:disabled{opacity:.55}
+.perm-table.is-locked td{color:var(--ink-3)}
+.perm-note{padding:8px 14px;font-size:9px;color:var(--ink-3);background:var(--surface-2);border-top:1px solid var(--line-2)}
+
+/* ---------- menus ---------- */
+.menu-table{min-width:900px}
+.menu-table td:first-child{min-width:220px}
+.tree-group td{background:var(--surface-2);font-weight:550;color:var(--ink-2)}
+.tree-toggle{
+  display:inline-grid;place-items:center;
+  width:17px;height:17px;margin-right:2px;
+  border-radius:3px;color:var(--ink-3);vertical-align:-4px;
+}
+.tree-toggle:hover{background:var(--line-2);color:var(--ink)}
+.tree-toggle .ic{width:10px;height:10px;transition:transform .15s}
+.tree-toggle.is-open .ic{transform:rotate(180deg)}
+.tree-pad{display:inline-block;width:18px;flex:none}
+.tree-pad.x2{width:36px}
+.tree-name{display:inline-flex;align-items:center;gap:5px;color:var(--ink-2)}
+.tree-group .tree-name{color:var(--ink)}
+.tree-name .ic{width:12px;height:12px;color:var(--ink-3)}
+.menu-table .path{font-family:var(--font-mono);font-size:9px;color:var(--ink-3)}
+.menu-table .perm{font-family:var(--font-mono);font-size:8.5px;color:var(--ink-3)}
+.menu-table .sort{font-family:var(--font-mono);font-size:9px;color:var(--ink-3);text-align:center}
+.menu-table .visibility{font-size:9px;color:var(--ink-3)}
+
+/* ---------- dictionaries ---------- */
+.dict-layout{display:grid;grid-template-columns:286px minmax(0,1fr);gap:14px;margin-top:14px;align-items:start}
+.dict-types{overflow:hidden}
+.dict-search{padding:8px 10px;border-bottom:1px solid var(--line-2)}
+.dict-search .search-field{width:100%;min-width:0;height:27px}
+.dict-type-list{display:flex;flex-direction:column;padding:5px;max-height:560px;overflow-y:auto}
+.dict-type{
+  display:flex;align-items:center;gap:7px;width:100%;
+  padding:8px 7px;border-radius:4px;text-align:left;
+}
+.dict-type:hover{background:var(--surface-2)}
+.dict-type.is-active{background:var(--surface-2)}
+.dict-type-main{flex:1;min-width:0}
+.dict-type-main b{display:block;font-size:10.5px;font-weight:550;color:var(--ink-2)}
+.dict-type-main small{display:block;margin-top:1px;font-family:var(--font-mono);font-size:8px;color:var(--ink-3)}
+.dict-type .count{
+  font-family:var(--font-mono);font-size:8.5px;color:var(--ink-3);
+  border:1px solid var(--line-2);border-radius:3px;padding:1px 4px;flex:none;
+}
+.dict-type .ic{width:10px;height:10px;color:var(--ink-3);flex:none}
+.dict-head{display:flex;align-items:flex-start;gap:10px;flex-wrap:wrap;padding:12px 14px;border-bottom:1px solid var(--line-2)}
+.dict-head-main{flex:1;min-width:0}
+.dict-head h2{font-size:13px;font-weight:600}
+.dict-head p{margin-top:2px;font-size:9.5px;color:var(--ink-3);line-height:1.5}
+.dict-code{font-family:var(--font-mono);font-size:9px;color:var(--ink-3);border:1px solid var(--line-2);border-radius:3px;background:var(--surface-2);padding:2px 5px;height:19px}
+.dict-toolbar{display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:8px 14px;border-bottom:1px solid var(--line-2)}
+.dict-toolbar .search-field{height:27px;min-width:180px}
+.dict-toolbar .spacer{flex:1}
+.swatch{display:inline-block;width:11px;height:11px;border-radius:3px;flex:none;border:1px solid rgba(20,27,32,.08)}
+.swatch.gray{background:#8B9499}
+.swatch.blue{background:#3E6F8A}
+.swatch.amber{background:#B98A3B}
+.swatch.green{background:#4F7A5D}
+.swatch.red{background:#A65343}
+.swatch.purple{background:#6F5F86}
+.color-cell{display:flex;align-items:center;gap:5px;font-size:9px;color:var(--ink-3)}
+.item-status{display:flex;align-items:center;gap:6px}
+.item-status .st{height:18px;font-size:8.5px}
+
+/* ---------- audit ---------- */
+.audit-table{min-width:880px}
+.audit-actor{display:flex;align-items:center;gap:6px;min-width:95px}
+.audit-actor .avatar{width:22px;height:22px;font-size:7.5px}
+.audit-actor b{font-size:9.5px;font-weight:500;color:var(--ink-2);white-space:nowrap}
+.audit-action{font-size:9.5px;color:var(--ink-2)}
+.audit-resource{font-family:var(--font-mono);font-size:8.5px;color:var(--ink-3);max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block}
+.audit-ip{font-family:var(--font-mono);font-size:8.5px;color:var(--ink-3)}
+.audit-json{
+  margin:0;padding:10px;
+  border:1px solid var(--line-2);border-radius:5px;
+  background:var(--surface-2);
+  font-family:var(--font-mono);font-size:8.5px;line-height:1.6;color:var(--ink-2);
+  white-space:pre-wrap;overflow-wrap:anywhere;max-height:260px;overflow:auto;
+}
+.audit-detail{display:flex;flex-direction:column;gap:12px}
+.audit-meta{display:grid;grid-template-columns:90px minmax(0,1fr);gap:5px 10px;font-size:10px}
+.audit-meta dt{color:var(--ink-3)}
+.audit-meta dd{color:var(--ink-2);overflow-wrap:anywhere}
+.audit-meta dd.mono{font-family:var(--font-mono);font-size:9px}
+
+/* ---------- settings ---------- */
+.settings-layout{display:grid;grid-template-columns:176px minmax(0,1fr);gap:22px;margin-top:16px;align-items:start}
+.settings-nav{position:sticky;top:0;display:flex;flex-direction:column;gap:1px;padding-right:12px;border-right:1px solid var(--line-2)}
+.settings-nav button{
+  display:flex;align-items:center;height:30px;padding:0 9px;
+  border-radius:4px;text-align:left;font-size:10px;color:var(--ink-3);
+}
+.settings-nav button:hover{background:var(--surface-2);color:var(--ink)}
+.settings-nav button.is-active{background:var(--surface-2);color:var(--ink);font-weight:550}
+.settings-form{display:flex;flex-direction:column;gap:14px;min-width:0}
+.settings-section{scroll-margin-top:12px}
+.settings-section .panel-head{align-items:flex-start}
+.settings-section .panel-head h2{font-size:12.5px}
+.settings-section .panel-head p{margin-top:2px;max-width:70ch}
+.settings-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.settings-note{
+  display:flex;align-items:flex-start;gap:6px;
+  padding:8px 10px;border:1px solid var(--line-2);border-radius:4px;
+  background:var(--surface-2);font-size:9px;line-height:1.5;color:var(--ink-3);
+}
+.settings-note .ic{width:12px;height:12px;flex:none;margin-top:1px;color:var(--ink-3)}
+.danger-zone{border-color:rgba(156,58,43,.28)}
+.danger-zone .panel-head h2{color:var(--red)}
+.danger-zone .panel-head .ic{color:var(--red)}
+
+/* ---------- drawer ---------- */
+.drawer-scrim{
+  position:fixed;inset:0;z-index:80;
+  background:rgba(12,18,22,.42);
+  opacity:0;pointer-events:none;transition:opacity .2s;
+}
+.drawer-scrim.is-open{opacity:1;pointer-events:auto}
+.drawer{
+  position:fixed;right:0;top:0;bottom:0;z-index:90;
+  display:flex;flex-direction:column;
+  width:min(520px,96vw);
+  background:var(--surface);
+  border-left:1px solid var(--line);
+  box-shadow:-24px 0 48px -32px rgba(0,0,0,.45);
+  transform:translateX(102%);
+  transition:transform .24s ease;
+  outline:none;
+}
+.drawer.is-open{transform:none}
+.drawer-head{
+  flex:none;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;
+  padding:15px 18px;border-bottom:1px solid var(--line);
+}
+.drawer-head h2{font-size:14px;font-weight:650;letter-spacing:-.012em}
+.drawer-sub{margin-top:3px;font-size:9.5px;color:var(--ink-3);line-height:1.5}
+.drawer-close{
+  display:grid;place-items:center;flex:none;
+  width:28px;height:28px;border:1px solid var(--line);border-radius:4px;
+  background:var(--surface);color:var(--ink-2);
+}
+.drawer-close:hover{color:var(--ink);border-color:var(--ink-3)}
+.drawer-close .ic{width:14px;height:14px}
+.drawer-body{flex:1;min-height:0;overflow-y:auto;padding:16px 18px 24px}
+.drawer-foot{
+  flex:none;display:flex;align-items:center;gap:7px;
+  padding:9px 18px;border-top:1px solid var(--line);
+  background:var(--surface-2);
+}
+.drawer-note{
+  margin-top:12px;padding:8px 10px;border:1px dashed var(--line);border-radius:4px;
+  font-size:9px;line-height:1.5;color:var(--ink-3);
+}
+.user-summary{
+  display:flex;align-items:center;gap:9px;
+  padding-bottom:12px;margin-bottom:12px;border-bottom:1px solid var(--line-2);
+}
+.user-summary .avatar{width:34px;height:34px;font-size:10px}
+.user-summary b{display:block;font-size:12px;font-weight:600}
+.user-summary span{display:block;margin-top:1px;font-size:9.5px;color:var(--ink-3)}
+
+/* ---------- toast ---------- */
+.toast{
+  position:fixed;left:50%;bottom:23px;z-index:200;
+  transform:translate(-50%,10px);
+  display:flex;align-items:center;gap:7px;
+  max-width:min(460px,calc(100vw - 32px));
+  padding:8px 12px;
+  border-radius:5px;
+  background:var(--ink);color:var(--paper);
+  font-size:10.5px;line-height:1.5;
+  box-shadow:var(--shadow-lg);
+  opacity:0;pointer-events:none;
+  transition:opacity .18s,transform .18s;
+}
+.toast.is-visible{opacity:1;transform:translate(-50%,0)}
+.toast .ic{width:13px;height:13px;flex:none;color:var(--amber)}
+html[data-theme="dark"] .toast{background:var(--surface);color:var(--ink);border:1px solid var(--line)}
+
+/* ---------- responsive ---------- */
+@media (max-width:1180px){
+  .admin-page{padding:24px 24px 56px}
+  .metric-strip{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .metric:nth-child(3n){border-right:0}
+  .grid-2{grid-template-columns:1fr}
+  .roles-layout{grid-template-columns:1fr}
+  .dict-layout{grid-template-columns:250px minmax(0,1fr)}
+  .settings-layout{grid-template-columns:150px minmax(0,1fr);gap:16px}
+  .global-search{width:200px}
+}
+@media (max-width:900px){
+  .admin-app{grid-template-columns:1fr}
+  .rail{
+    position:fixed;left:0;top:0;bottom:0;width:252px;
+    transform:translateX(-102%);
+    transition:transform .22s ease;
+    z-index:60;
+  }
+  .rail.is-open{transform:none}
+  .rail-scrim{display:block;opacity:0;pointer-events:none;transition:opacity .2s}
+  .rail-scrim.is-open{opacity:1;pointer-events:auto}
+  .mobile-menu{display:grid}
+  .topbar{padding:0 16px;height:54px}
+  .global-search{width:170px}
+  .admin-page{padding:22px 18px 48px}
+  .admin-page-head{flex-direction:column;align-items:flex-start;gap:12px}
+  .head-actions{width:100%}
+  .settings-layout{grid-template-columns:1fr}
+  .settings-nav{position:static;flex-direction:row;gap:2px;overflow-x:auto;border-right:0;border-bottom:1px solid var(--line-2);padding:0 0 6px}
+  .settings-nav button{flex:none}
+  .dict-layout{grid-template-columns:1fr}
+  .dict-type-list{max-height:220px}
+}
+@media (max-width:720px){
+  .topbar{gap:8px}
+  .crumb span{display:none}
+  .crumb .ic{display:none}
+  .global-search{display:none}
+  .env-chip{display:none}
+  .metric-strip{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .metric:nth-child(2n){border-right:0}
+  .metric:nth-child(3){border-top:1px solid var(--line-2)}
+  .metric:nth-child(4){border-top:1px solid var(--line-2)}
+  .metric:nth-child(5){border-top:1px solid var(--line-2);border-right:0}
+  .form-grid,.settings-grid{grid-template-columns:1fr}
+  .drawer{width:100vw}
+  .toolbar{gap:6px}
+  .search-field{flex:1;min-width:150px}
+  .data-table{font-size:10px}
+  .admin-page-head .head-actions .btn{flex:1}
+  .page-title{font-size:21px}
+  .panel-head{padding:8px 12px}
+  .panel-body{padding:12px}
+  .role-item{padding:7px}
+  .toast{bottom:14px}
+}
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
+}
+
+</style>
+</head>
+<body>
+<svg xmlns="http://www.w3.org/2000/svg" class="sprite" aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden">
+  <defs>
+    <symbol id="i-brand" viewBox="0 0 24 24"><circle cx="5" cy="12" r="2"/><circle cx="19" cy="6" r="2"/><circle cx="19" cy="18" r="2"/><path d="M7 11.2 17 6.8M7 12.8l10 4.4M19 8v8"/></symbol>
+    <symbol id="i-back" viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></symbol>
+    <symbol id="i-overview" viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/></symbol>
+    <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3.5 19c0-3 2.5-5 5.5-5s5.5 2 5.5 5"/><path d="M16 5.5a2.8 2.8 0 0 1 0 5.5M17.5 14c2 .5 3 2 3 5"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3l7 3v6c0 4.4-3 7.5-7 9-4-1.5-7-4.6-7-9V6l7-3Z"/><path d="M9 12l2 2 4-4"/></symbol>
+    <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 6h5M4 12h9M4 18h6"/><circle cx="17" cy="6" r="1.4" fill="currentColor" stroke="none"/><circle cx="18" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="15" cy="18" r="1.4" fill="currentColor" stroke="none"/></symbol>
+    <symbol id="i-book" viewBox="0 0 24 24"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v16H6.5A2.5 2.5 0 0 0 4 21.5v-16Z"/><path d="M4 18.5A2.5 2.5 0 0 1 6.5 16H20"/></symbol>
+    <symbol id="i-audit" viewBox="0 0 24 24"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 9h6M9 13h6M9 17h4"/></symbol>
+    <symbol id="i-settings" viewBox="0 0 24 24"><path d="M4 7h7M15 7h5M4 17h3M11 17h9"/><circle cx="13" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M16 16l4 4"/></symbol>
+    <symbol id="i-bell" viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/></symbol>
+    <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M9.8 9a2.4 2.4 0 1 1 3.4 2.2c-.8.4-1.2.9-1.2 1.8M12 17h.01"/></symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4 7 7 0 1 0 20 14.5Z"/></symbol>
+    <symbol id="i-chevron" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.4" fill="currentColor" stroke="none"/></symbol>
+    <symbol id="i-edit" viewBox="0 0 24 24"><path d="M4 20h4l10.5-10.5a2.8 2.8 0 0 0-4-4L4 16v4Z"/><path d="M13.5 6.5l4 4"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v6M14 11v6"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12l5 5L19 7"/></symbol>
+    <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+    <symbol id="i-external" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><rect x="4.5" y="10" width="15" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2 6M20 4v7h-7"/></symbol>
+    <symbol id="i-filter" viewBox="0 0 24 24"><path d="M4 5h16l-6 7v5l-4 2v-7L4 5Z"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 3.5 21 20H3L12 3.5Z"/><path d="M12 9v5M12 17h.01"/></symbol>
+    <symbol id="i-logout" viewBox="0 0 24 24"><path d="M9 4H5a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h4M16 8l4 4-4 4M20 12H9"/></symbol>
+    <symbol id="i-menu-burger" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
+    <symbol id="i-user-plus" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3.5 19c0-3 2.5-5 5.5-5 1.5 0 2.8.5 3.7 1.4M17 12v6M14 15h6"/></symbol>
+    <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="2.5"/></symbol>
+    <symbol id="i-key" viewBox="0 0 24 24"><circle cx="8" cy="8" r="4"/><path d="M11 11l8 8M16 16l2-2M18 18l2-2"/></symbol>
+    <symbol id="i-server" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="6" rx="1.5"/><rect x="4" y="14" width="16" height="6" rx="1.5"/><path d="M8 7h.01M8 17h.01M12 7h5M12 17h5"/></symbol>
+    <symbol id="i-db" viewBox="0 0 24 24"><ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v6c0 1.7 3.1 3 7 3s7-1.3 7-3V6M5 12v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6"/></symbol>
+    <symbol id="i-bot" viewBox="0 0 24 24"><rect x="4" y="7" width="16" height="12" rx="3"/><path d="M12 3v4M8 12h.01M16 12h.01M9 16h6"/></symbol>
+    <symbol id="i-flow" viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/><path d="M10.5 7h3a3 3 0 0 1 3 3v3.5"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></symbol>
+    <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.2 2.4 3.3 5.3 3.3 8.5s-1.1 6.1-3.3 8.5c-2.2-2.4-3.3-5.3-3.3-8.5s1.1-6.1 3.3-8.5Z"/></symbol>
+  </defs>
+</svg>
+
+<div class="admin-app" id="adminApp">
+  <div class="rail-scrim" id="railScrim"></div>
+  <aside class="rail" id="adminRail" aria-label="管理导航">
+    <div class="rail-brand">
+      <a class="brand-lockup" href="ui-v8-admin.html" aria-label="Agent Hub 管理控制台">
+        <span class="brand-mark"><svg class="ic" aria-hidden="true"><use href="#i-brand"/></svg></span>
+        <span class="brand-text"><b>Agent Hub</b><small>管理控制台</small></span>
+      </a>
+      <span class="admin-badge">管理员</span>
+    </div>
+
+    <a class="rail-back" href="ui-v7.html">
+      <svg class="ic" aria-hidden="true"><use href="#i-back"/></svg>
+      返回工作台
+    </a>
+
+    <nav class="rail-nav" aria-label="管理页面">
+      <div class="rail-group">
+        <div class="rail-label">总览</div>
+        <button class="rail-link is-active" data-page="overview" aria-current="page">
+          <svg class="ic" aria-hidden="true"><use href="#i-overview"/></svg><span>概览</span>
+        </button>
+      </div>
+      <div class="rail-group">
+        <div class="rail-label">访问控制</div>
+        <button class="rail-link" data-page="users">
+          <svg class="ic" aria-hidden="true"><use href="#i-users"/></svg><span>用户管理</span><span class="rail-count">6</span>
+        </button>
+        <button class="rail-link" data-page="roles">
+          <svg class="ic" aria-hidden="true"><use href="#i-shield"/></svg><span>角色与权限</span><span class="rail-count">5</span>
+        </button>
+      </div>
+      <div class="rail-group">
+        <div class="rail-label">平台配置</div>
+        <button class="rail-link" data-page="menus">
+          <svg class="ic" aria-hidden="true"><use href="#i-menu"/></svg><span>菜单管理</span><span class="rail-count">16</span>
+        </button>
+        <button class="rail-link" data-page="dict">
+          <svg class="ic" aria-hidden="true"><use href="#i-book"/></svg><span>字典管理</span><span class="rail-count">6</span>
+        </button>
+        <button class="rail-link" data-page="system">
+          <svg class="ic" aria-hidden="true"><use href="#i-settings"/></svg><span>系统设置</span>
+        </button>
+      </div>
+      <div class="rail-group">
+        <div class="rail-label">治理</div>
+        <button class="rail-link" data-page="audit">
+          <svg class="ic" aria-hidden="true"><use href="#i-audit"/></svg><span>审计日志</span><span class="rail-count">10</span>
+        </button>
+      </div>
+    </nav>
+
+    <div class="rail-foot">
+      <div class="rail-health"><span class="dot"></span><span>系统运行正常</span><span class="mono">99.98%</span></div>
+      <div class="rail-account">
+        <span class="rail-avatar">ZD</span>
+        <div class="rail-account-main"><b>周丹</b><small>超级管理员</small></div>
+        <button class="rail-logout" id="railLogout" aria-label="退出登录" title="退出登录">
+          <svg class="ic" aria-hidden="true"><use href="#i-logout"/></svg>
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <div class="admin-main">
+    <header class="topbar">
+      <button class="icon-btn mobile-menu" id="mobileMenu" aria-label="打开管理导航" aria-expanded="false">
+        <svg class="ic" aria-hidden="true"><use href="#i-menu-burger"/></svg>
+      </button>
+      <div class="crumb">
+        <span>管理控制台</span><span class="crumb-sep">/</span><b id="crumbPage">概览</b>
+      </div>
+      <div class="topbar-tools">
+        <span class="env-chip"><span class="dot"></span>生产</span>
+        <label class="global-search">
+          <svg class="ic" aria-hidden="true"><use href="#i-search"/></svg>
+          <input id="globalSearch" type="search" placeholder="搜索用户、菜单或审计事件" autocomplete="off">
+        </label>
+        <button class="icon-btn" id="themeBtn" aria-label="切换主题">
+          <svg class="ic theme-icon-dark" aria-hidden="true"><use href="#i-moon"/></svg>
+          <svg class="ic theme-icon-light" aria-hidden="true"><use href="#i-sun"/></svg>
+        </button>
+        <button class="icon-btn bell" id="notifyBtn" aria-label="通知">
+          <svg class="ic" aria-hidden="true"><use href="#i-bell"/></svg><span class="bell-dot"></span>
+        </button>
+        <span class="topbar-avatar" title="周丹 · 超级管理员">ZD</span>
+      </div>
+    </header>
+
+    <div class="admin-scroll" id="adminScroll">
+      <!-- ================= OVERVIEW ================= -->
+      <section class="admin-page" data-page="overview">
+        <header class="admin-page-head">
+          <div>
+            <h1 class="page-title">管理概览</h1>
+            <p class="page-sub">平台运行、用户与智能体的当前状态。仅超级管理员可见。</p>
+          </div>
+          <div class="head-actions">
+            <a class="btn btn-outline" href="ui-v7.html"><svg class="ic" aria-hidden="true"><use href="#i-external"/></svg>打开工作台</a>
+            <button class="btn btn-primary" data-open-invite><svg class="ic" aria-hidden="true"><use href="#i-user-plus"/></svg>邀请用户</button>
+          </div>
+        </header>
+
+        <div class="metric-strip">
+          <div class="metric">
+            <span class="metric-label">用户</span>
+            <span class="metric-value" id="metricUsers">6</span>
+            <span class="metric-foot"><span class="delta">+2</span> 本周</span>
+          </div>
+          <div class="metric">
+            <span class="metric-label">今日运行</span>
+            <span class="metric-value">42</span>
+            <span class="metric-foot"><span class="delta">+18%</span> 较昨日</span>
+          </div>
+          <div class="metric">
+            <span class="metric-label">待审批</span>
+            <span class="metric-value">1</span>
+            <span class="metric-foot"><span class="delta is-warn">HITL</span> 等待决定</span>
+          </div>
+          <div class="metric">
+            <span class="metric-label">远程智能体</span>
+            <span class="metric-value">3</span>
+            <span class="metric-foot"><span class="delta is-warn">1 降级</span> 2 健康</span>
+          </div>
+          <div class="metric">
+            <span class="metric-label">知识文档</span>
+            <span class="metric-value">128</span>
+            <span class="metric-foot"><span class="delta is-bad">2 失败</span> 126 就绪</span>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <section class="panel">
+            <div class="panel-head">
+              <div><h2>运行量</h2><p>对话与工作流的执行次数</p></div>
+              <span class="panel-meta">近 7 天</span>
+              <span class="spacer"></span>
+              <span class="mono" style="font-size:9.5px;color:var(--ink-3)">1,284 runs</span>
+            </div>
+            <div class="panel-body">
+              <div class="chart-bars" role="img" aria-label="近 7 天运行量柱状图">
+                <div class="bar-col"><span class="bar-value">128</span><span class="bar" style="--h:45%"></span><span class="bar-label">10-30</span></div>
+                <div class="bar-col"><span class="bar-value">164</span><span class="bar" style="--h:58%"></span><span class="bar-label">10-31</span></div>
+                <div class="bar-col"><span class="bar-value">142</span><span class="bar" style="--h:50%"></span><span class="bar-label">11-01</span></div>
+                <div class="bar-col"><span class="bar-value">186</span><span class="bar" style="--h:66%"></span><span class="bar-label">11-02</span></div>
+                <div class="bar-col"><span class="bar-value">204</span><span class="bar" style="--h:72%"></span><span class="bar-label">11-03</span></div>
+                <div class="bar-col"><span class="bar-value">176</span><span class="bar" style="--h:62%"></span><span class="bar-label">11-04</span></div>
+                <div class="bar-col is-today"><span class="bar-value">284</span><span class="bar" style="--h:100%"></span><span class="bar-label">今天</span></div>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-head">
+              <div><h2>系统状态</h2><p>核心依赖与外部连接</p></div>
+              <span class="spacer"></span>
+              <span class="st st-ok"><span class="dot is-ok"></span>正常</span>
+            </div>
+            <div class="panel-body">
+              <div class="status-list">
+                <div class="status-row"><span class="status-dot ok"></span><span class="status-name">API 服务</span><span class="status-meta">42 ms</span><span class="status-state">正常</span></div>
+                <div class="status-row"><span class="status-dot ok"></span><span class="status-name">PostgreSQL</span><span class="status-meta">8 ms</span><span class="status-state">正常</span></div>
+                <div class="status-row"><span class="status-dot ok"></span><span class="status-name">pgvector · HNSW</span><span class="status-meta">6 ms</span><span class="status-state">正常</span></div>
+                <div class="status-row"><span class="status-dot warn"></span><span class="status-name">A2A 注册表</span><span class="status-meta">2 / 3 健康</span><span class="status-state warn">1 降级</span></div>
+                <div class="status-row"><span class="status-dot ok"></span><span class="status-name">模型 · deepseek-chat</span><span class="status-meta">p95 1.8s</span><span class="status-state">正常</span></div>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <div class="grid-2">
+          <section class="panel">
+            <div class="panel-head">
+              <div><h2>最近管理操作</h2><p>来自审计日志</p></div>
+              <span class="spacer"></span>
+              <button class="text-link" data-page-link="audit">全部审计 <svg class="ic" aria-hidden="true"><use href="#i-arrow"/></svg></button>
+            </div>
+            <div class="panel-body">
+              <div class="audit-mini">
+                <div class="audit-mini-row"><span class="audit-mini-time">09:42</span><div class="audit-mini-main"><b>周丹</b> 更新了菜单「管理控制台 / 菜单管理」<div class="audit-mini-res">menu.update · success</div></div></div>
+                <div class="audit-mini-row"><span class="audit-mini-time">09:31</span><div class="audit-mini-main"><b>周丹</b> 将 林雨 的角色改为「运营管理员」<div class="audit-mini-res">user.role.update · success</div></div></div>
+                <div class="audit-mini-row"><span class="audit-mini-time">09:18</span><div class="audit-mini-main"><b>林雨</b> 发布了工作流「客服周报 v2」<div class="audit-mini-res">workflow.publish · success</div></div></div>
+                <div class="audit-mini-row"><span class="audit-mini-time">08:55</span><div class="audit-mini-main"><b>陈默</b> 批准了 Slack 发布审批<div class="audit-mini-res">approval.approve · success</div></div></div>
+                <div class="audit-mini-row"><span class="audit-mini-time">08:31</span><div class="audit-mini-main"><b>周丹</b> 注册远程智能体 code-assistant<div class="audit-mini-res">agent.register · success</div></div></div>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-head">
+              <div><h2>待处理</h2><p>需要管理员关注</p></div>
+              <span class="spacer"></span>
+              <span class="badge">3 项</span>
+            </div>
+            <div class="panel-body">
+              <div class="todo-list">
+                <a class="todo-row" href="ui-v7-pages.html#tasks"><svg class="ic" aria-hidden="true"><use href="#i-shield"/></svg><span>1 个审批等待决定</span><span class="spacer"></span><span class="text-link">查看任务</span></a>
+                <a class="todo-row" href="ui-v7-pages.html#agents"><svg class="ic" aria-hidden="true"><use href="#i-bot"/></svg><span>code-assistant 处于降级状态</span><span class="spacer"></span><span class="text-link">查看智能体</span></a>
+                <a class="todo-row" href="ui-v7-pages.html#knowledge"><svg class="ic" aria-hidden="true"><use href="#i-db"/></svg><span>2 篇知识文档入库失败</span><span class="spacer"></span><span class="text-link">查看知识库</span></a>
+              </div>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <!-- ================= USERS ================= -->
+      <section class="admin-page" data-page="users" hidden>
+        <header class="admin-page-head">
+          <div>
+            <h1 class="page-title">用户管理</h1>
+            <p class="page-sub">管理工作台账号、角色与启用状态。角色权限由「角色与权限」统一控制。</p>
+          </div>
+          <div class="head-actions">
+            <button class="btn btn-outline" data-demo="导出用户（原型演示）"><svg class="ic" aria-hidden="true"><use href="#i-download"/></svg>导出</button>
+            <button class="btn btn-primary" id="inviteUserBtn"><svg class="ic" aria-hidden="true"><use href="#i-user-plus"/></svg>邀请用户</button>
+          </div>
+        </header>
+
+        <div class="summary-line">
+          <span><b>6</b> 用户</span><span class="sep">·</span>
+          <span><b>4</b> 启用</span><span class="sep">·</span>
+          <span><b>1</b> 禁用</span><span class="sep">·</span>
+          <span><b>1</b> 待激活</span><span class="sep">·</span>
+          <span><b>5</b> 角色</span>
+        </div>
+
+        <div class="toolbar">
+          <label class="search-field">
+            <svg class="ic" aria-hidden="true"><use href="#i-search"/></svg>
+            <input id="userSearch" type="search" placeholder="搜索姓名或邮箱" autocomplete="off">
+          </label>
+          <select class="select" id="userRoleFilter" aria-label="按角色筛选">
+            <option value="all">全部角色</option>
+            <option value="superadmin">超级管理员</option>
+            <option value="ops">运营管理员</option>
+            <option value="support">客服主管</option>
+            <option value="editor">知识库编辑</option>
+            <option value="auditor">只读审计</option>
+          </select>
+          <div class="seg" id="userStatusFilter" role="group" aria-label="按状态筛选">
+            <button class="is-active" data-status="all">全部</button>
+            <button data-status="active">启用</button>
+            <button data-status="disabled">禁用</button>
+            <button data-status="pending">待激活</button>
+          </div>
+          <span class="spacer"></span>
+          <span class="mono" id="userCount" style="font-size:9px;color:var(--ink-3)">6 / 6</span>
+        </div>
+
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr><th>用户</th><th>角色</th><th>状态</th><th>最近登录</th><th class="num">会话</th><th class="actions">操作</th></tr>
+            </thead>
+            <tbody id="userRows"></tbody>
+          </table>
+          <div class="table-foot">
+            <span id="userFoot">显示 6 个用户</span>
+            <span class="spacer"></span>
+            <div class="pagination"><button aria-label="上一页">‹</button><button class="is-active">1</button><button aria-label="下一页">›</button></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= ROLES ================= -->
+      <section class="admin-page" data-page="roles" hidden>
+        <header class="admin-page-head">
+          <div>
+            <h1 class="page-title">角色与权限</h1>
+            <p class="page-sub">用角色控制管理菜单与操作权限。超级管理员为系统内置，不可修改。</p>
+          </div>
+          <div class="head-actions">
+            <button class="btn btn-outline" data-demo="新建角色（原型演示）"><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg>新建角色</button>
+          </div>
+        </header>
+
+        <div class="roles-layout">
+          <section class="panel role-panel">
+            <div class="panel-head"><h2>角色</h2><span class="spacer"></span><span class="badge">5</span></div>
+            <div class="role-list" id="roleList"></div>
+          </section>
+
+          <section class="panel permission-panel">
+            <div class="panel-head">
+              <div style="min-width:0">
+                <h2 id="roleTitle">超级管理员</h2>
+                <p id="roleDesc">拥有全部菜单与操作权限，系统内置。</p>
+              </div>
+              <span class="spacer"></span>
+              <span class="lock-note" id="roleLock"><svg class="ic" aria-hidden="true"><use href="#i-lock"/></svg>系统内置</span>
+            </div>
+            <div class="table-wrap" style="border:0;border-radius:0">
+              <table class="data-table perm-table" id="permTable">
+                <thead><tr><th>模块 / 权限</th><th>查看</th><th>操作</th></tr></thead>
+                <tbody id="permRows"></tbody>
+              </table>
+            </div>
+            <div class="panel-foot">
+              <span>修改后立即对新会话生效</span>
+              <span class="spacer"></span>
+              <button class="btn btn-primary btn-sm" id="savePerms">保存权限</button>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <!-- ================= MENUS ================= -->
+      <section class="admin-page" data-page="menus" hidden>
+        <header class="admin-page-head">
+          <div>
+            <h1 class="page-title">菜单管理</h1>
+            <p class="page-sub">维护工作台与管理控制台的导航结构、可见性和权限标识。管理菜单只对管理员角色开放。</p>
+          </div>
+          <div class="head-actions">
+            <button class="btn btn-outline" data-demo="刷新菜单（原型演示）"><svg class="ic" aria-hidden="true"><use href="#i-refresh"/></svg>刷新</button>
+            <button class="btn btn-primary" id="newMenuBtn"><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg>新建菜单</button>
+          </div>
+        </header>
+
+        <div class="toolbar">
+          <label class="search-field">
+            <svg class="ic" aria-hidden="true"><use href="#i-search"/></svg>
+            <input id="menuSearch" type="search" placeholder="搜索菜单名称、路径或权限标识" autocomplete="off">
+          </label>
+          <div class="seg" id="menuTypeFilter" role="group" aria-label="按菜单类型筛选">
+            <button class="is-active" data-type="all">全部</button>
+            <button data-type="directory">目录</button>
+            <button data-type="page">页面</button>
+            <button data-type="button">按钮</button>
+          </div>
+          <span class="spacer"></span>
+          <span class="mono" id="menuCount" style="font-size:9px;color:var(--ink-3)">16 项</span>
+          <button class="btn btn-ghost btn-sm" id="menuCollapseAll">全部折叠</button>
+        </div>
+
+        <div class="table-wrap">
+          <table class="data-table menu-table">
+            <thead><tr><th>菜单名称</th><th>路径</th><th>类型</th><th>权限标识</th><th class="sort">排序</th><th>可见</th><th>状态</th><th class="actions">操作</th></tr></thead>
+            <tbody id="menuRows">
+              <tr class="tree-group" data-menu-id="m-workbench" data-group="true" data-parent="" data-type="directory" data-menu-name="工作台" data-path="/workspace" data-menu-permission="" data-menu-icon="overview">
+                <td><button class="tree-toggle is-open" data-tree="m-workbench" aria-expanded="true"><svg class="ic" aria-hidden="true"><use href="#i-chevron"/></svg></button><span class="tree-name"><svg class="ic" aria-hidden="true"><use href="#i-overview"/></svg>工作台</span></td>
+                <td class="path">/workspace</td><td><span class="type-chip directory">目录</span></td><td class="perm">—</td><td class="sort">01</td><td class="visibility">是</td><td><span class="st st-ok">启用</span></td>
+                <td class="actions"><button class="text-link" data-menu-edit title="编辑"><svg class="ic" aria-hidden="true"><use href="#i-edit"/></svg></button><button class="text-link" data-menu-add title="新增子项"><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg></button></td>
+              </tr>
+              <tr class="tree-child" data-menu-id="m-chat" data-parent="m-workbench" data-type="page" data-menu-name="对话" data-path="/" data-menu-permission="chat:read" data-menu-icon="chat">
+                <td><span class="tree-pad"></span><span class="tree-name">对话</span></td><td class="path">/</td><td><span class="type-chip">页面</span></td><td class="perm">chat:read</td><td class="sort">01</td><td class="visibility">是</td><td><span class="st st-ok">启用</span></td>
+                <td class="actions"><button class="text-link" data-menu-edit title="编辑"><svg class="ic" aria-hidden="true"><use href="#i-edit"/></svg></button></td>
+              </tr>
+              <tr class="tree-child" data-menu-id="m-workflows" data-parent="m-workbench" data-type="page" data-menu-name="工作流" data-path="/workflows" data-menu-permission="workflow:read" data-menu-icon="flow">
+                <td><span class="tree-pad"></span><span class="tree-name">工作流</span></td><td class="path">/workflows</td><td><span class="type-chip">页面</span></td><td class="perm">workflow:read</td><td class="sort">02</td><td class="visibility">是</td><td><span class="st st-ok">启用</span></td>
+                <td class="actions"><button class="text-link" data-menu-edit title="编辑"><svg class="ic" aria-hidden="true"><use href="#i-edit"/></svg></button></td>
+              </tr>
+              <tr class="tree-child" data-menu-id="m-agents" data-parent="m-workbench" data-type="page" data-menu-name="智能体" data-path="/agents" data-menu-permission="agent:read" data-menu-icon="bot">
+                <td><span class="tree-pad"></span><span class="tree-name">智能体</span></td><td class="path">/agents</td><td><span class="type-chip">页面</span></td><td class="perm">agent:read</td><td class="sort">03</td><td class="visibility">是</td><td><span class="st st-ok">启用</span></td>
+                <td class="actions"><button class="text-link" data-menu-edit title="编辑"><svg class="ic" aria-hidden="true"><use href="#i-edit"/></svg></button></td>
+              </tr>
+              <tr class="tree-child" data-menu-id="m-tasks" data-parent="m-workbench" data-type="page" data-menu-name="任务" data-path="/tasks" data-menu-permission="task:read" data-menu-icon="flow">
+                <td><span class="tree-pad"></span><span class="tree-name">任务</span></td><td class="path">/tasks</td><td><span class="type-chip">页面</span></td><td class="perm">task:read</td><td class="sort">04</td><td class="visibility">是</td><td><span class="st st-ok">启用</span></td>
+                <td class="actions"><button class="text-link" data-menu-edit title="编辑"><svg class="ic" aria-hidden="true"><use href="#i-edit"/></svg></button></td>
+              </tr>
+              <tr class="tree-child" data-menu-id="m-knowledge" data-parent="m-workbench" data-type="page" data-menu-name="知识库" data-path="/knowledge" data-menu-permission="knowledge:read" data-menu-icon="db">
+                <td><span class="tree-pad"></span><span class="tree-name">知识库</span></td><td class="path">/knowledge</td><td><span class="type-chip">页面</span></td><td class="perm">knowledge:read</td><td class="sort">05</td><td class="visibility">是</td><td><span class="st st-ok">启用</span></td>
+                <td class="actions"><button class="text-link" data-menu-edit title="编辑"><svg class="ic" aria-hidden="true"><use href="#i-edit"/></svg></button></td>
+              </tr>
+
+              <tr class="tree-group" data-menu-id="m-admin" data-group="true" data-parent="" data-type="directory" data-menu-name="管理控制台" data-path="/admin" data-menu-permission="" data-menu-icon="shield">
+                <td><button class="tree-toggle is-open" data-tree="m-admin" aria-expanded="true"><svg class="ic" aria-hidden="true"><use href="#i-chevron"/></svg></button><span class="tree-name"><svg class="ic" aria-hidden="true"><use href="#i-shield"/></svg>管理控制台</span></td>
+                <td class="path">/admin</td><td><span class="type-chip directory">目录</span></td><td class="perm">—</td><td class="sort">02</td><td class="visibility">是</td><td><span class="st st-ok">启用</span></td>
+                <td class="actions"><button class="text-link" data-menu-edit title="编辑"><svg class="ic" aria-hidden="true"><use href="#i-edit"/></svg></button><button class="text-link" data-menu-add title="新增子项"><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg></button></td>
+              </tr>
+              <tr class="tree-child" data-menu-id="m-overview" data-parent="m-admin" data-type="page" data-menu-name="概览" data-path="/admin/overview" data-menu-permission="admin:overview:read" data-menu-icon="overview">
+                <td><span class="tree-pad"></span><span class="tree-name">概览</span></td><td class="path">/admin/overview</td><td><span class="type-chip">页面</span></td><td class="perm">admin:overview:read</td><td class="sort">01</td><td class="visibility">是</td><td><span class="st st-ok">启用</span></td>
+                <td class="actions"><button class="text-link" data-menu-edit title="编辑"><svg class="ic" aria-hidden="true"><use href="#i-edit"/></svg></button></td>
+              </tr>
+              <tr class="tree-child" data-menu-id="m-users" data-parent="m-admin" data-type="page" data-menu-name="用户管理" data-path="/admin/users" data-menu-permission="admin:user:read" data-menu-icon="users">
+                <td><button class="tree-toggle is-open" data-tree="m-users" aria-expanded="true"><svg class="ic" aria-hidden="true"><use href="#i-chevron"/></svg></button><span class="tree-pad"></span><span class="tree-name">用户管理</span></td><td class="path">/admin/users</td><td><span class="type-chip">页面</span></td><td class="perm">admin:user:read</td><td class="sort">02</td><td class="visibility">是</td><td><span class="st st-ok">启用</span></td>
+                <td class="actions"><button class="text-link" data-menu-edit title="编辑"><svg class="ic" aria-hidden="true"><use href="#i-edit"/></svg></button></td>
+              </tr>
+              <tr class="tree-child" data-menu-id="m-user-create" data-parent="m-users" data-type="button" data-menu-name="创建用户" data-path="" data-menu-permission="admin:user:create" data-menu-icon="">
+                <td><span class="tree-pad"></span><span class="tree-pad"></span><span class="tree-name">创建用户</span></td><td class="path">—</td><td><span class="type-chip button">按钮</span></td><td class="perm">admin:user:create</td><td class="sort">01</td><td class="visibility">是</td><td><span class="st st-ok">启用</span></td>
+                <td class="actions"><button class="text-link" data-menu-edit title="编辑"><svg class="ic" aria-hidden="true"><use href="#i-edit"/></svg></button><button class="text-link" data-menu-delete title="删除"><svg class="ic" aria-hidden="true"><use href="#i-trash"/></svg></button></td>
+              </tr>
+              <tr class="tree-child" data-menu-id="m-user-disable" data-parent="m-users" data-type="button" data-menu-name="禁用用户" data-path="" data-menu-permission="admin:user:disable" data-menu-icon="">
+                <td><span class="tree-pad"></span><span class="tree-pad"></span><span class="tree-name">禁用用户</span></td><td class="path">—</td><td><span class="type-chip button">按钮</span></td><td class="perm">admin:user:disable</td><td class="sort">02</td><td class="visibility">是</td><td><span class="st st-ok">启用</span></td>
+                <td class="actions"><button class="text-link" data-menu-edit title="编辑"><svg class="ic" aria-hidden="true"><use href="#i-edit"/></svg></button><button class="text-link" data-menu-delete title="删除"><svg class="ic" aria-hidden="true"><use href="#i-trash"/></svg></button></td>
+              </tr>
+              <tr class="tree-child" data-menu-id="m-roles" data-parent="m-admin" data-type="page" data-menu-name="角色与权限" data-path="/admin/roles" data-menu-permission="admin:role:read" data-menu-icon="shield">
+                <td><span class="tree-pad"></span><span class="tree-name">角色与权限</span></td><td class="path">/admin/roles</td><td><span class="type-chip">页面</span></td><td class="perm">admin:role:read</td><td class="sort">03</td><td class="visibility">是</td><td><span class="st st-ok">启用</span></td>
+                <td class="actions"><button class="text-link" data-menu-edit title="编辑"><svg class="ic" aria-hidden="true"><use href="#i-edit"/></svg></button></td>
+              </tr>
+              <tr class="tree-child" data-menu-id="m-menus" data-parent="m-admin" data-type="page" data-menu-name="菜单管理" data-path="/admin/menus" data-menu-permission="admin:menu:read" data-menu-icon="menu">
+                <td><span class="tree-pad"></span><span class="tree-name">菜单管理</span></td><td class="path">/admin/menus</td><td><span class="type-chip">页面</span></td><td class="perm">admin:menu:read</td><td class="sort">04</td><td class="visibility">是</td><td><span class="st st-ok">启用</span></td>
+                <td class="actions"><button class="text-link" data-menu-edit title="编辑"><svg class="ic" aria-hidden="true"><use href="#i-edit"/></svg></button></td>
+              </tr>
+              <tr class="tree-child" data-menu-id="m-dict" data-parent="m-admin" data-type="page" data-menu-name="字典管理" data-path="/admin/dictionaries" data-menu-permission="admin:dict:read" data-menu-icon="book">
+                <td><span class="tree-pad"></span><span class="tree-name">字典管理</span></td><td class="path">/admin/dictionaries</td><td><span class="type-chip">页面</span></td><td class="perm">admin:dict:read</td><td class="sort">05</td><td class="visibility">是</td><td><span class="st st-ok">启用</span></td>
+                <td class="actions"><button class="text-link" data-menu-edit title="编辑"><svg class="ic" aria-hidden="true"><use href="#i-edit"/></svg></button></td>
+              </tr>
+              <tr class="tree-child" data-menu-id="m-audit" data-parent="m-admin" data-type="page" data-menu-name="审计日志" data-path="/admin/audit" data-menu-permission="admin:audit:read" data-menu-icon="audit">
+                <td><span class="tree-pad"></span><span class="tree-name">审计日志</span></td><td class="path">/admin/audit</td><td><span class="type-chip">页面</span></td><td class="perm">admin:audit:read</td><td class="sort">06</td><td class="visibility">是</td><td><span class="st st-ok">启用</span></td>
+                <td class="actions"><button class="text-link" data-menu-edit title="编辑"><svg class="ic" aria-hidden="true"><use href="#i-edit"/></svg></button></td>
+              </tr>
+              <tr class="tree-child" data-menu-id="m-system" data-parent="m-admin" data-type="page" data-menu-name="系统设置" data-path="/admin/settings" data-menu-permission="admin:system:read" data-menu-icon="settings">
+                <td><span class="tree-pad"></span><span class="tree-name">系统设置</span></td><td class="path">/admin/settings</td><td><span class="type-chip">页面</span></td><td class="perm">admin:system:read</td><td class="sort">07</td><td class="visibility">是</td><td><span class="st st-ok">启用</span></td>
+                <td class="actions"><button class="text-link" data-menu-edit title="编辑"><svg class="ic" aria-hidden="true"><use href="#i-edit"/></svg></button></td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="table-foot">
+            <span id="menuFoot">共 16 项菜单 · 2 个目录 · 12 个页面 · 2 个按钮</span>
+            <span class="spacer"></span>
+            <span>菜单变更后需重新登录生效</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= DICTIONARIES ================= -->
+      <section class="admin-page" data-page="dict" hidden>
+        <header class="admin-page-head">
+          <div>
+            <h1 class="page-title">字典管理</h1>
+            <p class="page-sub">集中维护任务状态、智能体健康、知识分类等枚举。字典值参与 API 契约，修改前请确认调用方。</p>
+          </div>
+          <div class="head-actions">
+            <button class="btn btn-primary" id="newDictBtn"><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg>新建字典</button>
+          </div>
+        </header>
+
+        <div class="dict-layout">
+          <section class="panel dict-types">
+            <div class="panel-head"><h2>字典类型</h2><span class="spacer"></span><span class="badge" id="dictTypeCount">6</span></div>
+            <div class="dict-search">
+              <label class="search-field"><svg class="ic" aria-hidden="true"><use href="#i-search"/></svg><input id="dictTypeSearch" type="search" placeholder="搜索字典" autocomplete="off"></label>
+            </div>
+            <div class="dict-type-list" id="dictTypeList"></div>
+          </section>
+
+          <section class="panel dict-items">
+            <div class="dict-head">
+              <div class="dict-head-main">
+                <h2 id="dictTitle">任务状态</h2>
+                <p id="dictDesc">任务与运行状态</p>
+              </div>
+              <span class="dict-code mono" id="dictCode">task_status</span>
+              <button class="btn btn-outline btn-sm" id="addDictItemBtn"><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg>新增字典项</button>
+            </div>
+            <div class="dict-toolbar">
+              <label class="search-field"><svg class="ic" aria-hidden="true"><use href="#i-search"/></svg><input id="dictItemSearch" type="search" placeholder="搜索标签或值" autocomplete="off"></label>
+              <span class="spacer"></span>
+              <span class="mono" id="dictItemCount" style="font-size:8.5px;color:var(--ink-3)">7 项</span>
+            </div>
+            <div class="table-wrap" style="border:0;border-radius:0">
+              <table class="data-table" style="min-width:520px">
+                <thead><tr><th>标签</th><th>值</th><th>颜色</th><th class="sort">排序</th><th>状态</th><th class="actions">操作</th></tr></thead>
+                <tbody id="dictItemRows"></tbody>
+              </table>
+            </div>
+            <div class="panel-foot"><span>字典项变更会立即影响前端状态展示与筛选。</span></div>
+          </section>
+        </div>
+      </section>
+
+      <!-- ================= AUDIT ================= -->
+      <section class="admin-page" data-page="audit" hidden>
+        <header class="admin-page-head">
+          <div>
+            <h1 class="page-title">审计日志</h1>
+            <p class="page-sub">记录登录、权限、菜单、字典、工作流与系统配置变更。只读，保留 365 天。</p>
+          </div>
+          <div class="head-actions">
+            <button class="btn btn-outline" id="exportAuditBtn"><svg class="ic" aria-hidden="true"><use href="#i-download"/></svg>导出</button>
+            <button class="btn btn-outline" data-demo="刷新审计（原型演示）"><svg class="ic" aria-hidden="true"><use href="#i-refresh"/></svg>刷新</button>
+          </div>
+        </header>
+
+        <div class="toolbar">
+          <label class="search-field">
+            <svg class="ic" aria-hidden="true"><use href="#i-search"/></svg>
+            <input id="auditSearch" type="search" placeholder="搜索操作者、对象或 IP" autocomplete="off">
+          </label>
+          <select class="select" id="auditAction" aria-label="按操作筛选">
+            <option value="all">全部操作</option>
+            <option value="login">登录</option>
+            <option value="user">用户</option>
+            <option value="role">角色</option>
+            <option value="menu">菜单</option>
+            <option value="workflow">工作流</option>
+            <option value="approval">审批</option>
+            <option value="agent">智能体</option>
+            <option value="dict">字典</option>
+            <option value="knowledge">知识库</option>
+            <option value="system">系统</option>
+          </select>
+          <div class="seg" id="auditResult" role="group" aria-label="按结果筛选">
+            <button class="is-active" data-result="all">全部</button>
+            <button data-result="success">成功</button>
+            <button data-result="failure">失败</button>
+          </div>
+          <select class="select" id="auditRange" aria-label="时间范围">
+            <option>近 24 小时</option><option>近 7 天</option><option>近 30 天</option>
+          </select>
+          <span class="spacer"></span>
+          <span class="mono" id="auditCount" style="font-size:9px;color:var(--ink-3)">10 条</span>
+        </div>
+
+        <div class="table-wrap">
+          <table class="data-table audit-table">
+            <thead><tr><th>时间</th><th>操作者</th><th>操作</th><th>对象</th><th>IP</th><th>结果</th><th class="actions">详情</th></tr></thead>
+            <tbody id="auditRows"></tbody>
+          </table>
+          <div class="table-foot"><span id="auditFoot">显示 10 条记录</span><span class="spacer"></span><span>审计数据不可编辑</span></div>
+        </div>
+      </section>
+
+      <!-- ================= SYSTEM SETTINGS ================= -->
+      <section class="admin-page" data-page="system" hidden>
+        <header class="admin-page-head">
+          <div>
+            <h1 class="page-title">系统设置</h1>
+            <p class="page-sub">平台级配置。修改会影响所有用户与运行，保存前请确认影响范围。</p>
+          </div>
+          <div class="head-actions">
+            <button class="btn btn-outline" data-demo="导出配置（原型演示）"><svg class="ic" aria-hidden="true"><use href="#i-download"/></svg>导出配置</button>
+            <button class="btn btn-primary" id="saveSettingsBtn"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>保存更改</button>
+          </div>
+        </header>
+
+        <div class="settings-layout">
+          <nav class="settings-nav" id="settingsNav" aria-label="设置分区">
+            <button class="is-active" data-scroll="settings-basic">基础信息</button>
+            <button data-scroll="settings-auth">认证与安全</button>
+            <button data-scroll="settings-a2a">A2A 与智能体</button>
+            <button data-scroll="settings-model">模型与配额</button>
+            <button data-scroll="settings-data">数据保留</button>
+            <button data-scroll="settings-features">功能开关</button>
+            <button data-scroll="settings-danger">危险操作</button>
+          </nav>
+
+          <div class="settings-form">
+            <section class="panel settings-section" id="settings-basic">
+              <div class="panel-head"><div><h2>基础信息</h2><p>展示名称、运行环境与时区。</p></div></div>
+              <div class="panel-body">
+                <div class="settings-grid">
+                  <label class="field"><span>系统名称</span><input class="input" value="Agent Hub"></label>
+                  <label class="field"><span>运行环境</span><select class="select"><option>生产</option><option>预发布</option><option>开发</option></select></label>
+                  <label class="field"><span>时区</span><select class="select"><option>Asia/Shanghai (UTC+8)</option><option>UTC</option></select></label>
+                  <label class="field"><span>支持邮箱</span><input class="input" value="support@example.com"></label>
+                  <label class="field"><span>站点 URL</span><input class="input" value="https://hub.example.com"></label>
+                  <label class="field"><span>默认语言</span><select class="select"><option>简体中文</option><option>English</option></select></label>
+                </div>
+              </div>
+            </section>
+
+            <section class="panel settings-section" id="settings-auth">
+              <div class="panel-head"><div><h2>认证与安全</h2><p>登录、令牌与密码策略。</p></div></div>
+              <div class="panel-body">
+                <div class="settings-grid">
+                  <label class="field"><span>Access Token 有效期</span><input class="input" value="60 分钟"></label>
+                  <label class="field"><span>Refresh Token 有效期</span><input class="input" value="7 天"></label>
+                  <label class="field"><span>密码最小长度</span><input class="input" value="10"></label>
+                  <label class="field"><span>登录失败锁定</span><input class="input" value="5 次 / 15 分钟"></label>
+                </div>
+                <div class="field-row" style="margin-top:12px">
+                  <div class="field-row-main"><b>强制管理员 MFA</b><small>管理员登录时要求二次验证。</small></div>
+                  <label class="switch"><input type="checkbox" checked><span></span></label>
+                </div>
+                <div class="field-row">
+                  <div class="field-row-main"><b>允许公开注册</b><small>关闭后只能由管理员邀请加入。</small></div>
+                  <label class="switch"><input type="checkbox"><span></span></label>
+                </div>
+              </div>
+            </section>
+
+            <section class="panel settings-section" id="settings-a2a">
+              <div class="panel-head">
+                <div><h2>A2A 与智能体</h2><p>远程智能体发现、调用与注册策略。</p></div>
+                <span class="spacer"></span>
+                <button class="btn btn-outline btn-sm" data-demo="测试 A2A 连接（原型演示）"><svg class="ic" aria-hidden="true"><use href="#i-refresh"/></svg>测试连接</button>
+              </div>
+              <div class="panel-body">
+                <div class="settings-grid">
+                  <label class="field"><span>A2A 基础 URL</span><input class="input" value="https://hub.example.com/a2a"></label>
+                  <label class="field"><span>调用超时</span><input class="input" value="60 秒"></label>
+                  <label class="field"><span>最大并发任务</span><input class="input" value="8"></label>
+                  <label class="field"><span>健康检查间隔</span><input class="input" value="5 分钟"></label>
+                </div>
+                <div class="field-row" style="margin-top:12px">
+                  <div class="field-row-main"><b>启用 A2A streaming</b><small>远程任务产物以 SSE 增量返回。</small></div>
+                  <label class="switch"><input type="checkbox" checked><span></span></label>
+                </div>
+                <div class="field-row">
+                  <div class="field-row-main"><b>智能体注册需审批</b><small>新 Agent Card 进入待审核队列。</small></div>
+                  <label class="switch"><input type="checkbox" checked><span></span></label>
+                </div>
+              </div>
+            </section>
+
+            <section class="panel settings-section" id="settings-model">
+              <div class="panel-head"><div><h2>模型与配额</h2><p>主智能体默认模型与运行限额。</p></div></div>
+              <div class="panel-body">
+                <div class="settings-grid">
+                  <label class="field"><span>默认模型</span><select class="select"><option>deepseek-chat</option><option>deepseek-reasoner</option></select></label>
+                  <label class="field"><span>默认推理等级</span><select class="select"><option>标准</option><option>深度</option><option>最大</option></select></label>
+                  <label class="field"><span>最大输出 tokens</span><input class="input" value="4096"></label>
+                  <label class="field"><span>温度</span><input class="input" value="0.3"></label>
+                  <label class="field"><span>速率限制</span><input class="input" value="60 次 / 分钟"></label>
+                  <label class="field"><span>单日 token 上限</span><input class="input" value="2,000,000"></label>
+                </div>
+              </div>
+            </section>
+
+            <section class="panel settings-section" id="settings-data">
+              <div class="panel-head"><div><h2>数据保留</h2><p>会话、审计和附件的保留周期。</p></div></div>
+              <div class="panel-body">
+                <div class="settings-grid">
+                  <label class="field"><span>会话保留</span><input class="input" value="90 天"></label>
+                  <label class="field"><span>审计日志保留</span><input class="input" value="365 天"></label>
+                  <label class="field"><span>附件保留</span><input class="input" value="30 天"></label>
+                  <label class="field"><span>日志级别</span><select class="select"><option>info</option><option>debug</option><option>warning</option></select></label>
+                </div>
+                <div class="settings-note" style="margin-top:12px"><svg class="ic" aria-hidden="true"><use href="#i-clock"/></svg><span>超过保留期的数据会进入异步清理队列；清理操作本身也会写入审计日志。</span></div>
+              </div>
+            </section>
+
+            <section class="panel settings-section" id="settings-features">
+              <div class="panel-head"><div><h2>功能开关</h2><p>控制平台能力是否对用户可见。</p></div></div>
+              <div class="panel-body">
+                <div class="field-row">
+                  <div class="field-row-main"><b>工作流</b><small>允许用户在工作台创建与使用工作流。</small></div>
+                  <label class="switch"><input type="checkbox" checked><span></span></label>
+                </div>
+                <div class="field-row">
+                  <div class="field-row-main"><b>MCP 工具</b><small>允许主智能体调用已注册的 MCP Server。</small></div>
+                  <label class="switch"><input type="checkbox" checked><span></span></label>
+                </div>
+                <div class="field-row">
+                  <div class="field-row-main"><b>知识库</b><small>允许文档上传、检索与知识引用。</small></div>
+                  <label class="switch"><input type="checkbox" checked><span></span></label>
+                </div>
+                <div class="field-row">
+                  <div class="field-row-main"><b>附件上传</b><small>允许对话中上传文件。</small></div>
+                  <label class="switch"><input type="checkbox" checked><span></span></label>
+                </div>
+              </div>
+            </section>
+
+            <section class="panel settings-section danger-zone" id="settings-danger">
+              <div class="panel-head">
+                <svg class="ic" aria-hidden="true"><use href="#i-alert"/></svg>
+                <div><h2>危险操作</h2><p>这些操作会影响所有在线用户。</p></div>
+              </div>
+              <div class="panel-body">
+                <div class="field-row">
+                  <div class="field-row-main"><b>维护模式</b><small>开启后普通用户无法新建运行，管理员仍可访问控制台。</small></div>
+                  <label class="switch"><input type="checkbox"><span></span></label>
+                </div>
+                <div class="settings-note" style="margin-top:12px"><svg class="ic" aria-hidden="true"><use href="#i-alert"/></svg><span>清空审计与重置系统配置不在原型中提供操作入口，避免误触。</span></div>
+              </div>
+            </section>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+</div>
+
+<div class="drawer-scrim" id="drawerScrim"></div>
+<aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-labelledby="drawerTitle" aria-hidden="true" tabindex="-1">
+  <header class="drawer-head">
+    <div>
+      <h2 id="drawerTitle">编辑</h2>
+      <div class="drawer-sub" id="drawerSub"></div>
+    </div>
+    <button class="drawer-close" id="drawerClose" aria-label="关闭">
+      <svg class="ic" aria-hidden="true"><use href="#i-x"/></svg>
+    </button>
+  </header>
+  <div class="drawer-body" id="drawerBody"></div>
+  <footer class="drawer-foot">
+    <span class="spacer"></span>
+    <button class="btn btn-ghost" id="drawerCancel">取消</button>
+    <button class="btn btn-primary" id="drawerSave">保存</button>
+  </footer>
+</aside>
+
+<div class="toast" id="toast" role="status" aria-live="polite">
+  <svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>
+  <span id="toastText"></span>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var root = document.documentElement;
+  var adminScroll = document.getElementById('adminScroll');
+  var crumbPage = document.getElementById('crumbPage');
+  var mobileMenu = document.getElementById('mobileMenu');
+  var adminRail = document.getElementById('adminRail');
+  var railScrim = document.getElementById('railScrim');
+  var themeBtn = document.getElementById('themeBtn');
+  var notifyBtn = document.getElementById('notifyBtn');
+  var globalSearch = document.getElementById('globalSearch');
+  var railLogout = document.getElementById('railLogout');
+  var toast = document.getElementById('toast');
+  var toastText = document.getElementById('toastText');
+
+  var drawerScrim = document.getElementById('drawerScrim');
+  var drawer = document.getElementById('drawer');
+  var drawerTitle = document.getElementById('drawerTitle');
+  var drawerSub = document.getElementById('drawerSub');
+  var drawerBody = document.getElementById('drawerBody');
+  var drawerSave = document.getElementById('drawerSave');
+  var drawerCancel = document.getElementById('drawerCancel');
+  var drawerClose = document.getElementById('drawerClose');
+
+  var pageTitles = {
+    overview: '概览',
+    users: '用户管理',
+    roles: '角色与权限',
+    menus: '菜单管理',
+    dict: '字典管理',
+    audit: '审计日志',
+    system: '系统设置'
+  };
+
+  var toastTimer = null;
+  var drawerMode = null;
+  var drawerTarget = null;
+
+  function esc(value) {
+    return String(value == null ? '' : value).replace(/[&<>"']/g, function (ch) {
+      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch];
+    });
+  }
+
+  function showToast(text) {
+    toastText.textContent = text;
+    toast.classList.add('is-visible');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { toast.classList.remove('is-visible'); }, 2400);
+  }
+
+  /* ---------- theme ---------- */
+  try {
+    var savedTheme = localStorage.getItem('ah-admin-theme');
+    if (savedTheme === 'dark' || savedTheme === 'light') root.dataset.theme = savedTheme;
+  } catch (e) {}
+
+  themeBtn.addEventListener('click', function () {
+    var next = root.dataset.theme === 'dark' ? 'light' : 'dark';
+    root.dataset.theme = next;
+    try { localStorage.setItem('ah-admin-theme', next); } catch (e) {}
+  });
+
+  /* ---------- rail / page router ---------- */
+  function openRail() {
+    adminRail.classList.add('is-open');
+    railScrim.classList.add('is-open');
+    mobileMenu.setAttribute('aria-expanded', 'true');
+  }
+  function closeRail() {
+    adminRail.classList.remove('is-open');
+    railScrim.classList.remove('is-open');
+    mobileMenu.setAttribute('aria-expanded', 'false');
+  }
+  mobileMenu.addEventListener('click', function () {
+    if (adminRail.classList.contains('is-open')) closeRail();
+    else openRail();
+  });
+  railScrim.addEventListener('click', closeRail);
+
+  function showPage(name) {
+    if (!pageTitles[name]) name = 'overview';
+    document.querySelectorAll('.admin-page').forEach(function (page) {
+      page.hidden = page.getAttribute('data-page') !== name;
+    });
+    document.querySelectorAll('.rail-link[data-page]').forEach(function (link) {
+      var active = link.getAttribute('data-page') === name;
+      link.classList.toggle('is-active', active);
+      if (active) link.setAttribute('aria-current', 'page');
+      else link.removeAttribute('aria-current');
+    });
+    crumbPage.textContent = pageTitles[name];
+    document.title = pageTitles[name] + ' · Agent Hub 管理控制台';
+    adminScroll.scrollTop = 0;
+    try { history.replaceState(null, '', '#' + name); } catch (e) {}
+    closeRail();
+  }
+
+  document.querySelectorAll('.rail-link[data-page]').forEach(function (link) {
+    link.addEventListener('click', function () { showPage(link.getAttribute('data-page')); });
+  });
+  document.querySelectorAll('[data-page-link]').forEach(function (link) {
+    link.addEventListener('click', function () { showPage(link.getAttribute('data-page-link')); });
+  });
+  window.addEventListener('hashchange', function () {
+    var name = window.location.hash.replace('#', '');
+    if (pageTitles[name]) showPage(name);
+  });
+
+  var initialHash = window.location.hash.replace('#', '');
+  showPage(pageTitles[initialHash] ? initialHash : 'overview');
+
+  /* ---------- topbar ---------- */
+  globalSearch.addEventListener('keydown', function (event) {
+    if (event.key !== 'Enter') return;
+    var q = globalSearch.value.trim();
+    if (!q) return;
+    if (q.indexOf('用户') !== -1) showPage('users');
+    else if (q.indexOf('审计') !== -1) showPage('audit');
+    else if (q.indexOf('菜单') !== -1) showPage('menus');
+    else if (q.indexOf('字典') !== -1) showPage('dict');
+    else if (q.indexOf('角色') !== -1) showPage('roles');
+    else showToast('跨用户、菜单和审计搜索「' + q + '」（原型演示）');
+    globalSearch.value = '';
+  });
+  notifyBtn.addEventListener('click', function () {
+    showToast('3 条待处理：1 个审批、1 个降级智能体、2 篇失败文档');
+  });
+  railLogout.addEventListener('click', function () {
+    showToast('退出登录（原型演示）');
+  });
+
+  /* ---------- drawer ---------- */
+  function openDrawer(opts) {
+    drawerMode = opts.mode || null;
+    drawerTarget = opts.target == null ? null : opts.target;
+    drawerTitle.textContent = opts.title || '编辑';
+    drawerSub.textContent = opts.sub || '';
+    drawerBody.innerHTML = opts.html || '';
+    drawerSave.textContent = opts.saveText || '保存';
+    drawerSave.hidden = !!opts.hideSave;
+    drawerCancel.textContent = opts.cancelText || '取消';
+    drawerScrim.classList.add('is-open');
+    drawer.classList.add('is-open');
+    drawer.setAttribute('aria-hidden', 'false');
+    drawerBody.scrollTop = 0;
+    drawer.focus();
+  }
+
+  function closeDrawer() {
+    drawerScrim.classList.remove('is-open');
+    drawer.classList.remove('is-open');
+    drawer.setAttribute('aria-hidden', 'true');
+    drawerMode = null;
+    drawerTarget = null;
+  }
+
+  drawerClose.addEventListener('click', closeDrawer);
+  drawerCancel.addEventListener('click', closeDrawer);
+  drawerScrim.addEventListener('click', closeDrawer);
+  document.addEventListener('keydown', function (event) {
+    if (event.key === 'Escape') closeDrawer();
+  });
+
+  function fieldValue(id) {
+    var el = document.getElementById(id);
+    return el ? el.value.trim() : '';
+  }
+  function fieldChecked(id) {
+    var el = document.getElementById(id);
+    return !!(el && el.checked);
+  }
+
+  /* ============================================================
+     USERS
+     ============================================================ */
+  var USERS = [
+    { id: 'u1', name: '周丹', initials: 'ZD', email: 'you@example.com', role: 'superadmin', status: 'active', last: '今天 09:42', sessions: 12, self: true },
+    { id: 'u2', name: '林雨', initials: 'LY', email: 'lin.yu@example.com', role: 'ops', status: 'active', last: '今天 08:31', sessions: 8 },
+    { id: 'u3', name: '陈默', initials: 'CM', email: 'chen.mo@example.com', role: 'support', status: 'active', last: '昨天 22:10', sessions: 21 },
+    { id: 'u4', name: '赵可', initials: 'ZK', email: 'zhao.ke@example.com', role: 'editor', status: 'active', last: '昨天 18:02', sessions: 5 },
+    { id: 'u5', name: '王砚', initials: 'WY', email: 'wang.yan@example.com', role: 'auditor', status: 'disabled', last: '10-28 11:20', sessions: 3 },
+    { id: 'u6', name: '李柚', initials: 'LY', email: 'li.you@example.com', role: 'support', status: 'pending', last: '未登录', sessions: 0 }
+  ];
+
+  var ROLE_META = {
+    superadmin: { label: '超级管理员', className: 'admin' },
+    ops: { label: '运营管理员', className: 'ops' },
+    support: { label: '客服主管', className: 'support' },
+    editor: { label: '知识库编辑', className: 'editor' },
+    auditor: { label: '只读审计', className: 'auditor' }
+  };
+  var STATUS_META = {
+    active: { label: '启用', className: 'st-ok' },
+    disabled: { label: '禁用', className: 'st-muted' },
+    pending: { label: '待激活', className: 'st-warn' }
+  };
+
+  var userSearch = document.getElementById('userSearch');
+  var userRoleFilter = document.getElementById('userRoleFilter');
+  var userStatusFilter = document.getElementById('userStatusFilter');
+  var userRows = document.getElementById('userRows');
+  var userCount = document.getElementById('userCount');
+  var userFoot = document.getElementById('userFoot');
+  var inviteUserBtn = document.getElementById('inviteUserBtn');
+
+  var userFilter = { q: '', role: 'all', status: 'all' };
+
+  function roleLabel(key) { return ROLE_META[key] ? ROLE_META[key].label : key; }
+  function statusLabel(key) { return STATUS_META[key] ? STATUS_META[key].label : key; }
+
+  function initialsOf(name) {
+    var value = String(name || '').trim();
+    if (!value) return '—';
+    return value.length <= 2 ? value : value.slice(0, 2);
+  }
+
+  function updateUserSummary() {
+    var total = USERS.length;
+    var active = USERS.filter(function (u) { return u.status === 'active'; }).length;
+    var disabled = USERS.filter(function (u) { return u.status === 'disabled'; }).length;
+    var pending = USERS.filter(function (u) { return u.status === 'pending'; }).length;
+    var b = document.querySelectorAll('[data-page="users"] .summary-line b');
+    if (b.length >= 5) {
+      b[0].textContent = String(total);
+      b[1].textContent = String(active);
+      b[2].textContent = String(disabled);
+      b[3].textContent = String(pending);
+      b[4].textContent = String(Object.keys(ROLE_META).length);
+    }
+    var railCount = document.querySelector('.rail-link[data-page="users"] .rail-count');
+    if (railCount) railCount.textContent = String(total);
+    var metricUsers = document.getElementById('metricUsers');
+    if (metricUsers) metricUsers.textContent = String(total);
+  }
+
+  function renderUsers() {
+    var q = userFilter.q.toLowerCase();
+    var rows = USERS.filter(function (u) {
+      var text = (u.name + ' ' + u.email + ' ' + u.role).toLowerCase();
+      var roleOk = userFilter.role === 'all' || u.role === userFilter.role;
+      var statusOk = userFilter.status === 'all' || u.status === userFilter.status;
+      return (!q || text.indexOf(q) !== -1) && roleOk && statusOk;
+    });
+
+    userRows.innerHTML = rows.length ? rows.map(function (u) {
+      var role = ROLE_META[u.role];
+      var status = STATUS_META[u.status];
+      var avatarClass = u.role === 'superadmin' ? 'avatar admin' : 'avatar';
+      return '<tr data-user-id="' + esc(u.id) + '">' +
+        '<td><div class="user-cell' + (u.self ? ' is-self' : '') + '">' +
+          '<span class="' + avatarClass + '">' + esc(u.initials) + '</span>' +
+          '<div class="user-cell-main"><b>' + esc(u.name) + '</b><span>' + esc(u.email) + '</span></div>' +
+        '</div></td>' +
+        '<td><span class="role-badge ' + role.className + '">' + role.label + '</span></td>' +
+        '<td><span class="st ' + status.className + '">' + status.label + '</span></td>' +
+        '<td class="mono" style="font-size:9px;color:var(--ink-3)">' + esc(u.last) + '</td>' +
+        '<td class="num">' + u.sessions + '</td>' +
+        '<td class="actions"><button class="text-link" data-edit-user="' + esc(u.id) + '">编辑</button></td>' +
+      '</tr>';
+    }).join('') : '<tr><td colspan="6"><div class="empty-state">没有匹配的用户。调整搜索或筛选后重试。</div></td></tr>';
+
+    userCount.textContent = rows.length + ' / ' + USERS.length;
+    userFoot.textContent = '显示 ' + rows.length + ' 个用户 · 共 ' + USERS.length + ' 个';
+    updateUserSummary();
+  }
+
+  function userRoleOptions(selected) {
+    return Object.keys(ROLE_META).map(function (key) {
+      return '<option value="' + key + '"' + (key === selected ? ' selected' : '') + '>' + ROLE_META[key].label + '</option>';
+    }).join('');
+  }
+  function userStatusOptions(selected) {
+    return Object.keys(STATUS_META).map(function (key) {
+      return '<option value="' + key + '"' + (key === selected ? ' selected' : '') + '>' + STATUS_META[key].label + '</option>';
+    }).join('');
+  }
+
+  function openUserDrawer(user, mode) {
+    var isInvite = mode === 'invite';
+    var role = user ? user.role : 'support';
+    var status = user ? user.status : 'pending';
+    var html = '<div class="form-grid">' +
+      '<label class="field"><span>姓名</span><input class="input" id="dfName" value="' + esc(user ? user.name : '') + '" placeholder="成员姓名"></label>' +
+      '<label class="field"><span>邮箱</span><input class="input" id="dfEmail" type="email" value="' + esc(user ? user.email : '') + '" placeholder="name@example.com"></label>' +
+      '<label class="field"><span>角色</span><select class="select" id="dfRole">' + userRoleOptions(role) + '</select></label>' +
+      (isInvite
+        ? '<label class="field"><span>状态</span><input class="input" value="待激活" disabled></label>'
+        : '<label class="field"><span>状态</span><select class="select" id="dfStatus">' + userStatusOptions(status) + '</select></label>') +
+      '</div>' +
+      (isInvite
+        ? '<div class="drawer-note">邀请邮件会发送到该邮箱。账号在首次登录后激活，并继承所选角色的菜单权限。</div>'
+        : '<div class="drawer-note">修改角色会同步更新该用户的菜单与操作权限；禁用后该用户会被立即移出在线会话。</div>');
+
+    openDrawer({
+      mode: isInvite ? 'invite' : 'user',
+      target: user || null,
+      title: isInvite ? '邀请用户' : '编辑用户',
+      sub: isInvite ? '通过邮箱邀请成员加入 Agent Hub' : (user.id + ' · ' + user.email),
+      html: html,
+      saveText: isInvite ? '发送邀请' : '保存用户'
+    });
+  }
+
+  function saveUserDrawer() {
+    var name = fieldValue('dfName');
+    var email = fieldValue('dfEmail');
+    var role = fieldValue('dfRole') || 'support';
+    if (!name || !email) {
+      showToast('请填写姓名和邮箱');
+      return;
+    }
+    if (drawerMode === 'invite') {
+      USERS.push({
+        id: 'u' + Date.now(), name: name, initials: initialsOf(name), email: email,
+        role: role, status: 'pending', last: '未登录', sessions: 0
+      });
+      showToast('邀请已发送给 ' + email);
+    } else if (drawerMode === 'user' && drawerTarget) {
+      drawerTarget.name = name;
+      drawerTarget.initials = drawerTarget.self ? drawerTarget.initials : initialsOf(name);
+      drawerTarget.email = email;
+      drawerTarget.role = role;
+      drawerTarget.status = fieldValue('dfStatus') || drawerTarget.status;
+      showToast('用户已更新');
+    }
+    renderUsers();
+    renderRoles();
+    closeDrawer();
+  }
+
+  userSearch.addEventListener('input', function () {
+    userFilter.q = userSearch.value;
+    renderUsers();
+  });
+  userRoleFilter.addEventListener('change', function () {
+    userFilter.role = userRoleFilter.value;
+    renderUsers();
+  });
+  userStatusFilter.addEventListener('click', function (event) {
+    var btn = event.target.closest('[data-status]');
+    if (!btn) return;
+    userFilter.status = btn.getAttribute('data-status');
+    userStatusFilter.querySelectorAll('button').forEach(function (b) {
+      b.classList.toggle('is-active', b === btn);
+    });
+    renderUsers();
+  });
+  userRows.addEventListener('click', function (event) {
+    var btn = event.target.closest('[data-edit-user]');
+    if (!btn) return;
+    var id = btn.getAttribute('data-edit-user');
+    var user = USERS.filter(function (u) { return u.id === id; })[0];
+    if (user) openUserDrawer(user, 'user');
+  });
+  inviteUserBtn.addEventListener('click', function () { openUserDrawer(null, 'invite'); });
+  document.querySelectorAll('[data-open-invite]').forEach(function (btn) {
+    btn.addEventListener('click', function () { openUserDrawer(null, 'invite'); });
+  });
+
+  /* ============================================================
+     ROLES
+     ============================================================ */
+  var ROLES = [
+    { key: 'superadmin', name: '超级管理员', desc: '拥有全部菜单与操作权限，系统内置。', builtin: true },
+    { key: 'ops', name: '运营管理员', desc: '管理工作流、智能体、任务和知识库；可查看用户与审计。', builtin: false },
+    { key: 'support', name: '客服主管', desc: '使用工作台、处理审批与任务；不可进入管理控制台。', builtin: false },
+    { key: 'editor', name: '知识库编辑', desc: '维护知识库与工作流，不参与用户管理。', builtin: false },
+    { key: 'auditor', name: '只读审计', desc: '只读访问审计日志与用户列表。', builtin: false }
+  ];
+
+  var PERMISSIONS = [
+    { group: '工作台', rows: [
+      { label: '对话', view: 'chat:read', write: 'chat:write' },
+      { label: '工作流', view: 'workflow:read', write: 'workflow:write' },
+      { label: '智能体', view: 'agent:read', write: 'agent:write' },
+      { label: '任务', view: 'task:read', write: 'task:write' },
+      { label: '知识库', view: 'knowledge:read', write: 'knowledge:write' }
+    ]},
+    { group: '管理控制台', rows: [
+      { label: '概览', view: 'overview:read', write: '' },
+      { label: '用户管理', view: 'user:read', write: 'user:write' },
+      { label: '角色与权限', view: 'role:read', write: 'role:write' },
+      { label: '菜单管理', view: 'menu:read', write: 'menu:write' },
+      { label: '字典管理', view: 'dict:read', write: 'dict:write' },
+      { label: '审计日志', view: 'audit:read', write: '' },
+      { label: '系统设置', view: 'system:read', write: 'system:write' }
+    ]},
+    { group: '操作权限', rows: [
+      { label: '发布工作流', view: '', write: 'workflow:publish' },
+      { label: '注册智能体', view: '', write: 'agent:register' },
+      { label: '删除知识文档', view: '', write: 'knowledge:delete' },
+      { label: '审批决定', view: '', write: 'approval:decide' }
+    ]}
+  ];
+
+  var ALL_PERMS = [];
+  PERMISSIONS.forEach(function (group) {
+    group.rows.forEach(function (row) {
+      if (row.view) ALL_PERMS.push(row.view);
+      if (row.write) ALL_PERMS.push(row.write);
+    });
+  });
+
+  var ROLE_PERMS = {
+    superadmin: ALL_PERMS.slice(),
+    ops: ['chat:read', 'chat:write', 'workflow:read', 'workflow:write', 'agent:read', 'agent:write', 'task:read', 'task:write', 'knowledge:read', 'knowledge:write', 'overview:read', 'user:read', 'role:read', 'menu:read', 'dict:read', 'audit:read', 'workflow:publish', 'agent:register', 'approval:decide'],
+    support: ['chat:read', 'chat:write', 'workflow:read', 'agent:read', 'task:read', 'task:write', 'knowledge:read', 'approval:decide'],
+    editor: ['chat:read', 'workflow:read', 'workflow:write', 'knowledge:read', 'knowledge:write', 'knowledge:delete', 'task:read'],
+    auditor: ['overview:read', 'user:read', 'audit:read']
+  };
+
+  var currentRole = 'superadmin';
+  var roleList = document.getElementById('roleList');
+  var roleTitle = document.getElementById('roleTitle');
+  var roleDesc = document.getElementById('roleDesc');
+  var roleLock = document.getElementById('roleLock');
+  var permRows = document.getElementById('permRows');
+  var permTable = document.getElementById('permTable');
+  var savePerms = document.getElementById('savePerms');
+
+  function roleUserCount(key) {
+    return USERS.filter(function (u) { return u.role === key; }).length;
+  }
+
+  function renderRoles() {
+    roleList.innerHTML = ROLES.map(function (role) {
+      var count = roleUserCount(role.key);
+      return '<button class="role-item' + (role.key === currentRole ? ' is-active' : '') + '" data-role="' + role.key + '">' +
+        '<div class="role-item-main"><b>' + role.name + (role.builtin ? '<span class="lock-mini">内置</span>' : '') + '</b><small>' + count + ' 位用户 · ' + (role.builtin ? '全部权限' : '可配置') + '</small></div>' +
+        (role.builtin ? '<svg class="ic" aria-hidden="true"><use href="#i-lock"/></svg>' : '<svg class="ic" aria-hidden="true"><use href="#i-arrow"/></svg>') +
+      '</button>';
+    }).join('');
+    var role = ROLES.filter(function (r) { return r.key === currentRole; })[0];
+    if (!role) role = ROLES[0];
+    roleTitle.textContent = role.name;
+    roleDesc.textContent = role.desc;
+    var builtin = !!role.builtin;
+    roleLock.hidden = !builtin;
+    savePerms.disabled = builtin;
+    permTable.classList.toggle('is-locked', builtin);
+    roleList.querySelectorAll('[data-role]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        currentRole = btn.getAttribute('data-role');
+        renderRoles();
+      });
+    });
+    renderPerms(builtin);
+  }
+
+  function renderPerms(builtin) {
+    var allowed = ROLE_PERMS[currentRole] || [];
+    permRows.innerHTML = PERMISSIONS.map(function (group) {
+      var rows = group.rows.map(function (row) {
+        function check(code) {
+          if (!code) return '—';
+          var checked = allowed.indexOf(code) !== -1;
+          return '<input type="checkbox" data-perm="' + code + '"' + (checked ? ' checked' : '') + (builtin ? ' disabled' : '') + ' aria-label="' + row.label + ' ' + code + '">';
+        }
+        return '<tr><td>' + row.label + '</td><td>' + check(row.view) + '</td><td>' + check(row.write) + '</td></tr>';
+      }).join('');
+      return '<tr class="perm-group"><td colspan="3">' + group.group + '</td></tr>' + rows;
+    }).join('');
+  }
+
+  savePerms.addEventListener('click', function () {
+    var role = ROLES.filter(function (r) { return r.key === currentRole; })[0];
+    if (!role || role.builtin) return;
+    ROLE_PERMS[currentRole] = Array.prototype.map.call(
+      permRows.querySelectorAll('input[data-perm]:checked'),
+      function (input) { return input.getAttribute('data-perm'); }
+    );
+    showToast('「' + role.name + '」的权限已保存');
+  });
+
+  /* ============================================================
+     MENUS
+     ============================================================ */
+  var menuRows = document.getElementById('menuRows');
+  var menuSearch = document.getElementById('menuSearch');
+  var menuTypeFilter = document.getElementById('menuTypeFilter');
+  var menuCount = document.getElementById('menuCount');
+  var menuCollapseAll = document.getElementById('menuCollapseAll');
+  var newMenuBtn = document.getElementById('newMenuBtn');
+
+  var menuQuery = '';
+  var menuType = 'all';
+  var collapsedTrees = {};
+
+  function menuRowById(id) {
+    return Array.prototype.find.call(menuRows.querySelectorAll('tr[data-menu-id]'), function (row) {
+      return row.getAttribute('data-menu-id') === id;
+    });
+  }
+
+  function menuMatches(row) {
+    var typeOk = menuType === 'all' || row.getAttribute('data-type') === menuType;
+    var text = (row.textContent || '').toLowerCase();
+    var qOk = !menuQuery || text.indexOf(menuQuery) !== -1;
+    return typeOk && qOk;
+  }
+
+  function menuAncestorCollapsed(row) {
+    var parent = row.getAttribute('data-parent');
+    while (parent) {
+      if (collapsedTrees[parent]) return true;
+      var parentRow = menuRowById(parent);
+      parent = parentRow ? parentRow.getAttribute('data-parent') : '';
+    }
+    return false;
+  }
+
+  function applyMenuVisibility() {
+    var rows = Array.prototype.slice.call(menuRows.querySelectorAll('tr[data-menu-id]'));
+    var visible = {};
+    rows.forEach(function (row) {
+      visible[row.getAttribute('data-menu-id')] = menuMatches(row);
+    });
+    for (var pass = 0; pass < 5; pass += 1) {
+      rows.forEach(function (row) {
+        var id = row.getAttribute('data-menu-id');
+        if (!visible[id]) return;
+        var parent = row.getAttribute('data-parent');
+        if (parent) visible[parent] = true;
+      });
+    }
+    var count = 0;
+    rows.forEach(function (row) {
+      var id = row.getAttribute('data-menu-id');
+      var show = !!visible[id] && !menuAncestorCollapsed(row);
+      row.hidden = !show;
+      if (show && menuMatches(row)) count += 1;
+    });
+    menuRows.querySelectorAll('[data-tree]').forEach(function (btn) {
+      var id = btn.getAttribute('data-tree');
+      var open = !collapsedTrees[id];
+      btn.classList.toggle('is-open', open);
+      btn.setAttribute('aria-expanded', String(open));
+    });
+    menuCount.textContent = count + ' 项';
+    var anyOpen = Array.prototype.some.call(menuRows.querySelectorAll('[data-tree]'), function (btn) {
+      return !collapsedTrees[btn.getAttribute('data-tree')];
+    });
+    menuCollapseAll.textContent = anyOpen ? '全部折叠' : '全部展开';
+  }
+
+  menuSearch.addEventListener('input', function () {
+    menuQuery = menuSearch.value.trim().toLowerCase();
+    if (menuQuery) collapsedTrees = {};
+    applyMenuVisibility();
+  });
+
+  menuTypeFilter.addEventListener('click', function (event) {
+    var btn = event.target.closest('[data-type]');
+    if (!btn) return;
+    menuType = btn.getAttribute('data-type');
+    menuTypeFilter.querySelectorAll('button').forEach(function (b) {
+      b.classList.toggle('is-active', b === btn);
+    });
+    collapsedTrees = {};
+    applyMenuVisibility();
+  });
+
+  menuRows.addEventListener('click', function (event) {
+    var toggle = event.target.closest('[data-tree]');
+    if (toggle) {
+      var id = toggle.getAttribute('data-tree');
+      collapsedTrees[id] = !collapsedTrees[id];
+      applyMenuVisibility();
+      return;
+    }
+    var edit = event.target.closest('[data-menu-edit]');
+    if (edit) {
+      var editRow = edit.closest('tr');
+      openMenuDrawer(editRow, null);
+      return;
+    }
+    var add = event.target.closest('[data-menu-add]');
+    if (add) {
+      var parentRow = add.closest('tr');
+      openMenuDrawer(null, parentRow.getAttribute('data-menu-id'));
+      return;
+    }
+    var del = event.target.closest('[data-menu-delete]');
+    if (del) {
+      showToast('菜单项已删除（原型演示）');
+    }
+  });
+
+  menuCollapseAll.addEventListener('click', function () {
+    var trees = menuRows.querySelectorAll('[data-tree]');
+    var anyOpen = Array.prototype.some.call(trees, function (btn) {
+      return !collapsedTrees[btn.getAttribute('data-tree')];
+    });
+    Array.prototype.forEach.call(trees, function (btn) {
+      var id = btn.getAttribute('data-tree');
+      if (anyOpen) collapsedTrees[id] = true;
+      else delete collapsedTrees[id];
+    });
+    applyMenuVisibility();
+  });
+
+  function parentMenuOptions(selected) {
+    var options = [
+      { value: '', label: '顶级菜单' },
+      { value: 'm-workbench', label: '工作台' },
+      { value: 'm-admin', label: '管理控制台' },
+      { value: 'm-users', label: '用户管理' }
+    ];
+    return options.map(function (opt) {
+      return '<option value="' + opt.value + '"' + (opt.value === selected ? ' selected' : '') + '>' + opt.label + '</option>';
+    }).join('');
+  }
+
+  function openMenuDrawer(row, parentOverride) {
+    var isEdit = !!row;
+    var name = row ? (row.getAttribute('data-menu-name') || '') : '';
+    var path = row ? (row.getAttribute('data-path') || '') : '';
+    var permission = row ? (row.getAttribute('data-menu-permission') || '') : '';
+    var icon = row ? (row.getAttribute('data-menu-icon') || '') : '';
+    var type = row ? (row.getAttribute('data-type') || 'page') : 'page';
+    var parent = parentOverride || (row ? (row.getAttribute('data-parent') || '') : '');
+    var sort = row ? (row.querySelector('.sort') ? row.querySelector('.sort').textContent.trim() : '1') : '1';
+    var html = '<div class="form-grid">' +
+      '<label class="field"><span>上级菜单</span><select class="select" id="dfMenuParent">' + parentMenuOptions(parent) + '</select></label>' +
+      '<label class="field"><span>类型</span><select class="select" id="dfMenuType">' +
+        '<option value="directory"' + (type === 'directory' ? ' selected' : '') + '>目录</option>' +
+        '<option value="page"' + (type === 'page' ? ' selected' : '') + '>页面</option>' +
+        '<option value="button"' + (type === 'button' ? ' selected' : '') + '>按钮</option>' +
+      '</select></label>' +
+      '<label class="field"><span>名称</span><input class="input" id="dfMenuName" value="' + esc(name) + '" placeholder="用户管理"></label>' +
+      '<label class="field"><span>路径</span><input class="input" id="dfMenuPath" value="' + esc(path) + '" placeholder="/admin/users"></label>' +
+      '<label class="field"><span>权限标识</span><input class="input" id="dfMenuPermission" value="' + esc(permission) + '" placeholder="admin:user:read"></label>' +
+      '<label class="field"><span>图标</span><input class="input" id="dfMenuIcon" value="' + esc(icon) + '" placeholder="users"></label>' +
+      '<label class="field"><span>排序</span><input class="input" id="dfMenuSort" value="' + esc(sort) + '"></label>' +
+      '<label class="field"><span>可见</span><select class="select" id="dfMenuVisible"><option>是</option><option>否</option></select></label>' +
+      '</div>' +
+      '<div class="field-row" style="margin-top:12px"><div class="field-row-main"><b>启用</b><small>关闭后菜单不再出现在侧栏，但保留配置。</small></div><label class="switch"><input type="checkbox" id="dfMenuEnabled" checked><span></span></label></div>' +
+      '<div class="drawer-note">菜单可见性受角色权限控制。修改后需要用户重新登录才能刷新侧栏。</div>';
+    openDrawer({
+      mode: 'menu',
+      title: isEdit ? '编辑菜单' : '新建菜单',
+      sub: isEdit ? (name + ' · ' + (path || '按钮')) : (parentOverride ? '在 ' + parentOverride + ' 下新增' : '新增一个导航入口'),
+      html: html,
+      saveText: '保存菜单'
+    });
+  }
+
+  newMenuBtn.addEventListener('click', function () { openMenuDrawer(null, null); });
+
+  /* ============================================================
+     DICTIONARIES
+     ============================================================ */
+  var DICTS = [
+    { code: 'task_status', name: '任务状态', desc: '任务与运行状态', items: [
+      { label: '已提交', value: 'submitted', color: 'gray', sort: 1, enabled: true },
+      { label: '运行中', value: 'working', color: 'blue', sort: 2, enabled: true },
+      { label: '等待输入', value: 'input_required', color: 'amber', sort: 3, enabled: true },
+      { label: '已完成', value: 'completed', color: 'green', sort: 4, enabled: true },
+      { label: '失败', value: 'failed', color: 'red', sort: 5, enabled: true },
+      { label: '已取消', value: 'canceled', color: 'gray', sort: 6, enabled: true },
+      { label: '已拒绝', value: 'rejected', color: 'red', sort: 7, enabled: true }
+    ]},
+    { code: 'agent_health', name: '智能体健康', desc: 'A2A 健康检查结果', items: [
+      { label: '健康', value: 'healthy', color: 'green', sort: 1, enabled: true },
+      { label: '降级', value: 'degraded', color: 'amber', sort: 2, enabled: true },
+      { label: '离线', value: 'offline', color: 'gray', sort: 3, enabled: true }
+    ]},
+    { code: 'knowledge_category', name: '知识分类', desc: '知识库文档分类', items: [
+      { label: '客服', value: '客服', color: 'blue', sort: 1, enabled: true },
+      { label: '产品', value: '产品', color: 'green', sort: 2, enabled: true },
+      { label: '售后', value: '售后', color: 'amber', sort: 3, enabled: true },
+      { label: '财务', value: '财务', color: 'red', sort: 4, enabled: true },
+      { label: '其他', value: '其他', color: 'gray', sort: 5, enabled: true }
+    ]},
+    { code: 'approval_decision', name: '审批结论', desc: 'HITL 审批结果', items: [
+      { label: '待审批', value: 'pending', color: 'amber', sort: 1, enabled: true },
+      { label: '已批准', value: 'approved', color: 'green', sort: 2, enabled: true },
+      { label: '已拒绝', value: 'rejected', color: 'red', sort: 3, enabled: true }
+    ]},
+    { code: 'model_provider', name: '模型供应商', desc: '模型服务来源', items: [
+      { label: 'DeepSeek', value: 'deepseek', color: 'blue', sort: 1, enabled: true },
+      { label: 'OpenAI', value: 'openai', color: 'green', sort: 2, enabled: true }
+    ]},
+    { code: 'audit_result', name: '审计结果', desc: '审计事件结果', items: [
+      { label: '成功', value: 'success', color: 'green', sort: 1, enabled: true },
+      { label: '失败', value: 'failure', color: 'red', sort: 2, enabled: true }
+    ]}
+  ];
+
+  var COLOR_META = {
+    gray: '灰', blue: '蓝', amber: '琥珀', green: '绿', red: '红', purple: '紫'
+  };
+
+  var currentDict = 'task_status';
+  var dictTypeSearch = document.getElementById('dictTypeSearch');
+  var dictItemSearch = document.getElementById('dictItemSearch');
+  var dictTypeList = document.getElementById('dictTypeList');
+  var dictTypeCount = document.getElementById('dictTypeCount');
+  var dictTitle = document.getElementById('dictTitle');
+  var dictDesc = document.getElementById('dictDesc');
+  var dictCode = document.getElementById('dictCode');
+  var dictItemRows = document.getElementById('dictItemRows');
+  var dictItemCount = document.getElementById('dictItemCount');
+  var newDictBtn = document.getElementById('newDictBtn');
+  var addDictItemBtn = document.getElementById('addDictItemBtn');
+
+  function currentDictData() {
+    return DICTS.filter(function (d) { return d.code === currentDict; })[0] || DICTS[0];
+  }
+
+  function renderDictTypes() {
+    var q = dictTypeSearch.value.trim().toLowerCase();
+    var types = DICTS.filter(function (d) {
+      return !q || (d.name + ' ' + d.code + ' ' + d.desc).toLowerCase().indexOf(q) !== -1;
+    });
+    dictTypeList.innerHTML = types.length ? types.map(function (d) {
+      return '<button class="dict-type' + (d.code === currentDict ? ' is-active' : '') + '" data-dict-type="' + d.code + '">' +
+        '<span class="dict-type-main"><b>' + esc(d.name) + '</b><small>' + esc(d.code) + ' · ' + d.items.length + ' 项</small></span>' +
+        '<span class="count">' + d.items.length + '</span>' +
+        '<svg class="ic" aria-hidden="true"><use href="#i-arrow"/></svg>' +
+      '</button>';
+    }).join('') : '<div class="empty-state">没有匹配的字典。</div>';
+    dictTypeCount.textContent = String(DICTS.length);
+    var railDict = document.querySelector('.rail-link[data-page="dict"] .rail-count');
+    if (railDict) railDict.textContent = String(DICTS.length);
+    dictTypeList.querySelectorAll('[data-dict-type]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        currentDict = btn.getAttribute('data-dict-type');
+        dictItemSearch.value = '';
+        renderDictTypes();
+        renderDictItems();
+      });
+    });
+  }
+
+  function renderDictItems() {
+    var d = currentDictData();
+    dictTitle.textContent = d.name;
+    dictDesc.textContent = d.desc;
+    dictCode.textContent = d.code;
+    var q = dictItemSearch.value.trim().toLowerCase();
+    var items = d.items.slice().sort(function (a, b) { return a.sort - b.sort; }).filter(function (item) {
+      return !q || (item.label + ' ' + item.value).toLowerCase().indexOf(q) !== -1;
+    });
+    dictItemRows.innerHTML = items.length ? items.map(function (item) {
+      var enabled = item.enabled;
+      return '<tr data-item-value="' + esc(item.value) + '">' +
+        '<td><b style="font-weight:550;color:var(--ink-2)">' + esc(item.label) + '</b></td>' +
+        '<td class="mono" style="font-size:9px">' + esc(item.value) + '</td>' +
+        '<td><span class="color-cell"><span class="swatch ' + esc(item.color) + '"></span>' + (COLOR_META[item.color] || item.color) + '</span></td>' +
+        '<td class="num">' + item.sort + '</td>' +
+        '<td><span class="st ' + (enabled ? 'st-ok' : 'st-muted') + '">' + (enabled ? '启用' : '停用') + '</span></td>' +
+        '<td class="actions"><button class="text-link" data-dict-edit="' + esc(item.value) + '">编辑</button><button class="text-link" data-dict-toggle="' + esc(item.value) + '">' + (enabled ? '停用' : '启用') + '</button><button class="text-link is-danger" data-dict-delete="' + esc(item.value) + '">删除</button></td>' +
+      '</tr>';
+    }).join('') : '<tr><td colspan="6"><div class="empty-state">这个字典还没有匹配项。</div></td></tr>';
+    dictItemCount.textContent = items.length + ' 项';
+  }
+
+  function colorOptions(selected) {
+    return Object.keys(COLOR_META).map(function (key) {
+      return '<option value="' + key + '"' + (key === selected ? ' selected' : '') + '>' + COLOR_META[key] + '</option>';
+    }).join('');
+  }
+
+  function dictTypeOptions(selected) {
+    return DICTS.map(function (d) {
+      return '<option value="' + d.code + '"' + (d.code === selected ? ' selected' : '') + '>' + esc(d.name) + '</option>';
+    }).join('');
+  }
+
+  function openDictTypeDrawer() {
+    var html = '<div class="form-grid">' +
+      '<label class="field"><span>名称</span><input class="input" id="dfDictName" placeholder="例如：工单优先级"></label>' +
+      '<label class="field"><span>编码</span><input class="input" id="dfDictCode" placeholder="ticket_priority"></label>' +
+      '</div>' +
+      '<label class="field" style="margin-top:11px"><span>描述</span><textarea class="textarea" id="dfDictDesc" placeholder="说明这个字典用于什么状态"></textarea></label>' +
+      '<div class="drawer-note">编码保存后不建议修改，API 与前端会按编码读取枚举。</div>';
+    openDrawer({ mode: 'dictType', title: '新建字典', sub: '创建一个新的枚举类型', html: html, saveText: '创建字典' });
+  }
+
+  function openDictItemDrawer(item) {
+    var isEdit = !!item;
+    var d = currentDictData();
+    var value = item ? item.value : '';
+    var html = '<div class="form-grid">' +
+      '<label class="field"><span>标签</span><input class="input" id="dfItemLabel" value="' + esc(item ? item.label : '') + '" placeholder="已提交"></label>' +
+      '<label class="field"><span>值</span><input class="input" id="dfItemValue" value="' + esc(value) + '" placeholder="submitted"></label>' +
+      '<label class="field"><span>颜色</span><select class="select" id="dfItemColor">' + colorOptions(item ? item.color : 'gray') + '</select></label>' +
+      '<label class="field"><span>排序</span><input class="input" id="dfItemSort" value="' + (item ? item.sort : 1) + '"></label>' +
+      '</div>' +
+      '<div class="field-row" style="margin-top:12px"><div class="field-row-main"><b>启用</b><small>停用后该值仍保留，但不再出现在可选列表中。</small></div><label class="switch"><input type="checkbox" id="dfItemEnabled"' + (!item || item.enabled ? ' checked' : '') + '><span></span></label></div>' +
+      '<div class="drawer-note">当前字典：' + esc(d.name) + ' · ' + esc(d.code) + '</div>';
+    openDrawer({
+      mode: 'dictItem',
+      target: item || null,
+      title: isEdit ? '编辑字典项' : '新增字典项',
+      sub: d.name + ' · ' + d.code,
+      html: html,
+      saveText: isEdit ? '保存字典项' : '添加字典项'
+    });
+  }
+
+  function saveDictItemDrawer() {
+    var label = fieldValue('dfItemLabel');
+    var value = fieldValue('dfItemValue');
+    if (!label || !value) {
+      showToast('请填写标签和值');
+      return;
+    }
+    var d = currentDictData();
+    var payload = {
+      label: label,
+      value: value,
+      color: fieldValue('dfItemColor') || 'gray',
+      sort: Number(fieldValue('dfItemSort')) || 1,
+      enabled: fieldChecked('dfItemEnabled')
+    };
+    if (drawerTarget) {
+      Object.keys(payload).forEach(function (key) { drawerTarget[key] = payload[key]; });
+      showToast('字典项已更新');
+    } else {
+      d.items.push(payload);
+      showToast('字典项已添加');
+    }
+    renderDictTypes();
+    renderDictItems();
+    closeDrawer();
+  }
+
+  dictTypeSearch.addEventListener('input', renderDictTypes);
+  dictItemSearch.addEventListener('input', renderDictItems);
+  newDictBtn.addEventListener('click', openDictTypeDrawer);
+  addDictItemBtn.addEventListener('click', function () { openDictItemDrawer(null); });
+
+  dictItemRows.addEventListener('click', function (event) {
+    var d = currentDictData();
+    var edit = event.target.closest('[data-dict-edit]');
+    if (edit) {
+      var value = edit.getAttribute('data-dict-edit');
+      var item = d.items.filter(function (i) { return i.value === value; })[0];
+      if (item) openDictItemDrawer(item);
+      return;
+    }
+    var toggle = event.target.closest('[data-dict-toggle]');
+    if (toggle) {
+      var value2 = toggle.getAttribute('data-dict-toggle');
+      var item2 = d.items.filter(function (i) { return i.value === value2; })[0];
+      if (item2) {
+        item2.enabled = !item2.enabled;
+        renderDictTypes();
+        renderDictItems();
+        showToast(item2.enabled ? '字典项已启用' : '字典项已停用');
+      }
+      return;
+    }
+    var del = event.target.closest('[data-dict-delete]');
+    if (del) {
+      var value3 = del.getAttribute('data-dict-delete');
+      d.items = d.items.filter(function (i) { return i.value !== value3; });
+      renderDictTypes();
+      renderDictItems();
+      showToast('字典项已删除');
+    }
+  });
+
+  /* ============================================================
+     AUDIT
+     ============================================================ */
+  var AUDIT = [
+    { id: 'evt_9a1f', time: '今天 09:42', actor: '周丹', initials: 'ZD', category: 'menu', action: '更新菜单', actionCode: 'menu.update', resource: '/admin/menus · 管理控制台 / 菜单管理', ip: '10.0.12.4', result: 'success', detail: { path: '/admin/menus', change: 'visibility', from: 'hidden', to: 'visible' } },
+    { id: 'evt_9a1e', time: '今天 09:31', actor: '周丹', initials: 'ZD', category: 'user', action: '修改用户角色', actionCode: 'user.role.update', resource: '林雨 → 运营管理员', ip: '10.0.12.4', result: 'success', detail: { user_id: 'u2', from: 'support', to: 'ops' } },
+    { id: 'evt_9a1d', time: '今天 09:18', actor: '林雨', initials: 'LY', category: 'workflow', action: '发布工作流', actionCode: 'workflow.publish', resource: '客服周报 · v2', ip: '10.0.12.31', result: 'success', detail: { workflow_id: 'report', version: 'v2', steps: 7 } },
+    { id: 'evt_9a1c', time: '今天 08:55', actor: '陈默', initials: 'CM', category: 'approval', action: '批准 Slack 发布', actionCode: 'approval.approve', resource: 'mcp_slack__post_message · #support-weekly', ip: '10.0.12.22', result: 'success', detail: { approval_id: 'ap_7f21', decision: 'approved', target: '#support-weekly' } },
+    { id: 'evt_9a1b', time: '今天 08:31', actor: '周丹', initials: 'ZD', category: 'agent', action: '注册智能体', actionCode: 'agent.register', resource: 'code-assistant · https://code.example.com/a2a', ip: '10.0.12.4', result: 'success', detail: { slug: 'code-assistant', protocol: 'A2A 1.0', health: 'healthy' } },
+    { id: 'evt_9a1a', time: '今天 08:12', actor: '系统', initials: 'SY', category: 'agent', action: '健康检查失败', actionCode: 'agent.health', resource: 'code-assistant · 502 a2a_unavailable', ip: '127.0.0.1', result: 'failure', detail: { slug: 'code-assistant', status: 502, error: 'a2a_unavailable', retry_in: '5m' } },
+    { id: 'evt_9a19', time: '昨天 22:10', actor: '周丹', initials: 'ZD', category: 'dict', action: '更新字典', actionCode: 'dict.update', resource: 'task_status · 等待输入', ip: '10.0.12.4', result: 'success', detail: { dict: 'task_status', item: 'input_required', field: 'label', from: '待输入', to: '等待输入' } },
+    { id: 'evt_9a18', time: '昨天 21:44', actor: '王砚', initials: 'WY', category: 'login', action: '登录失败', actionCode: 'login.failed', resource: 'wang.yan@example.com', ip: '10.0.12.55', result: 'failure', detail: { reason: 'invalid_password', attempts: 3, locked: false } },
+    { id: 'evt_9a17', time: '昨天 20:15', actor: '周丹', initials: 'ZD', category: 'system', action: '更新系统设置', actionCode: 'settings.update', resource: 'A2A timeout · 30s → 60s', ip: '10.0.12.4', result: 'success', detail: { section: 'a2a', field: 'timeout_seconds', from: 30, to: 60 } },
+    { id: 'evt_9a16', time: '昨天 19:02', actor: '赵可', initials: 'ZK', category: 'knowledge', action: '上传知识文档', actionCode: 'knowledge.upload', resource: '退款政策.md', ip: '10.0.12.41', result: 'success', detail: { file: '退款政策.md', chunks: 42, category: '售后' } }
+  ];
+
+  var auditSearch = document.getElementById('auditSearch');
+  var auditAction = document.getElementById('auditAction');
+  var auditResult = document.getElementById('auditResult');
+  var auditRows = document.getElementById('auditRows');
+  var auditCount = document.getElementById('auditCount');
+  var auditFoot = document.getElementById('auditFoot');
+  var exportAuditBtn = document.getElementById('exportAuditBtn');
+  var auditFilter = { q: '', action: 'all', result: 'all' };
+
+  function auditResultBadge(result) {
+    return result === 'success'
+      ? '<span class="st st-ok"><span class="dot is-ok"></span>成功</span>'
+      : '<span class="st st-error"><span class="dot is-warn"></span>失败</span>';
+  }
+
+  function renderAudit() {
+    var q = auditFilter.q.toLowerCase();
+    var rows = AUDIT.filter(function (evt) {
+      var text = (evt.actor + ' ' + evt.action + ' ' + evt.resource + ' ' + evt.ip).toLowerCase();
+      var actionOk = auditFilter.action === 'all' || evt.category === auditFilter.action;
+      var resultOk = auditFilter.result === 'all' || evt.result === auditFilter.result;
+      return (!q || text.indexOf(q) !== -1) && actionOk && resultOk;
+    });
+    auditRows.innerHTML = rows.length ? rows.map(function (evt) {
+      return '<tr>' +
+        '<td class="mono" style="font-size:8.5px;color:var(--ink-3);white-space:nowrap">' + evt.time + '</td>' +
+        '<td><div class="audit-actor"><span class="avatar">' + evt.initials + '</span><b>' + esc(evt.actor) + '</b></div></td>' +
+        '<td><span class="audit-action">' + esc(evt.action) + '</span><div class="mono" style="font-size:8px;color:var(--ink-3);margin-top:1px">' + esc(evt.actionCode) + '</div></td>' +
+        '<td><span class="audit-resource" title="' + esc(evt.resource) + '">' + esc(evt.resource) + '</span></td>' +
+        '<td class="audit-ip">' + esc(evt.ip) + '</td>' +
+        '<td>' + auditResultBadge(evt.result) + '</td>' +
+        '<td class="actions"><button class="text-link" data-audit-detail="' + evt.id + '">查看</button></td>' +
+      '</tr>';
+    }).join('') : '<tr><td colspan="7"><div class="empty-state">没有匹配的审计记录。</div></td></tr>';
+    auditCount.textContent = rows.length + ' 条';
+    auditFoot.textContent = '显示 ' + rows.length + ' 条记录 · 共 ' + AUDIT.length + ' 条';
+  }
+
+  function openAuditDetail(id) {
+    var evt = AUDIT.filter(function (item) { return item.id === id; })[0];
+    if (!evt) return;
+    var html = '<div class="audit-detail">' +
+      '<dl class="audit-meta">' +
+        '<dt>事件 ID</dt><dd class="mono">' + evt.id + '</dd>' +
+        '<dt>时间</dt><dd>' + evt.time + '</dd>' +
+        '<dt>操作者</dt><dd>' + esc(evt.actor) + '</dd>' +
+        '<dt>操作</dt><dd>' + esc(evt.action) + ' <span class="mono">' + evt.actionCode + '</span></dd>' +
+        '<dt>对象</dt><dd class="mono">' + esc(evt.resource) + '</dd>' +
+        '<dt>来源 IP</dt><dd class="mono">' + evt.ip + '</dd>' +
+        '<dt>结果</dt><dd>' + auditResultBadge(evt.result) + '</dd>' +
+      '</dl>' +
+      '<div><h3 style="font-size:11px;font-weight:600;color:var(--ink-2);margin-bottom:6px">变更内容</h3><pre class="audit-json">' + esc(JSON.stringify(evt.detail, null, 2)) + '</pre></div>' +
+      '<div class="drawer-note">审计记录只读；默认保留 365 天。导出时包含完整上下文。</div>' +
+    '</div>';
+    openDrawer({
+      mode: 'audit',
+      title: '审计详情',
+      sub: evt.id + ' · ' + evt.time,
+      html: html,
+      hideSave: true,
+      cancelText: '关闭'
+    });
+  }
+
+  auditSearch.addEventListener('input', function () {
+    auditFilter.q = auditSearch.value;
+    renderAudit();
+  });
+  auditAction.addEventListener('change', function () {
+    auditFilter.action = auditAction.value;
+    renderAudit();
+  });
+  auditResult.addEventListener('click', function (event) {
+    var btn = event.target.closest('[data-result]');
+    if (!btn) return;
+    auditFilter.result = btn.getAttribute('data-result');
+    auditResult.querySelectorAll('button').forEach(function (b) {
+      b.classList.toggle('is-active', b === btn);
+    });
+    renderAudit();
+  });
+  auditRows.addEventListener('click', function (event) {
+    var btn = event.target.closest('[data-audit-detail]');
+    if (!btn) return;
+    openAuditDetail(btn.getAttribute('data-audit-detail'));
+  });
+  exportAuditBtn.addEventListener('click', function () {
+    showToast('审计日志已导出为 CSV（原型演示）');
+  });
+
+  /* ============================================================
+     SYSTEM SETTINGS
+     ============================================================ */
+  var settingsNav = document.getElementById('settingsNav');
+  var saveSettingsBtn = document.getElementById('saveSettingsBtn');
+  settingsNav.addEventListener('click', function (event) {
+    var btn = event.target.closest('[data-scroll]');
+    if (!btn) return;
+    settingsNav.querySelectorAll('button').forEach(function (b) {
+      b.classList.toggle('is-active', b === btn);
+    });
+    var target = document.getElementById(btn.getAttribute('data-scroll'));
+    if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+  saveSettingsBtn.addEventListener('click', function () {
+    showToast('系统设置已保存（原型演示）');
+  });
+
+  /* ============================================================
+     DRAWER SAVE
+     ============================================================ */
+  drawerSave.addEventListener('click', function () {
+    if (drawerMode === 'user' || drawerMode === 'invite') {
+      saveUserDrawer();
+      return;
+    }
+    if (drawerMode === 'menu') {
+      if (!fieldValue('dfMenuName')) {
+        showToast('请填写菜单名称');
+        return;
+      }
+      showToast('菜单配置已保存（原型演示）');
+      closeDrawer();
+      return;
+    }
+    if (drawerMode === 'dictType') {
+      var name = fieldValue('dfDictName');
+      var code = fieldValue('dfDictCode');
+      if (!name || !code) {
+        showToast('请填写字典名称和编码');
+        return;
+      }
+      if (DICTS.some(function (d) { return d.code === code; })) {
+        showToast('字典编码已存在');
+        return;
+      }
+      DICTS.push({ code: code, name: name, desc: fieldValue('dfDictDesc') || '自定义字典', items: [] });
+      currentDict = code;
+      renderDictTypes();
+      renderDictItems();
+      showToast('字典已创建');
+      closeDrawer();
+      return;
+    }
+    if (drawerMode === 'dictItem') {
+      saveDictItemDrawer();
+      return;
+    }
+    closeDrawer();
+  });
+
+  /* ============================================================
+     DEMO / INIT
+     ============================================================ */
+  document.querySelectorAll('[data-demo]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      showToast(btn.getAttribute('data-demo'));
+    });
+  });
+
+  renderUsers();
+  renderRoles();
+  renderDictTypes();
+  renderDictItems();
+  renderAudit();
+  applyMenuVisibility();
+})();
+
+</script>
+</body>
+</html>
