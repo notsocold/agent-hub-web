@@ -115,6 +115,8 @@ sequenceDiagram
 | `agents` | 远程 Agent 列表、健康状态、注册表单 | M2 |
 | `tasks` | A2A 任务列表、筛选、实时更新 | M2 |
 | `knowledge` | 文档列表、上传队列、检索结果 | M4 |
+| `capabilities` | 指令、记忆、技能、MCP 设置与目录 | M1.5 |
+| `workflows` | 工作流列表、编辑器草稿 | 原型概念，待后端契约 |
 
 约定：
 
@@ -134,6 +136,8 @@ sequenceDiagram
 | `/knowledge` | `KnowledgeView` | AppLayout |
 | `/settings` | `SettingsView` | AppLayout |
 | `/login` | `LoginView`（M1） | 独立布局 |
+
+> 原型 v7 已增加工作流页与「个人能力」设置分区；对应路由（如 `/workflows`）和 store 待后端契约确认后纳入，不在 M0 路由表中。
 
 - 路由级懒加载（`() => import(...)`），首屏只加载布局与当前页；
 - `meta.title` 驱动顶栏与 `document.title`；

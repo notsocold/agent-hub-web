@@ -41,11 +41,29 @@
   --mcp:#5A4E72;
   --mcp-soft:#ECE8F1;
 
+  --kind-skill:#3D6A4E;
+  --kind-skill-soft:#E4EDE6;
+  --kind-vector:#2E6485;
+  --kind-vector-soft:#E3EDF3;
+  --kind-tool:#A9741F;
+  --kind-tool-soft:#F3E9D3;
+  --kind-a2a:#2E746E;
+  --kind-a2a-soft:#E0EEEB;
+  --kind-mcp:#5A4E72;
+  --kind-mcp-soft:#ECE8F1;
+  --kind-approval:#9C3A2B;
+  --kind-approval-soft:#F6E5E0;
+
   --btn-bg:#141B20;
   --btn-fg:#FBFAF5;
 
+  --user-bubble-bg:#17465E;
+  --user-bubble-fg:#FBFAF5;
+  --user-bubble-border:#2A5A73;
+
   --shadow-sm:0 1px 2px rgba(20,27,32,.05);
   --shadow-md:0 1px 2px rgba(20,27,32,.04), 0 10px 28px -18px rgba(20,27,32,.35);
+  --shadow-lg:0 24px 60px -28px rgba(20,27,32,.38);
 
   --sidebar-w:288px;
   --sidebar-rail:56px;
@@ -75,11 +93,29 @@ html[data-theme="dark"]{
   --mcp:#B3A4C9;
   --mcp-soft:rgba(179,164,201,.12);
 
+  --kind-skill:#8DBBA0;
+  --kind-skill-soft:rgba(141,187,160,.12);
+  --kind-vector:#8FB8CC;
+  --kind-vector-soft:rgba(143,184,204,.12);
+  --kind-tool:#D4A04A;
+  --kind-tool-soft:rgba(212,160,74,.13);
+  --kind-a2a:#8CC7BF;
+  --kind-a2a-soft:rgba(140,199,191,.12);
+  --kind-mcp:#B3A4C9;
+  --kind-mcp-soft:rgba(179,164,201,.12);
+  --kind-approval:#DE907E;
+  --kind-approval-soft:rgba(222,144,126,.12);
+
   --btn-bg:#E8E7DF;
   --btn-fg:#10171B;
 
+  --user-bubble-bg:#233A46;
+  --user-bubble-fg:#F2F4F3;
+  --user-bubble-border:#355463;
+
   --shadow-sm:0 1px 0 rgba(255,255,255,.03);
   --shadow-md:0 1px 0 rgba(255,255,255,.03), 0 16px 40px -24px rgba(0,0,0,.9);
+  --shadow-lg:0 28px 72px -30px rgba(0,0,0,.95);
 }
 
 /* ---------- base ---------- */
@@ -434,10 +470,10 @@ html[data-theme="dark"] .ic-moon{display:none}
   border-radius:1.5px;border-color:var(--amber);background:var(--surface);
 }
 .entry-a2a .node{
-  border-radius:1px;border-color:var(--prussian);
-  transform:rotate(45deg);background:var(--prussian-soft);
+  border-radius:1px;border-color:var(--kind-a2a);
+  transform:rotate(45deg);background:var(--kind-a2a-soft);
 }
-.entry-approval .node{border-color:var(--red);background:var(--red-soft)}
+.entry-approval .node{border-color:var(--kind-approval);background:var(--kind-approval-soft)}
 
 .entry-head{
   display:flex;align-items:baseline;gap:9px;
@@ -477,8 +513,9 @@ html[data-theme="dark"] .ic-moon{display:none}
   max-width:min(560px,74%);
   padding:13px 16px;
   border-radius:10px 10px 3px 10px;
-  background:var(--ink);
-  color:var(--paper);
+  background:var(--user-bubble-bg);
+  color:var(--user-bubble-fg);
+  border:1px solid var(--user-bubble-border);
   font-size:14.5px;line-height:1.72;
   box-shadow:0 1px 2px rgba(20,27,32,.08);
 }
@@ -755,7 +792,7 @@ html[data-theme="dark"] .prompt-bubble{box-shadow:0 1px 0 rgba(255,255,255,.03)}
 /* ---------- approval card ---------- */
 .approval-card{
   border:1px solid var(--line);
-  border-left:3px solid var(--red);
+  border-left:3px solid var(--kind-approval);
   border-radius:6px;
   background:var(--surface);
   box-shadow:var(--shadow-sm);
@@ -765,7 +802,7 @@ html[data-theme="dark"] .prompt-bubble{box-shadow:0 1px 0 rgba(255,255,255,.03)}
   display:flex;align-items:center;gap:8px;
   padding:13px 15px 0;
 }
-.approval-head .ic{width:15px;height:15px;color:var(--red)}
+.approval-head .ic{width:15px;height:15px;color:var(--kind-approval)}
 .approval-title{font-size:13px;font-weight:650;letter-spacing:-.005em}
 .approval-head .status-chip{margin-left:auto;height:22px;font-size:10.5px;padding:0 7px}
 .approval-body{padding:8px 15px 14px}
@@ -890,7 +927,15 @@ html[data-theme="dark"] .btn-primary:hover{background:var(--amber);border-color:
 .send:hover{background:var(--prussian)}
 html[data-theme="dark"] .send:hover{background:var(--amber);color:#141B20}
 .send .ic{width:16px;height:16px;stroke-width:2}
+.send .ic-stop{display:none;width:14px;height:14px}
+.send.is-stop{background:var(--red);color:#FBFAF5}
+.send.is-stop:hover{background:var(--red)}
+html[data-theme="dark"] .send.is-stop{background:var(--red);color:#141B20}
+html[data-theme="dark"] .send.is-stop:hover{background:var(--red)}
+.send.is-stop .ic-send{display:none}
+.send.is-stop .ic-stop{display:block;fill:currentColor;stroke:none}
 .send.is-disabled{opacity:.35;cursor:not-allowed}
+.status-chip:disabled{cursor:default}
 .composer-hint{
   display:flex;align-items:center;gap:6px;flex-wrap:wrap;
   margin-top:7px;
@@ -958,6 +1003,19 @@ kbd{
 .track .is-now .marker::after{content:"";width:4px;height:4px;border-radius:50%;background:var(--amber);animation:pulse 2.4s ease-in-out infinite}
 .track .is-wait .marker{border-style:dashed}
 .track .is-wait .marker::after{content:"";width:3px;height:1px;background:var(--ink-3)}
+.track .is-canceled .marker{border-color:var(--red);background:var(--red-soft)}
+.track .is-canceled .marker .ic{color:var(--red)}
+.track li.kind-skill .marker{border-color:var(--kind-skill);background:var(--kind-skill-soft)}
+.track li.kind-skill .marker .ic{color:var(--kind-skill)}
+.track li.kind-tool .marker{border-color:var(--kind-tool);background:var(--kind-tool-soft)}
+.track li.kind-tool .marker .ic{color:var(--kind-tool)}
+.track li.kind-a2a .marker{border-color:var(--kind-a2a);background:var(--kind-a2a-soft)}
+.track li.kind-a2a .marker .ic{color:var(--kind-a2a)}
+.track li.kind-mcp .marker{border-color:var(--kind-mcp);background:var(--kind-mcp-soft)}
+.track li.kind-mcp .marker .ic{color:var(--kind-mcp)}
+.track li.kind-approval .marker{border-color:var(--kind-approval);background:var(--surface)}
+.track li.kind-approval .marker .ic{color:var(--kind-approval)}
+.track li.kind-approval.is-wait .marker::after{background:var(--kind-approval)}
 .track .label{display:flex;align-items:baseline;gap:7px;font-size:12px;color:var(--ink-2)}
 .track .is-now .label{color:var(--ink);font-weight:550}
 .track .label .mono{font-size:9.5px;color:var(--ink-3);margin-left:auto;font-weight:400}
@@ -1112,10 +1170,14 @@ html[data-theme="dark"] .toast{background:var(--surface);border:1px solid var(--
   letter-spacing:.02em;
   white-space:nowrap;
 }
-.kind-tool .node{border-color:var(--amber);background:var(--surface)}
-.kind-vector .node{border-color:var(--prussian);background:var(--prussian-soft)}
-.kind-tool .tool-card{border-left:2px solid var(--amber)}
-.kind-vector .tool-card{border-left:2px solid var(--prussian)}
+.kind-tool .node{border-color:var(--kind-tool);background:var(--surface)}
+.kind-skill .kind{background:var(--kind-skill-soft);color:var(--kind-skill);border-color:transparent}
+.kind-vector .kind{background:var(--kind-vector-soft);color:var(--kind-vector);border-color:transparent}
+.kind-tool .kind{background:var(--kind-tool-soft);color:var(--amber-text);border-color:transparent}
+.kind-mcp .kind{background:var(--kind-mcp-soft);color:var(--kind-mcp);border-color:transparent}
+.kind-vector .node{border-color:var(--kind-vector);background:var(--kind-vector-soft)}
+.kind-tool .tool-card{border-left:2px solid var(--kind-tool)}
+.kind-vector .tool-card{border-left:2px solid var(--kind-vector)}
 .tool-card summary{gap:8px}
 .vector-meta{
   padding-bottom:5px;
@@ -1126,7 +1188,7 @@ html[data-theme="dark"] .toast{background:var(--surface);border:1px solid var(--
 .vhit:last-of-type{border-bottom:0}
 .vhit-main{display:flex;align-items:baseline;gap:8px}
 .vhit-title{flex:1;min-width:0;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.vhit-score{font-family:var(--font-mono);font-size:10.5px;color:var(--prussian)}
+.vhit-score{font-family:var(--font-mono);font-size:10.5px;color:var(--kind-vector)}
 .vhit-sub{
   margin-top:2px;
   font-family:var(--font-mono);
@@ -1136,7 +1198,7 @@ html[data-theme="dark"] .toast{background:var(--surface);border:1px solid var(--
 /* A2A delegation group */
 .delegation{
   border:1px solid var(--line);
-  border-left:3px solid var(--prussian);
+  border-left:3px solid var(--kind-a2a);
   border-radius:6px;
   background:var(--surface);
   box-shadow:var(--shadow-sm);
@@ -1149,6 +1211,7 @@ html[data-theme="dark"] .toast{background:var(--surface);border:1px solid var(--
   background:var(--surface-2);
 }
 .delegation-title{font-size:12.5px;font-weight:650;letter-spacing:-.005em}
+.delegation-head .tag{color:var(--kind-a2a);background:var(--kind-a2a-soft);border-color:transparent}
 .delegation-count{font-size:10.5px;color:var(--ink-3)}
 .delegation-head .spacer{flex:1}
 .delegation-state{font-family:var(--font-mono);font-size:9.5px;color:var(--ink-3)}
@@ -1241,10 +1304,10 @@ html[data-theme="dark"] .toast{background:var(--surface);border:1px solid var(--
 /* ============================================================
    v4: restored capability cards (skill / tool / MCP)
    ============================================================ */
-.kind-skill .node{border-color:var(--green);background:var(--green-soft)}
-.kind-mcp .node{border-color:var(--mcp);background:var(--mcp-soft)}
-.kind-skill .tool-card{border-left:2px solid var(--green)}
-.kind-mcp .tool-card{border-left:2px solid var(--mcp)}
+.kind-skill .node{border-color:var(--kind-skill);background:var(--kind-skill-soft)}
+.kind-mcp .node{border-color:var(--kind-mcp);background:var(--kind-mcp-soft)}
+.kind-skill .tool-card{border-left:2px solid var(--kind-skill)}
+.kind-mcp .tool-card{border-left:2px solid var(--kind-mcp)}
 .proc-desc{
   font-size:12px;line-height:1.65;color:var(--ink-2);
   margin:0 0 9px;max-width:64ch;
@@ -1372,13 +1435,16 @@ html[data-theme="dark"] .btn-danger{color:#141B20}
 .a2a-row[data-agent]{cursor:pointer;transition:background .12s}
 .a2a-row[data-agent]:hover{background:var(--surface-2)}
 .a2a-row[data-agent]:focus-visible,
-.agent-row[data-agent]:focus-visible{outline:2px solid var(--prussian);outline-offset:-2px}
+.agent-row[data-agent]:focus-visible{outline:2px solid var(--kind-a2a);outline-offset:-2px}
 .a2a-stream-hint{
   display:inline-flex;align-items:center;gap:2px;
   margin-top:2px;
-  font-size:9px;color:var(--prussian);white-space:nowrap;
+  font-size:9px;color:var(--kind-a2a);white-space:nowrap;
 }
 .a2a-stream-hint .ic{width:9px;height:9px;stroke-width:2}
+.a2a-row .agent-badge,
+.agent-row[data-agent] .agent-badge,
+#agentDrawerBadge{color:var(--kind-a2a);border-color:var(--kind-a2a-soft);background:var(--kind-a2a-soft)}
 .agent-row[data-agent]{
   cursor:pointer;border-radius:5px;
   padding-left:4px;padding-right:4px;margin-left:-4px;margin-right:-4px;
@@ -1390,7 +1456,7 @@ html[data-theme="dark"] .btn-danger{color:#141B20}
   opacity:0;transition:opacity .12s,color .12s;
 }
 .agent-row[data-agent]:hover .agent-open-icon,
-.agent-row[data-agent]:focus-visible .agent-open-icon{opacity:1;color:var(--prussian)}
+.agent-row[data-agent]:focus-visible .agent-open-icon{opacity:1;color:var(--kind-a2a)}
 
 /* drawers */
 .agent-scrim,.run-scrim{
@@ -1438,7 +1504,7 @@ html[data-theme="dark"] .btn-danger{color:#141B20}
 .agent-drawer-meta .sep{opacity:.5}
 .agent-drawer-meta .text-link{font-size:10.5px}
 .agent-stream{flex:1;min-height:0;overflow-y:auto;padding:18px 20px 24px}
-.agent-stream-label{font-size:10px;color:var(--ink-3);letter-spacing:.03em;margin-bottom:10px}
+.agent-stream-label{font-size:10px;color:var(--kind-a2a);letter-spacing:.03em;margin-bottom:10px}
 .agent-stream-text{
   max-width:60ch;
   font-size:12.5px;line-height:1.85;color:var(--ink);
@@ -1496,11 +1562,11 @@ html[data-theme="dark"] .btn-danger{color:#141B20}
 .traj-seg{flex-grow:var(--w);flex-basis:0;min-width:2px;transition:flex-grow .2s}
 .traj-track.is-equal .traj-seg{flex-grow:1}
 .seg-message{background:var(--ink-3)}
-.seg-skill{background:var(--green)}
-.seg-tool{background:var(--amber)}
-.seg-a2a{background:var(--prussian)}
-.seg-mcp{background:var(--mcp)}
-.seg-approval{background:var(--red)}
+.seg-skill{background:var(--kind-skill)}
+.seg-tool{background:var(--kind-tool)}
+.seg-a2a{background:var(--kind-a2a)}
+.seg-mcp{background:var(--kind-mcp)}
+.seg-approval{background:var(--kind-approval)}
 .seg-approval.is-done{background:var(--green)}
 .seg-approval.is-rejected{background:var(--ink-3)}
 .traj-axis{
@@ -1580,11 +1646,11 @@ html[data-theme="dark"] .traj-row-summary:hover{background:rgba(255,255,255,.03)
 }
 .tk-request{background:var(--surface-2);color:var(--ink-3);border-color:var(--line-2)}
 .tk-message{background:var(--prussian-soft);color:var(--prussian)}
-.tk-skill{background:var(--green-soft);color:var(--green)}
-.tk-tool{background:var(--amber-soft);color:var(--amber-text)}
-.tk-a2a{background:var(--prussian-soft);color:var(--prussian)}
-.tk-mcp{background:var(--mcp-soft);color:var(--mcp)}
-.tk-approval{background:var(--red-soft);color:var(--red)}
+.tk-skill{background:var(--kind-skill-soft);color:var(--kind-skill)}
+.tk-tool{background:var(--kind-tool-soft);color:var(--kind-tool)}
+.tk-a2a{background:var(--kind-a2a-soft);color:var(--kind-a2a)}
+.tk-mcp{background:var(--kind-mcp-soft);color:var(--kind-mcp)}
+.tk-approval{background:var(--kind-approval-soft);color:var(--kind-approval)}
 .traj-name{min-width:0;font-size:11px;font-weight:500;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .traj-arg{min-width:0;font-family:var(--font-mono);font-size:9.5px;color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .traj-dur{font-size:9px;color:var(--ink-2);text-align:right}
@@ -1680,6 +1746,7 @@ html[data-theme="dark"] .traj-row-summary:hover{background:rgba(255,255,255,.03)
 .ctx-chip.ctx-workflow .ic{color:var(--prussian)}
 .ctx-chip.ctx-skill{background:var(--green-soft);border-color:rgba(56,120,92,.16);color:var(--green)}
 .ctx-chip.ctx-knowledge{background:var(--prussian-soft);border-color:rgba(29,78,120,.14);color:var(--prussian)}
+.ctx-chip.ctx-mcp{background:var(--mcp-soft);border-color:rgba(90,78,114,.16);color:var(--mcp)}
 .ctx-chip.ctx-file{background:var(--amber-soft);border-color:rgba(154,103,0,.14);color:var(--amber-text)}
 .ctx-remove{
   display:grid;place-items:center;
@@ -1731,7 +1798,9 @@ html[data-theme="dark"] .traj-row-summary:hover{background:rgba(255,255,255,.03)
 .cm-count{font-family:var(--font-mono);font-size:8.5px}
 .cm-count b{font-weight:500;color:var(--ink-2)}
 .cm-sep{height:1px;background:var(--line-2);margin:6px 4px}
-.cm-label{padding:6px 8px 3px;font-size:9.5px;color:var(--ink-3)}
+.cm-label{display:flex;align-items:center;gap:8px;padding:6px 8px 3px;font-size:9.5px;color:var(--ink-3)}
+.cm-note{margin-left:auto;font-size:8.5px;color:var(--ink-3);font-weight:400}
+.cm-label-sub{padding:4px 8px 2px;font-size:8.5px;color:var(--ink-3)}
 .cm-item,.cm-check,.cm-radio{
   display:flex;align-items:center;gap:8px;width:100%;
   min-height:32px;padding:0 8px;
@@ -1834,6 +1903,144 @@ html[data-theme="dark"] .traj-row-summary:hover{background:rgba(255,255,255,.03)
   .model-btn #modelLabel{max-width:96px;overflow:hidden;text-overflow:ellipsis}
 }
 </style>
+<style>
+/* ============================================================
+   v8 chat polish: thinking process + process collapse
+   ============================================================ */
+.btn-sm{height:26px;padding:0 8px;font-size:10px;border-radius:4px}
+.btn-sm .ic{width:11px;height:11px}
+
+/* run summary / view switch */
+.run-viewbar{
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  margin:0 0 15px 52px;padding:7px 9px;
+  border:1px solid var(--line-2);border-radius:5px;
+  background:var(--surface-2);
+  font-size:9.5px;color:var(--ink-3);
+}
+.run-view-icon{
+  display:grid;place-items:center;flex:none;
+  width:21px;height:21px;
+  border:1px solid var(--line);border-radius:4px;
+  background:var(--surface);color:var(--amber);
+}
+.run-view-icon .ic{width:12px;height:12px}
+.run-view-title{font-size:10px;font-weight:600;color:var(--ink-2);white-space:nowrap}
+.run-view-meta{font-size:9px;color:var(--ink-3)}
+.run-viewbar .spacer{flex:1}
+.run-viewbar .st{height:18px;padding:0 5px;font-size:8.5px}
+.run-viewbar .st .dot{width:4px;height:4px}
+.run-approval-link{font-size:9.5px;color:var(--amber-text);white-space:nowrap}
+.run-toggle{
+  display:inline-flex;align-items:center;gap:3px;
+  height:23px;padding:0 6px;
+  border:1px solid var(--line);border-radius:4px;
+  background:var(--surface);font-size:9px;color:var(--ink-3);
+  white-space:nowrap;
+}
+.run-toggle:hover{color:var(--ink);border-color:var(--ink-3)}
+.run-toggle .ic{width:10px;height:10px;transition:transform .15s;transform:rotate(180deg)}
+.turn.is-process-collapsed .run-toggle .ic{transform:none}
+.turn.is-process-collapsed .run-viewbar{background:var(--surface);border-color:var(--line)}
+
+/* process collapse: keep main-agent non-thinking outputs only.
+   A main-agent node that only has thinking (no non-thinking output) is removed entirely. */
+.turn.is-process-collapsed .entry-assistant.is-thinking-only,
+.turn.is-process-collapsed .entry-assistant .thinking-card,
+.turn.is-process-collapsed .entry-proc,
+.turn.is-process-collapsed .entry-a2a,
+.turn.is-process-collapsed .entry-approval,
+.turn.is-process-collapsed .thread-foot{display:none!important}
+
+/* thinking process */
+.thinking-card{
+  border:1px solid var(--line-2);border-left:2px solid var(--ink-3);
+  border-radius:6px;background:var(--surface-2);overflow:hidden;
+}
+.thinking-head{
+  display:flex;align-items:center;gap:7px;width:100%;
+  padding:8px 10px;text-align:left;color:var(--ink-2);
+  transition:background .12s;
+}
+.thinking-head:hover{background:rgba(20,27,32,.025)}
+html[data-theme="dark"] .thinking-head:hover{background:rgba(255,255,255,.03)}
+.thinking-spark{
+  display:grid;place-items:center;flex:none;
+  width:18px;height:18px;
+  border:1px solid var(--line);border-radius:4px;
+  background:var(--surface);color:var(--amber);
+}
+.thinking-spark .ic{width:11px;height:11px}
+.thinking-title{font-size:10.5px;font-weight:550;color:var(--ink-2);white-space:nowrap}
+.thinking-head .spacer{flex:1}
+.thinking-meta{font-family:var(--font-mono);font-size:8px;color:var(--ink-3);white-space:nowrap}
+.thinking-state{
+  font-family:var(--font-mono);font-size:7.5px;color:var(--green);
+  border:1px solid var(--green-soft);border-radius:2px;padding:1px 3px;
+}
+.thinking-chev{width:11px;height:11px;color:var(--ink-3);flex:none;transition:transform .15s;transform:rotate(180deg)}
+.thinking-card.is-collapsed .thinking-chev{transform:none}
+.thinking-body{
+  padding:0 12px 10px 36px;
+  border-top:1px dashed var(--line-2);
+  font-size:11px;line-height:1.72;color:var(--ink-3);
+}
+.thinking-body p{margin:8px 0 0}
+.thinking-body ul{margin:5px 0 0;padding-left:14px;list-style:disc}
+.thinking-body li{margin:3px 0}
+.thinking-body li::marker{color:var(--ink-3)}
+.thinking-sources{
+  margin-top:8px;padding-top:7px;border-top:1px dashed var(--line-2);
+  font-size:8.5px;line-height:1.5;color:var(--ink-3);
+}
+
+/* final answer / artifact */
+.entry-assistant.is-final .node{border-color:var(--prussian);background:var(--prussian-soft)}
+.entry-assistant.is-final .who-sub{color:var(--prussian)}
+.artifact-card{
+  display:flex;align-items:center;gap:8px;
+  margin-top:11px;padding:8px 9px;
+  border:1px solid var(--line);border-radius:5px;
+  background:var(--surface-2);
+}
+.artifact-mark{
+  display:grid;place-items:center;flex:none;
+  width:28px;height:28px;
+  border:1px solid var(--line);border-radius:4px;
+  background:var(--surface);color:var(--prussian);
+}
+.artifact-mark .ic{width:13px;height:13px}
+.artifact-main{min-width:0}
+.artifact-card .spacer{flex:1}
+.artifact-name{font-size:10.5px;font-weight:550;color:var(--ink-2)}
+.artifact-meta{margin-top:1px;font-family:var(--font-mono);font-size:8px;color:var(--ink-3)}
+.prose .final-wait{
+  display:flex;align-items:center;gap:5px;
+  margin:9px 0 0;font-size:9.5px;color:var(--amber-text);
+}
+.prose .final-wait .ic{width:11px;height:11px;flex:none}
+.prose .final-wait.is-done{color:var(--green)}
+.prose .final-wait.is-error{color:var(--red)}
+
+/* live thinking placeholder for a newly sent turn */
+.thinking-live{
+  display:flex;align-items:center;gap:6px;
+  margin-bottom:7px;font-size:9.5px;color:var(--ink-3);
+}
+.thinking-live .ic{width:11px;height:11px;color:var(--amber);animation:pulse 2s ease-in-out infinite}
+.thinking-dots{font-family:var(--font-mono);letter-spacing:.2em;color:var(--ink-3);animation:pulse 1.2s ease-in-out infinite}
+
+@media (max-width:760px){
+  .run-viewbar{margin-left:38px;gap:6px}
+  .run-view-meta{display:none}
+  .thinking-meta{display:none}
+  .thinking-body{padding-left:12px}
+  .thinking-title{font-size:10px}
+  .artifact-card{flex-wrap:wrap}
+  .artifact-main{flex:1;min-width:130px}
+  .run-viewbar .run-view-title{font-size:9.5px}
+}
+</style>
 </head>
 <body>
 
@@ -1850,6 +2057,8 @@ html[data-theme="dark"] .traj-row-summary:hover{background:rgba(255,255,255,.03)
     <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M16 16l4 4"/></symbol>
     <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
     <symbol id="i-chevron" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
+    <symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3Z"/><path d="M19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8L19 16Z"/></symbol>
+    <symbol id="i-file" viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6V3Z"/><path d="M14 3v4h4M9 12h6M9 16h4"/></symbol>
     <symbol id="i-panel" viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M15 4.5v15"/></symbol>
     <symbol id="i-panel-left" viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M9 4.5v15"/></symbol>
     <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
@@ -1865,6 +2074,7 @@ html[data-theme="dark"] .traj-row-summary:hover{background:rgba(255,255,255,.03)
     <symbol id="i-stop" viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="1.5"/></symbol>
     <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
     <symbol id="i-external" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></symbol>
     <symbol id="i-archive" viewBox="0 0 24 24"><path d="M4 8h16v11a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V8Z"/><path d="M3 4h18v4H3zM10 12h4"/></symbol>
     <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
     <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.3" fill="currentColor" stroke="none"/></symbol>
@@ -1975,13 +2185,13 @@ html[data-theme="dark"] .traj-row-summary:hover{background:rgba(255,255,255,.03)
         <span class="dot is-ok"></span>
         <span>A2A 已连接</span>
         <span class="spacer"></span>
-        <span class="mono">3 ONLINE</span>
+        <span class="mono">2 ONLINE · 1 降级</span>
       </div>
       <button class="sb-account" id="accountBtn" aria-label="账号菜单" aria-haspopup="menu" aria-expanded="false" aria-controls="accountMenu" title="账号菜单">
         <span class="avatar">AH</span>
         <span class="sb-account-text">
           <span class="sb-account-name">个人工作区</span>
-          <span class="sb-account-sub">3 个智能体在线</span>
+          <span class="sb-account-sub">2 在线 · 1 降级</span>
         </span>
         <svg class="ic sb-account-more" aria-hidden="true"><use href="#i-more"/></svg>
       </button>
@@ -1992,7 +2202,7 @@ html[data-theme="dark"] .traj-row-summary:hover{background:rgba(255,255,255,.03)
         <span class="avatar">AH</span>
         <div>
           <div class="account-menu-name">个人工作区</div>
-          <div class="account-menu-sub">3 个智能体在线</div>
+          <div class="account-menu-sub">2 在线 · 1 降级</div>
         </div>
       </div>
       <div class="menu-sep"></div>
@@ -2011,7 +2221,7 @@ html[data-theme="dark"] .traj-row-summary:hover{background:rgba(255,255,255,.03)
       <button class="menu-item is-danger" role="menuitem" data-demo="退出登录（原型演示）">
         <svg class="ic" aria-hidden="true"><use href="#i-logout"/></svg>退出登录
       </button>
-      <div class="menu-version">Agent Hub v0.1.0 · M0</div>
+      <div class="menu-version">Agent Hub v0.1.0 · 设计原型</div>
     </div>
   </aside>
 
@@ -2033,7 +2243,7 @@ html[data-theme="dark"] .traj-row-summary:hover{background:rgba(255,255,255,.03)
         </div>
       </div>
       <div class="chat-actions">
-        <span class="status-chip is-wait" id="runStatus"><span class="dot" id="runDot"></span><span id="runStatusText" aria-live="polite">待审批</span></span>
+        <button class="status-chip is-wait" id="runStatus" type="button" title="查看并处理待审批" aria-label="待审批，点击处理"><span class="dot" id="runDot"></span><span id="runStatusText" aria-live="polite">待审批</span></button>
         <button class="icon-btn" id="traceToggle" title="运行详情" aria-label="切换运行详情面板" aria-controls="trace" aria-expanded="true">
           <svg class="ic" aria-hidden="true"><use href="#i-panel"/></svg>
         </button>
@@ -2074,22 +2284,49 @@ html[data-theme="dark"] .traj-row-summary:hover{background:rgba(255,255,255,.03)
               </div>
             </div>
 
+            <div class="run-viewbar" id="runViewbar">
+              <span class="run-view-icon"><svg class="ic" aria-hidden="true"><use href="#i-spark"/></svg></span>
+              <span class="run-view-title" id="runViewTitle">执行过程</span>
+              <span class="run-view-meta">思考 12s · 7 步 · 2 个远程智能体 · 1 个审批</span>
+              <span class="st st-live" id="runViewStatus"><span class="dot is-live"></span>待审批</span>
+              <span class="spacer"></span>
+              <button class="text-link run-approval-link" id="runApprovalLink" hidden>处理审批 <svg class="ic" aria-hidden="true"><use href="#i-arrow"/></svg></button>
+              <button class="run-toggle" id="runToggle" aria-expanded="true" aria-controls="thread">
+                <span id="runToggleLabel">收起过程</span>
+                <svg class="ic run-chev" aria-hidden="true"><use href="#i-chevron"/></svg>
+              </button>
+            </div>
+
             <ol class="thread" id="thread">
 
-              <!-- assistant intro -->
-              <li class="entry entry-assistant">
+              <!-- main-agent plan: thinking only, no non-thinking output; hidden when process is collapsed -->
+              <li class="entry entry-assistant is-main-node is-thinking-only">
                 <span class="node" aria-hidden="true"></span>
                 <div class="entry-head">
                   <span class="who">main-agent</span>
                   <span class="who-sub">调度员 · 计划</span>
                   <span class="spacer"></span>
-                  <button class="copy-btn" data-copy="我先加载周报技能，检索分类口径并聚合工单；草稿完成后让 data-analyst 核对数字、editorial-reviewer 审措辞，最后用 Slack MCP 校验发布频道，发送前暂停等你确认。">
-                    <svg class="ic" aria-hidden="true"><use href="#i-copy"/></svg>复制
-                  </button>
                   <time>22:41</time>
                 </div>
-                <div class="entry-body prose">
-                  <p>我先加载周报技能，检索分类口径并聚合工单；草稿完成后让 data-analyst 核对数字、editorial-reviewer 审措辞，最后用 Slack MCP 校验发布频道，发送前暂停等你确认。</p>
+                <div class="entry-body">
+                  <div class="thinking-card" id="thinkingCard">
+                    <button class="thinking-head" id="thinkingToggle" type="button" aria-expanded="true" aria-controls="thinkingBody">
+                      <span class="thinking-spark"><svg class="ic" aria-hidden="true"><use href="#i-spark"/></svg></span>
+                      <span class="thinking-title">已深度思考 12s</span>
+                      <span class="thinking-meta">642 tokens · 推理摘要</span>
+                      <span class="spacer"></span>
+                      <span class="thinking-state">完成</span>
+                      <svg class="ic thinking-chev" aria-hidden="true"><use href="#i-chevron"/></svg>
+                    </button>
+                    <div class="thinking-body" id="thinkingBody">
+                      <p>这是一份要对外发布的团队周报，不是工单明细。先把统计口径固定为「按创建时间归入 Q3、按主标签聚合」，避免多标签重复计数。</p>
+                      <ul>
+                        <li>数字需要独立核对；措辞建议只影响表达，不改变事实结论。</li>
+                        <li>Slack 发布是外部写操作，必须在发送前暂停，等待用户确认。</li>
+                      </ul>
+                      <div class="thinking-sources">依据：Q3 客服复盘 · q3-support-tickets.csv（128 行）· weekly-report v1.2</div>
+                    </div>
+                  </div>
                 </div>
               </li>
 
@@ -2175,7 +2412,7 @@ html[data-theme="dark"] .traj-row-summary:hover{background:rgba(255,255,255,.03)
               </li>
 
               <!-- assistant report -->
-              <li class="entry entry-assistant">
+              <li class="entry entry-assistant is-main-node">
                 <span class="node" aria-hidden="true"></span>
                 <div class="entry-head">
                   <span class="who">main-agent</span>
@@ -2235,46 +2472,44 @@ html[data-theme="dark"] .traj-row-summary:hover{background:rgba(255,255,255,.03)
                       <span class="delegation-state">2 完成</span>
                     </div>
 
-                    <div class="a2a-row is-done" data-agent="data-analyst" role="button" tabindex="0" aria-label="查看 data-analyst 的流式返回">
+                    <div class="a2a-row is-done" data-agent="data-analyst" role="button" tabindex="0" aria-label="查看 data-analyst 的远程任务产出">
                       <span class="agent-badge" aria-hidden="true">DA</span>
                       <div class="a2a-row-ident">
-                        <div class="a2a-name">data-analyst <span class="tag">skill · verify_numbers</span></div>
-                        <div class="a2a-row-tool">agent_data_analyst__verify_numbers</div>
+                        <div class="a2a-name">data-analyst</div>
                         <div class="a2a-task">核对周报数字与知识库来源</div>
                         <div class="a2a-row-result">
                           <svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>
-                          12/12 项通过 · 1.2s
+                          结果摘要 · 12/12 项通过 · 1.2s
                         </div>
                       </div>
                       <div class="a2a-row-state">
                         <span class="a2a-status is-done"><span class="dot is-ok"></span>完成</span>
                         <span class="a2a-row-meta">task_9b2a</span>
-                        <span class="a2a-stream-hint">查看流 <svg class="ic" aria-hidden="true"><use href="#i-arrow"/></svg></span>
+                        <span class="a2a-stream-hint" title="该 Agent 支持 streaming；流式显示 A2A artifact，不含远程内部推理">查看流 <svg class="ic" aria-hidden="true"><use href="#i-arrow"/></svg></span>
                       </div>
                     </div>
 
-                    <div class="a2a-row is-done" data-agent="editorial-reviewer" role="button" tabindex="0" aria-label="查看 editorial-reviewer 的流式返回">
+                    <div class="a2a-row is-done" data-agent="editorial-reviewer" role="button" tabindex="0" aria-label="查看 editorial-reviewer 的远程任务产出">
                       <span class="agent-badge" aria-hidden="true">ER</span>
                       <div class="a2a-row-ident">
-                        <div class="a2a-name">editorial-reviewer <span class="tag">skill · review_copy</span></div>
-                        <div class="a2a-row-tool">agent_editorial_reviewer__review_copy</div>
+                        <div class="a2a-name">editorial-reviewer</div>
                         <div class="a2a-task">审阅措辞，标注生硬或过度承诺的表达</div>
                         <div class="a2a-row-result">
                           <svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>
-                          3 处措辞建议 · 1.8s
+                          结果摘要 · 3 处措辞建议 · 1.8s
                         </div>
                       </div>
                       <div class="a2a-row-state">
                         <span class="a2a-status is-done"><span class="dot is-ok"></span>完成</span>
                         <span class="a2a-row-meta">task_7c1e</span>
-                        <span class="a2a-stream-hint">查看流 <svg class="ic" aria-hidden="true"><use href="#i-arrow"/></svg></span>
+                        <span class="a2a-stream-hint" title="该 Agent 未声明 streaming；打开后等待最终结果，不显示增量过程">查看结果 <svg class="ic" aria-hidden="true"><use href="#i-arrow"/></svg></span>
                       </div>
                     </div>
 
                     <div class="delegation-foot">
                       <span>2 A2A tasks</span>
                       <span>·</span>
-                      <span>2 artifacts</span>
+                      <span>2 个任务结果</span>
                       <span>·</span>
                       <span>A2A 1.0</span>
                     </div>
@@ -2313,6 +2548,37 @@ html[data-theme="dark"] .traj-row-summary:hover{background:rgba(255,255,255,.03)
                 </div>
               </li>
 
+              <!-- final answer: the only assistant output shown in collapsed mode -->
+              <li class="entry entry-assistant is-main-node is-final">
+                <span class="node" aria-hidden="true"></span>
+                <div class="entry-head">
+                  <span class="who">main-agent</span>
+                  <span class="who-sub">最终输出</span>
+                  <span class="spacer"></span>
+                  <button class="copy-btn" data-copy="Q3 客服工单周报；data-analyst 12/12 数字核对通过；editorial-reviewer 3 处措辞建议已并入；等待 Slack 发布审批。">
+                    <svg class="ic" aria-hidden="true"><use href="#i-copy"/></svg>复制
+                  </button>
+                  <time>22:43</time>
+                </div>
+                <div class="entry-body prose">
+                  <p>周报已经定稿。Q3 共收到 <strong>128 条</strong>工单，环比 −6%；退款与退货 46 条（35.9%），物流异常减少 12 条；平均处理时长从 31h 降到 24h。</p>
+                  <p>data-analyst 的 12/12 项数字核对通过，editorial-reviewer 的 3 处措辞建议已并入。发布到 <b>#support-weekly</b> 前需要你确认。</p>
+                  <div class="artifact-card">
+                    <span class="artifact-mark"><svg class="ic" aria-hidden="true"><use href="#i-file"/></svg></span>
+                    <div class="artifact-main">
+                      <div class="artifact-name">Q3 客服工单周报</div>
+                      <div class="artifact-meta">Markdown · 5 sections · 3 sources · 2.4 KB</div>
+                    </div>
+                    <span class="spacer"></span>
+                    <button class="btn btn-outline btn-sm" data-demo="预览周报（原型演示）">预览</button>
+                    <button class="btn btn-ghost btn-sm" data-demo="下载周报（原型演示）" aria-label="下载周报">
+                      <svg class="ic" aria-hidden="true"><use href="#i-download"/></svg>
+                    </button>
+                  </div>
+                  <p class="final-wait" id="finalWaitNote"><svg class="ic" aria-hidden="true"><use href="#i-shield"/></svg>等待发布审批，批准后才会写入 Slack。</p>
+                </div>
+              </li>
+
               <!-- HITL approval before the Slack MCP write -->
               <li class="entry entry-approval" id="approvalEntry">
                 <span class="node" aria-hidden="true"></span>
@@ -2335,7 +2601,7 @@ html[data-theme="dark"] .traj-row-summary:hover{background:rgba(255,255,255,.03)
                         <dt>执行工具</dt><dd><span class="mono">mcp_slack__post_message</span></dd>
                         <dt>执行方</dt><dd>slack-mcp · streamable-http</dd>
                         <dt>目标</dt><dd>#support-weekly · 12 名成员</dd>
-                        <dt>副作用</dt><dd>外部写操作；发布后 24 小时内可撤回</dd>
+                        <dt>副作用</dt><dd>外部写操作；发布后可在 Slack 中删除</dd>
                         <dt>超时</dt><dd>审批过期后本轮自动取消</dd>
                       </dl>
                     </div>
@@ -2405,6 +2671,7 @@ html[data-theme="dark"] .traj-row-summary:hover{background:rgba(255,255,255,.03)
                 <div class="cm-sep"></div>
                 <div class="cm-label">工作流</div>
                 <div id="menuWorkflowItems">
+                  <div class="cm-label cm-label-sub">选择工作流会清空手动上下文</div>
                   <button class="cm-radio" data-workflow="report" role="menuitemradio" aria-checked="false">
                     <span class="cm-radio-dot"></span><span class="cm-main">客服周报</span><span class="cm-hint">7 步</span>
                   </button>
@@ -2420,6 +2687,16 @@ html[data-theme="dark"] .traj-row-summary:hover{background:rgba(255,255,255,.03)
                 <button class="cm-check" data-knowledge="support-kb" role="menuitemcheckbox" aria-checked="false">
                   <span class="cm-check-box"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg></span>
                   <span class="cm-main">support-kb</span><span class="cm-hint">客服知识</span>
+                </button>
+                <div class="cm-sep"></div>
+                <div class="cm-label">MCP 服务器 <span class="cm-note">最多 5 个</span></div>
+                <button class="cm-check" data-mcp="slack-mcp" role="menuitemcheckbox" aria-checked="false">
+                  <span class="cm-check-box"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg></span>
+                  <span class="cm-main">slack-mcp</span><span class="cm-hint">系统 · 12 工具</span>
+                </button>
+                <button class="cm-check" data-mcp="github-mcp" role="menuitemcheckbox" aria-checked="false">
+                  <span class="cm-check-box"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg></span>
+                  <span class="cm-main">github-mcp</span><span class="cm-hint">用户 · 8 工具</span>
                 </button>
                 <div class="cm-sep"></div>
                 <a class="cm-item cm-manage" href="ui-v7-pages.html#workflows">
@@ -2444,7 +2721,7 @@ html[data-theme="dark"] .traj-row-summary:hover{background:rgba(255,255,255,.03)
                   <svg class="ic mm-check" aria-hidden="true"><use href="#i-check"/></svg>
                 </button>
                 <button class="mm-option" data-model="deepseek-reasoner" role="menuitemradio" aria-checked="false">
-                  <span class="mm-main"><b>deepseek-reasoner</b><small>深度推理</small></span>
+                  <span class="mm-main"><b>deepseek-reasoner</b><small>深度推理 · 展示思考</small></span>
                   <svg class="ic mm-check" aria-hidden="true"><use href="#i-check"/></svg>
                 </button>
                 <div class="cm-sep"></div>
@@ -2463,8 +2740,9 @@ html[data-theme="dark"] .traj-row-summary:hover{background:rgba(255,255,255,.03)
                 </button>
               </div>
             </div>
-            <button class="send" id="sendBtn" aria-label="发送消息">
-              <svg class="ic" aria-hidden="true"><use href="#i-up"/></svg>
+            <button class="send" id="sendBtn" type="button" aria-label="发送消息" title="发送">
+              <svg class="ic ic-send" aria-hidden="true"><use href="#i-up"/></svg>
+              <svg class="ic ic-stop" aria-hidden="true"><use href="#i-stop"/></svg>
             </button>
           </div>
         </div>
@@ -2493,37 +2771,37 @@ html[data-theme="dark"] .traj-row-summary:hover{background:rgba(255,255,255,.03)
           <span class="count">7</span>
         </div>
         <ol class="track">
-          <li class="is-done">
+          <li class="is-done kind-skill">
             <span class="marker"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg></span>
             <div class="label">加载技能<span class="mono">0.1s</span></div>
             <div class="sub">skill · weekly-report@1.2</div>
           </li>
-          <li class="is-done">
+          <li class="is-done kind-tool">
             <span class="marker"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg></span>
             <div class="label">search_knowledge<span class="mono">0.8s</span></div>
             <div class="sub">tool · 3 hits · pgvector</div>
           </li>
-          <li class="is-done">
+          <li class="is-done kind-tool">
             <span class="marker"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg></span>
             <div class="label">tickets.aggregate<span class="mono">1.4s</span></div>
             <div class="sub">tool · 128 rows → 5 groups</div>
           </li>
-          <li class="is-done">
+          <li class="is-done kind-a2a">
             <span class="marker"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg></span>
             <div class="label">data-analyst<span class="mono">1.2s</span></div>
-            <div class="sub">A2A · verify_numbers</div>
+            <div class="sub">A2A · task_9b2a</div>
           </li>
-          <li class="is-done">
+          <li class="is-done kind-a2a">
             <span class="marker"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg></span>
             <div class="label">editorial-reviewer<span class="mono">1.8s</span></div>
-            <div class="sub">A2A · review_copy</div>
+            <div class="sub">A2A · task_7c1e</div>
           </li>
-          <li class="is-done">
+          <li class="is-done kind-mcp">
             <span class="marker"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg></span>
             <div class="label">slack-mcp<span class="mono">0.4s</span></div>
             <div class="sub">MCP · conversations.info</div>
           </li>
-          <li class="is-wait">
+          <li class="is-wait kind-approval">
             <span class="marker"></span>
             <div class="label">发送审批<span class="mono">—</span></div>
             <div class="sub">HITL · mcp_slack__post_message</div>
@@ -2567,7 +2845,7 @@ html[data-theme="dark"] .traj-row-summary:hover{background:rgba(255,255,255,.03)
           </div>
           <span class="agent-state"><span class="dot is-ok"></span>在线</span>
         </div>
-        <div class="agent-row" data-agent="data-analyst" role="button" tabindex="0" aria-label="查看 data-analyst 的流式返回">
+        <div class="agent-row" data-agent="data-analyst" role="button" tabindex="0" aria-label="查看 data-analyst 的远程任务产出">
           <span class="agent-badge" aria-hidden="true">DA</span>
           <div class="agent-ident">
             <div class="agent-name">data-analyst <span class="mono">a2a</span></div>
@@ -2576,7 +2854,7 @@ html[data-theme="dark"] .traj-row-summary:hover{background:rgba(255,255,255,.03)
           <span class="agent-state"><span class="dot is-ok"></span>空闲</span>
           <svg class="ic agent-open-icon" aria-hidden="true"><use href="#i-arrow"/></svg>
         </div>
-        <div class="agent-row" data-agent="editorial-reviewer" role="button" tabindex="0" aria-label="查看 editorial-reviewer 的流式返回">
+        <div class="agent-row" data-agent="editorial-reviewer" role="button" tabindex="0" aria-label="查看 editorial-reviewer 的远程任务产出">
           <span class="agent-badge" aria-hidden="true">ER</span>
           <div class="agent-ident">
             <div class="agent-name">editorial-reviewer <span class="mono">a2a</span></div>
@@ -2605,7 +2883,6 @@ html[data-theme="dark"] .traj-row-summary:hover{background:rgba(255,255,255,.03)
       <div class="agent-drawer-title">
         <div class="agent-drawer-name" id="agentDrawerName">editorial-reviewer</div>
         <div class="agent-drawer-sub">
-          <span class="tag" id="agentDrawerSkill">review_copy</span>
           <span class="mono" id="agentDrawerTask">task_7c1e</span>
         </div>
       </div>
@@ -2618,18 +2895,18 @@ html[data-theme="dark"] .traj-row-summary:hover{background:rgba(255,255,255,.03)
     </div>
   </header>
   <div class="agent-drawer-meta">
-    <span>A2A 1.0</span><span class="sep">·</span><span>任务已完成 · 流式回放</span><span class="sep">·</span><span class="mono" id="agentDrawerDuration">1.8s</span>
+    <span>A2A 1.0</span><span class="sep">·</span><span id="agentDrawerMode">任务已完成 · artifact 回放</span><span class="sep">·</span><span class="mono" id="agentDrawerDuration">1.8s</span>
     <span class="spacer"></span>
     <button class="text-link" id="replayAgent">重新播放</button>
   </div>
   <div class="agent-stream" id="agentStream">
-    <div class="agent-stream-label">流式返回</div>
+    <div class="agent-stream-label" id="agentStreamLabel">A2A artifact 流</div>
     <div class="agent-stream-text" aria-live="polite">
       <span id="agentStreamText"></span><span class="stream-cursor" id="streamCursor" aria-hidden="true"></span>
     </div>
   </div>
   <footer class="agent-drawer-foot">
-    <span>来自 A2A artifact · <span class="mono" id="agentDrawerFootTask">task_7c1e</span></span>
+    <span>来自 A2A task artifact / result · <span class="mono" id="agentDrawerFootTask">task_7c1e</span></span>
     <span class="spacer"></span>
     <a class="text-link" href="ui-v7-pages.html#tasks">查看任务 <svg class="ic" aria-hidden="true"><use href="#i-external"/></svg></a>
   </footer>
@@ -2644,7 +2921,7 @@ html[data-theme="dark"] .traj-row-summary:hover{background:rgba(255,255,255,.03)
         <span class="st st-live" id="trajRunStatus"><span class="dot is-live"></span>待审批</span>
       </div>
       <div class="run-sub">
-        <span class="mono">run_9a8b7c</span><span>·</span><span>deepseek-chat</span><span>·</span><span>工作流 客服周报</span><span>·</span><span class="mono">活跃 8.5s / 墙钟 42s</span>
+        <span class="mono">run_9a8b7c</span><span>·</span><span>deepseek-chat</span><span>·</span><span>工作流 客服周报</span><span>·</span><span>思考 12s</span><span>·</span><span class="mono">活跃 8.5s / 墙钟 42s</span>
       </div>
     </div>
     <button class="drawer-close" id="closeRunEvents" aria-label="关闭运行轨迹">
@@ -2685,7 +2962,7 @@ html[data-theme="dark"] .traj-row-summary:hover{background:rgba(255,255,255,.03)
     <div class="traj-toolbar">
       <div class="traj-filters" role="group" aria-label="按事件类型筛选">
         <button class="is-active" data-traj-filter="all">全部 <span>10</span></button>
-        <button data-traj-filter="message">消息 <span>2</span></button>
+        <button data-traj-filter="message">消息 <span>3</span></button>
         <button data-traj-filter="tool">工具 <span>3</span></button>
         <button data-traj-filter="a2a">A2A <span>2</span></button>
         <button data-traj-filter="mcp">MCP <span>1</span></button>
@@ -2854,7 +3131,7 @@ attachments: q3-support-tickets.csv</pre>
             <summary class="traj-row-summary">
               <span class="traj-time mono">22:41:24</span>
               <span class="traj-kind tk-a2a">A2A</span>
-              <span class="traj-name">data-analyst · verify_numbers</span>
+              <span class="traj-name">data-analyst</span>
               <span class="traj-arg">task_9b2a</span>
               <span class="traj-dur mono">1.2s</span>
               <span class="traj-tokens mono">12/12</span>
@@ -2864,7 +3141,7 @@ attachments: q3-support-tickets.csv</pre>
             <div class="traj-detail">
               <dl class="traj-kv">
                 <dt>任务</dt><dd class="mono">task_9b2a</dd>
-                <dt>工具</dt><dd class="mono">agent_data_analyst__verify_numbers</dd>
+                <dt>工具</dt><dd class="mono">send_message</dd>
                 <dt>产出</dt><dd>artifact · 12/12 数字核对通过</dd>
               </dl>
               <pre class="traj-code">总量 128 ✓  分类合计 128 ✓
@@ -2877,7 +3154,7 @@ attachments: q3-support-tickets.csv</pre>
             <summary class="traj-row-summary">
               <span class="traj-time mono">22:41:25</span>
               <span class="traj-kind tk-a2a">A2A</span>
-              <span class="traj-name">editorial-reviewer · review_copy</span>
+              <span class="traj-name">editorial-reviewer</span>
               <span class="traj-arg">task_7c1e</span>
               <span class="traj-dur mono">1.8s</span>
               <span class="traj-tokens mono">3 建议</span>
@@ -2887,7 +3164,7 @@ attachments: q3-support-tickets.csv</pre>
             <div class="traj-detail">
               <dl class="traj-kv">
                 <dt>任务</dt><dd class="mono">task_7c1e</dd>
-                <dt>工具</dt><dd class="mono">agent_editorial_reviewer__review_copy</dd>
+                <dt>工具</dt><dd class="mono">send_message</dd>
                 <dt>产出</dt><dd>artifact · 3 处措辞建议</dd>
               </dl>
               <pre class="traj-code">1. 补充 128 条工单的统计口径
@@ -3014,6 +3291,7 @@ attachments: q3-support-tickets.csv</pre>
   };
   var selectedWorkflow = null;
   var selectedSkills = [];
+  var selectedMcp = [];
   var knowledgeSelected = false;
   var attachedFiles = [];
   var chatModel = 'deepseek-chat';
@@ -3048,20 +3326,35 @@ attachments: q3-support-tickets.csv</pre>
   var deleteSessionTarget = null;
   var approvalPending = true;
   var runActive = true;
+  var completeTimer = null;
+  var mentionPending = false;
   var toastTimer = null;
+
+  var runViewbar = document.getElementById('runViewbar');
+  var runViewTitle = document.getElementById('runViewTitle');
+  var runViewStatus = document.getElementById('runViewStatus');
+  var runToggle = document.getElementById('runToggle');
+  var runToggleLabel = document.getElementById('runToggleLabel');
+  var runApprovalLink = document.getElementById('runApprovalLink');
+  var thinkingCard = document.getElementById('thinkingCard');
+  var thinkingToggle = document.getElementById('thinkingToggle');
+  var thinkingBody = document.getElementById('thinkingBody');
+  var finalWaitNote = document.getElementById('finalWaitNote');
+  var runCollapsed = false;
 
   /* v6 drawers */
   var agentScrim = document.getElementById('agentScrim');
   var agentDrawer = document.getElementById('agentDrawer');
   var agentDrawerBadge = document.getElementById('agentDrawerBadge');
   var agentDrawerName = document.getElementById('agentDrawerName');
-  var agentDrawerSkill = document.getElementById('agentDrawerSkill');
   var agentDrawerTask = document.getElementById('agentDrawerTask');
+  var agentDrawerMode = document.getElementById('agentDrawerMode');
   var agentDrawerDuration = document.getElementById('agentDrawerDuration');
   var agentDrawerFootTask = document.getElementById('agentDrawerFootTask');
   var agentDrawerStatus = document.getElementById('agentDrawerStatus');
   var agentStream = document.getElementById('agentStream');
   var agentStreamTextEl = document.getElementById('agentStreamText');
+  var agentStreamLabel = document.getElementById('agentStreamLabel');
   var streamCursor = document.getElementById('streamCursor');
   var closeAgentDrawerBtn = document.getElementById('closeAgentDrawer');
   var replayAgent = document.getElementById('replayAgent');
@@ -3079,6 +3372,9 @@ attachments: q3-support-tickets.csv</pre>
   var trajSearch = document.getElementById('trajSearch');
   var trajEmpty = document.getElementById('trajEmpty');
   var currentAgentKey = null;
+  var agentReturnFocus = null;
+  var runReturnFocus = null;
+  var deleteReturnFocus = null;
   var agentStreamTimer = null;
 
   /* ---------- theme ---------- */
@@ -3332,6 +3628,7 @@ attachments: q3-support-tickets.csv</pre>
   }
 
   function openDeleteDialog(row) {
+    deleteReturnFocus = document.activeElement;
     deleteSessionTarget = row;
     var title = row.querySelector('.session-title');
     deleteSessionName.textContent = title ? title.textContent : '';
@@ -3343,6 +3640,10 @@ attachments: q3-support-tickets.csv</pre>
   function closeDeleteDialog() {
     deleteDialog.classList.remove('is-open');
     deleteSessionTarget = null;
+    if (deleteReturnFocus && document.contains(deleteReturnFocus) && typeof deleteReturnFocus.focus === 'function') {
+      deleteReturnFocus.focus();
+    }
+    deleteReturnFocus = null;
   }
 
   sessionMenu.querySelectorAll('[data-session-action]').forEach(function (btn) {
@@ -3421,7 +3722,8 @@ attachments: q3-support-tickets.csv</pre>
     var sub = last.querySelector('.sub');
     if (sub) sub.textContent = subText;
     if (!done) return;
-    last.className = 'is-done';
+    last.classList.remove('is-wait');
+    last.classList.add('is-done');
     var marker = last.querySelector('.marker');
     if (marker) {
       marker.innerHTML = '<svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>';
@@ -3430,12 +3732,25 @@ attachments: q3-support-tickets.csv</pre>
     if (time) time.textContent = '0.4s';
   }
 
+  function markTrackCanceled() {
+    var last = document.querySelector('.track li:last-child');
+    if (!last) return;
+    last.classList.remove('is-wait');
+    last.classList.add('is-canceled');
+    var marker = last.querySelector('.marker');
+    if (marker) {
+      marker.innerHTML = '<svg class="ic" aria-hidden="true"><use href="#i-x"/></svg>';
+    }
+    var time = last.querySelector('.label .mono');
+    if (time) time.textContent = '—';
+  }
+
   /* ---------- remote agent streaming drawer ---------- */
   var AGENT_STREAMS = {
     'data-analyst': {
       badge: 'DA',
       name: 'data-analyst',
-      skill: 'verify_numbers',
+      streaming: true,
       task: 'task_9b2a',
       duration: '1.2s',
       text: '已加载工单表 128 行，开始核对…\n\n· 总量：128 条 ✓\n· 分类合计：46 + 31 + 24 + 17 + 10 = 128 ✓\n· 环比：+8 − 12 − 3 + 2 − 1 = −6% ✓\n· 平均处理时长：31h → 24h ✓\n· 引用：2 处缺少来源标记\n\n结论：12/12 项数字通过；2 处引用待补，已写入 artifact。'
@@ -3443,7 +3758,7 @@ attachments: q3-support-tickets.csv</pre>
     'editorial-reviewer': {
       badge: 'ER',
       name: 'editorial-reviewer',
-      skill: 'review_copy',
+      streaming: false,
       task: 'task_7c1e',
       duration: '1.8s',
       text: '正在读取周报草稿…\n\n【1】第 1 段\n“本季度共收到 128 条工单，比上季度减少 6%。”\n建议补充统计口径，并注明数据来自 Q3 客服复盘。\n\n【2】第 2 段\n“退款高峰集中在 8 月第二周，与 7 月底促销的退单延后有关。”\n“退款高峰”可以更中性，建议改为“8 月第二周退款工单集中出现”。\n\n【3】结论段\n“建议单独立案跟进。”\n“立案”偏内部术语，建议改为“建议进一步核查”。\n\n整体结论：结构清晰，3 处措辞需调整，未发现事实性问题。'
@@ -3462,6 +3777,22 @@ attachments: q3-support-tickets.csv</pre>
     if (!data) return;
     stopAgentStream();
     agentStreamTextEl.textContent = '';
+
+    if (!data.streaming) {
+      streamCursor.style.display = 'none';
+      agentDrawerStatus.className = 'st st-live';
+      agentDrawerStatus.innerHTML = '<span class="dot is-live"></span>等待最终返回';
+      agentStreamTextEl.textContent = '远程 Agent 未声明 streaming，等待最终结果…';
+      agentStreamTimer = setTimeout(function () {
+        agentStreamTextEl.textContent = data.text;
+        agentDrawerStatus.className = 'st st-ok';
+        agentDrawerStatus.innerHTML = '<span class="dot is-ok"></span>已完成';
+        agentStream.scrollTop = agentStream.scrollHeight;
+        agentStreamTimer = null;
+      }, 800);
+      return;
+    }
+
     streamCursor.style.display = '';
     agentDrawerStatus.className = 'st st-live';
     agentDrawerStatus.innerHTML = '<span class="dot is-live"></span>回放中';
@@ -3486,14 +3817,17 @@ attachments: q3-support-tickets.csv</pre>
   function openAgentDrawer(key) {
     var data = AGENT_STREAMS[key];
     if (!data) return;
+    agentReturnFocus = document.activeElement;
     closeRunDrawer();
     setAccountMenu(false);
     closeSessionMenu();
     currentAgentKey = key;
     agentDrawerBadge.textContent = data.badge;
     agentDrawerName.textContent = data.name;
-    agentDrawerSkill.textContent = data.skill;
     agentDrawerTask.textContent = data.task;
+    agentDrawerMode.textContent = data.streaming ? '任务已完成 · artifact 回放' : '任务已完成 · 最终结果';
+    agentStreamLabel.textContent = data.streaming ? 'A2A artifact 流' : 'A2A 最终结果';
+    replayAgent.textContent = data.streaming ? '重新播放' : '重新加载';
     agentDrawerDuration.textContent = data.duration;
     agentDrawerFootTask.textContent = data.task;
     agentScrim.classList.add('is-open');
@@ -3509,6 +3843,10 @@ attachments: q3-support-tickets.csv</pre>
     agentDrawer.setAttribute('aria-hidden', 'true');
     stopAgentStream();
     currentAgentKey = null;
+    if (agentReturnFocus && document.contains(agentReturnFocus) && typeof agentReturnFocus.focus === 'function') {
+      agentReturnFocus.focus();
+    }
+    agentReturnFocus = null;
   }
 
   document.querySelectorAll('[data-agent]').forEach(function (item) {
@@ -3553,12 +3891,15 @@ attachments: q3-support-tickets.csv</pre>
       trajApprovalStatus.innerHTML = '<span class="st st-ok"><span class="dot is-ok"></span>已发送</span>';
     } else if (state === 'rejected') {
       trajApprovalStatus.innerHTML = '<span class="st st-error"><span class="dot is-warn"></span>已拒绝</span>';
+    } else if (state === 'canceled') {
+      trajApprovalStatus.innerHTML = '<span class="st st-muted">已取消</span>';
     } else {
       trajApprovalStatus.innerHTML = '<span class="st st-live"><span class="dot is-live"></span>待审批</span>';
     }
   }
 
   function openRunDrawer() {
+    runReturnFocus = document.activeElement;
     closeAgentDrawer();
     setAccountMenu(false);
     closeSessionMenu();
@@ -3574,6 +3915,10 @@ attachments: q3-support-tickets.csv</pre>
     runScrim.classList.remove('is-open');
     runDrawer.classList.remove('is-open');
     runDrawer.setAttribute('aria-hidden', 'true');
+    if (runReturnFocus && document.contains(runReturnFocus) && typeof runReturnFocus.focus === 'function') {
+      runReturnFocus.focus();
+    }
+    runReturnFocus = null;
   }
 
   openRunEvents.addEventListener('click', openRunDrawer);
@@ -3587,8 +3932,8 @@ attachments: q3-support-tickets.csv</pre>
     document.querySelectorAll('.traj-row').forEach(function (row) {
       var kind = row.getAttribute('data-kind');
       var text = row.textContent.toLowerCase();
-      var match = (trajFilter === 'all' || kind === trajFilter)
-        && (trajQuery === '' || text.indexOf(trajQuery) !== -1);
+      var kindMatch = trajFilter === 'all' || kind === trajFilter || (trajFilter === 'message' && kind === 'request');
+      var match = kindMatch && (trajQuery === '' || text.indexOf(trajQuery) !== -1);
       row.hidden = !match;
     });
     var any = false;
@@ -3660,8 +4005,14 @@ attachments: q3-support-tickets.csv</pre>
         sessionStateDot.className = 'dot is-live';
         setTrajRunState('running');
         setTrajApprovalState('approved');
+        setRunViewStatus('running');
+        if (finalWaitNote) {
+          finalWaitNote.className = 'final-wait';
+          finalWaitNote.innerHTML = '<svg class="ic" aria-hidden="true"><use href="#i-shield"/></svg>已批准，正在发布到 #support-weekly…';
+        }
         showToast('已批准，主智能体继续执行');
-        setTimeout(function () {
+        completeTimer = setTimeout(function () {
+          completeTimer = null;
           runActive = false;
           runStatus.className = 'status-chip is-ok';
           runDot.className = 'dot is-ok';
@@ -3672,6 +4023,11 @@ attachments: q3-support-tickets.csv</pre>
           usageLabel.textContent = '本轮';
           setTrajRunState('done');
           setTrajApprovalState('sent');
+          setRunViewStatus('done');
+          if (finalWaitNote) {
+            finalWaitNote.className = 'final-wait is-done';
+            finalWaitNote.innerHTML = '<svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>已发布到 #support-weekly · 可在 Slack 中删除';
+          }
           if (trajApprovalSeg) {
             trajApprovalSeg.classList.remove('is-rejected');
             trajApprovalSeg.classList.add('is-done');
@@ -3693,12 +4049,57 @@ attachments: q3-support-tickets.csv</pre>
         runActive = false;
         setTrajRunState('rejected');
         setTrajApprovalState('rejected');
+        setRunViewStatus('rejected');
+        if (finalWaitNote) {
+          finalWaitNote.className = 'final-wait is-error';
+          finalWaitNote.innerHTML = '<svg class="ic" aria-hidden="true"><use href="#i-x"/></svg>已拒绝发布，本轮已取消';
+        }
         if (trajApprovalSeg) trajApprovalSeg.classList.add('is-rejected');
         updateTrackOutcome('已取消 · Slack 发送', false);
+        markTrackCanceled();
         showToast('已拒绝，本轮运行已取消');
       }
       updateSendState();
     });
+  });
+
+  function stopRun() {
+    if (!runActive && !approvalPending) return;
+    runActive = false;
+    approvalPending = false;
+    if (completeTimer) {
+      clearTimeout(completeTimer);
+      completeTimer = null;
+    }
+    approvalCard.classList.add('is-resolved', 'is-rejected');
+    approvalStatus.textContent = '已取消';
+    approvalStatus.className = 'status-chip';
+    resolvedText.textContent = '本轮已停止，Slack 发布未执行。';
+    runStatus.className = 'status-chip';
+    runDot.className = 'dot';
+    runStatusText.textContent = '已取消';
+    sessionStateText.textContent = '已取消';
+    sessionStateDot.className = 'dot';
+    setTrajRunState('rejected');
+    setTrajApprovalState('canceled');
+    setRunViewStatus('rejected');
+    if (finalWaitNote) {
+      finalWaitNote.className = 'final-wait is-error';
+      finalWaitNote.innerHTML = '<svg class="ic" aria-hidden="true"><use href="#i-x"/></svg>本轮已停止，未发布到 Slack';
+    }
+    if (trajApprovalSeg) trajApprovalSeg.classList.add('is-rejected');
+    updateTrackOutcome('已取消 · Slack 发送', false);
+    markTrackCanceled();
+    updateSendState();
+    showToast('本轮运行已停止');
+  }
+
+  runStatus.addEventListener('click', function () {
+    if (!approvalPending) return;
+    var entry = document.getElementById('approvalEntry');
+    if (entry) entry.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    var approveBtn = approvalCard.querySelector('[data-decision="approve"]');
+    if (approveBtn) setTimeout(function () { approveBtn.focus({ preventScroll: true }); }, 260);
   });
 
   /* ---------- workflow context + model controls ---------- */
@@ -3745,6 +4146,11 @@ attachments: q3-support-tickets.csv</pre>
       btn.classList.toggle('is-active', knowledgeSelected);
       btn.setAttribute('aria-checked', String(knowledgeSelected));
     });
+    document.querySelectorAll('[data-mcp]').forEach(function (btn) {
+      var active = selectedMcp.indexOf(btn.getAttribute('data-mcp')) !== -1;
+      btn.classList.toggle('is-active', active);
+      btn.setAttribute('aria-checked', String(active));
+    });
   }
 
   function renderComposerContext() {
@@ -3780,6 +4186,15 @@ attachments: q3-support-tickets.csv</pre>
       count += 1;
     }
 
+    selectedMcp.forEach(function (id) {
+      html += '<span class="ctx-chip ctx-mcp">' +
+        '<svg class="ic" aria-hidden="true"><use href="#i-stack"/></svg>' +
+        escComposer(id) +
+        '<button class="ctx-remove" data-remove="mcp" data-value="' + escComposer(id) + '" aria-label="移除 MCP 服务器"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></button>' +
+      '</span>';
+      count += 1;
+    });
+
     attachedFiles.forEach(function (name, index) {
       html += '<span class="ctx-chip ctx-file">' +
         '<svg class="ic" aria-hidden="true"><use href="#i-clip"/></svg>' +
@@ -3810,20 +4225,48 @@ attachments: q3-support-tickets.csv</pre>
   function selectWorkflow(id, announce) {
     var wf = CHAT_WORKFLOWS[id];
     if (!wf || wf.disabled) return;
+    var hadManual = selectedSkills.length > 0 || selectedMcp.length > 0 || knowledgeSelected;
     selectedWorkflow = id;
+    selectedSkills = [];
+    selectedMcp = [];
+    knowledgeSelected = false;
     renderComposerContext();
     closeComposerMenu();
-    if (announce) showToast('已选择工作流：' + wf.name);
+    if (announce) showToast(hadManual ? '已选择工作流，并清空手动上下文' : '已选择工作流：' + wf.name);
+  }
+
+  function selectManualContext() {
+    if (!selectedWorkflow) return;
+    selectedWorkflow = null;
+    showToast('已改为手动上下文，工作流已取消');
   }
 
   function toggleSkill(id) {
     var index = selectedSkills.indexOf(id);
+    if (index === -1 && selectedSkills.length >= 3) {
+      showToast('本轮最多选择 3 个技能');
+      return;
+    }
+    selectManualContext();
     if (index === -1) selectedSkills.push(id);
     else selectedSkills.splice(index, 1);
     renderComposerContext();
   }
 
+  function toggleMcp(id) {
+    var index = selectedMcp.indexOf(id);
+    if (index === -1 && selectedMcp.length >= 5) {
+      showToast('本轮最多选择 5 个 MCP 服务器');
+      return;
+    }
+    selectManualContext();
+    if (index === -1) selectedMcp.push(id);
+    else selectedMcp.splice(index, 1);
+    renderComposerContext();
+  }
+
   function toggleKnowledge() {
+    selectManualContext();
     knowledgeSelected = !knowledgeSelected;
     renderComposerContext();
   }
@@ -3918,6 +4361,7 @@ attachments: q3-support-tickets.csv</pre>
   });
 
   cmAttach.addEventListener('click', function () {
+    mentionPending = false;
     closeComposerMenu();
     fileInput.click();
   });
@@ -3928,7 +4372,28 @@ attachments: q3-support-tickets.csv</pre>
       names.push(file.name);
     });
     fileInput.value = '';
-    if (!names.length) return;
+    if (!names.length) {
+      mentionPending = false;
+      return;
+    }
+    if (mentionPending) {
+      var insert = '@' + names[0] + ' ';
+      var start = input.selectionStart === null ? input.value.length : input.selectionStart;
+      var before = input.value.slice(0, start);
+      var after = input.value.slice(start);
+      var at = before.lastIndexOf('@');
+      if (at !== -1) {
+        input.value = before.slice(0, at) + insert + after;
+        var pos = at + insert.length;
+        input.setSelectionRange(pos, pos);
+      } else {
+        input.value += insert;
+      }
+      mentionPending = false;
+      autoGrow();
+      updateSendState();
+      input.focus();
+    }
     attachedFiles = attachedFiles.concat(names);
     renderComposerContext();
     showToast('已添加 ' + names.length + ' 个附件');
@@ -3944,6 +4409,10 @@ attachments: q3-support-tickets.csv</pre>
       selectedSkills = selectedSkills.filter(function (id) { return id !== skill; });
     }
     if (kind === 'knowledge') knowledgeSelected = false;
+    if (kind === 'mcp') {
+      var mcp = btn.getAttribute('data-value');
+      selectedMcp = selectedMcp.filter(function (id) { return id !== mcp; });
+    }
     if (kind === 'file') {
       var idx = Number(btn.getAttribute('data-index'));
       attachedFiles.splice(idx, 1);
@@ -3966,6 +4435,12 @@ attachments: q3-support-tickets.csv</pre>
 
   document.querySelectorAll('[data-knowledge]').forEach(function (btn) {
     btn.addEventListener('click', toggleKnowledge);
+  });
+
+  document.querySelectorAll('[data-mcp]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      toggleMcp(btn.getAttribute('data-mcp'));
+    });
   });
 
   modelBtn.addEventListener('click', function () {
@@ -4001,6 +4476,57 @@ attachments: q3-support-tickets.csv</pre>
 
   renderComposerContext();
 
+  /* ---------- thinking + process collapse ---------- */
+  function updateRunViewbar() {
+    if (!runViewbar) return;
+    var turn = runViewbar.closest('.turn');
+    if (turn) turn.classList.toggle('is-process-collapsed', runCollapsed);
+    runToggle.setAttribute('aria-expanded', String(!runCollapsed));
+    runToggleLabel.textContent = runCollapsed ? '展开过程' : '收起过程';
+    runViewTitle.textContent = runCollapsed ? '过程已收起' : '执行过程';
+    runApprovalLink.hidden = !approvalPending;
+  }
+
+  function setRunViewStatus(state) {
+    if (!runViewStatus) return;
+    if (state === 'running') {
+      runViewStatus.className = 'st st-live';
+      runViewStatus.innerHTML = '<span class="dot is-live"></span>运行中';
+    } else if (state === 'done') {
+      runViewStatus.className = 'st st-ok';
+      runViewStatus.innerHTML = '<span class="dot is-ok"></span>已完成';
+    } else if (state === 'rejected') {
+      runViewStatus.className = 'st st-muted';
+      runViewStatus.textContent = '已取消';
+    } else {
+      runViewStatus.className = 'st st-live';
+      runViewStatus.innerHTML = '<span class="dot is-live"></span>待审批';
+    }
+    updateRunViewbar();
+  }
+
+  runToggle.addEventListener('click', function () {
+    runCollapsed = !runCollapsed;
+    updateRunViewbar();
+  });
+
+  runApprovalLink.addEventListener('click', function () {
+    runCollapsed = false;
+    updateRunViewbar();
+    var entry = document.getElementById('approvalEntry');
+    if (entry) entry.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    var approveBtn = approvalCard.querySelector('[data-decision="approve"]');
+    if (approveBtn) setTimeout(function () { approveBtn.focus({ preventScroll: true }); }, 260);
+  });
+
+  thinkingToggle.addEventListener('click', function () {
+    var collapsed = thinkingCard.classList.toggle('is-collapsed');
+    thinkingBody.hidden = collapsed;
+    thinkingToggle.setAttribute('aria-expanded', String(!collapsed));
+  });
+
+  updateRunViewbar();
+
   /* ---------- composer ---------- */
   function autoGrow() {
     input.style.height = 'auto';
@@ -4009,12 +4535,19 @@ attachments: q3-support-tickets.csv</pre>
 
   function updateSendState() {
     var hasText = input.value.trim().length > 0;
-    var blocked = !hasText || approvalPending || runActive;
+    var canStop = runActive;
+    var blocked = canStop ? false : (!hasText || approvalPending);
+    sendBtn.classList.toggle('is-stop', canStop);
     sendBtn.classList.toggle('is-disabled', blocked);
     sendBtn.disabled = blocked;
-    sendBtn.title = approvalPending
-      ? '请先处理上方的发送审批'
-      : (runActive ? '本轮运行进行中' : '发送');
+    sendBtn.setAttribute('aria-label', canStop ? '停止本轮运行' : '发送消息');
+    sendBtn.title = canStop
+      ? '停止本轮运行'
+      : (approvalPending ? '请先处理上方的发送审批' : '发送');
+    if (runStatus) {
+      runStatus.disabled = !approvalPending;
+      runStatus.setAttribute('aria-label', runStatusText.textContent + (approvalPending ? '，点击处理' : ''));
+    }
   }
 
   input.addEventListener('input', function () {
@@ -4023,13 +4556,23 @@ attachments: q3-support-tickets.csv</pre>
   });
 
   input.addEventListener('keydown', function (event) {
+    if (event.key === '@' && !event.isComposing) {
+      mentionPending = true;
+      setTimeout(function () { fileInput.click(); }, 0);
+    }
     if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) {
       event.preventDefault();
       send();
     }
   });
 
-  sendBtn.addEventListener('click', send);
+  sendBtn.addEventListener('click', function () {
+    if (runActive) {
+      stopRun();
+      return;
+    }
+    send();
+  });
 
   function nowTime() {
     var d = new Date();
@@ -4063,17 +4606,18 @@ attachments: q3-support-tickets.csv</pre>
     var text = input.value.trim();
     if (!text) return;
     if (approvalPending) {
-      showToast('请先处理上方的发送审批');
+      showToast('待审批中，请先处理审批或停止本轮');
       return;
     }
     if (runActive) {
-      showToast('本轮运行进行中，请稍候');
+      showToast('本轮正在执行，点发送按钮可停止');
       return;
     }
 
     var workflow = selectedWorkflow ? CHAT_WORKFLOWS[selectedWorkflow] : null;
     var contextFiles = attachedFiles.slice();
     var contextSkills = selectedSkills.slice();
+    var contextMcp = selectedMcp.slice();
     var contextKnowledge = knowledgeSelected;
 
     var turn = document.createElement('section');
@@ -4101,6 +4645,9 @@ attachments: q3-support-tickets.csv</pre>
     if (contextKnowledge) {
       attachHTML += '<span class="attach"><svg class="ic" aria-hidden="true"><use href="#i-db"/></svg>support-kb</span>';
     }
+    contextMcp.forEach(function (id) {
+      attachHTML += '<span class="attach"><svg class="ic" aria-hidden="true"><use href="#i-stack"/></svg>' + escComposer(id) + '</span>';
+    });
     var attachBox = userTurn.querySelector('.prompt-bubble .attachments');
     if (attachHTML) attachBox.innerHTML = attachHTML;
     else attachBox.remove();
@@ -4123,7 +4670,7 @@ attachments: q3-support-tickets.csv</pre>
       'entry-assistant',
       'main-agent',
       '调度员',
-      '<div class="prose"><p class="typing" aria-label="正在生成">· · ·</p></div>'
+      '<div class="thinking-live"><svg class="ic" aria-hidden="true"><use href="#i-spark"/></svg><span>正在思考</span><span class="thinking-dots">· · ·</span></div><div class="prose"><p class="typing" aria-label="正在生成">· · ·</p></div>'
     );
     ol.appendChild(reply);
 
@@ -4140,6 +4687,7 @@ attachments: q3-support-tickets.csv</pre>
     }
     var contextBits = [];
     if (contextSkills.length) contextBits.push(contextSkills.length + ' 个技能');
+    if (contextMcp.length) contextBits.push(contextMcp.length + ' 个 MCP 服务器');
     if (contextKnowledge) contextBits.push('知识库 support-kb');
     if (contextFiles.length) contextBits.push(contextFiles.length + ' 个附件');
     if (contextBits.length) replyBits.push('已带上 ' + contextBits.join('、') + '。');
@@ -4147,6 +4695,10 @@ attachments: q3-support-tickets.csv</pre>
 
     input.value = '';
     attachedFiles = [];
+    selectedSkills = [];
+    selectedMcp = [];
+    knowledgeSelected = false;
+    selectedWorkflow = null;
     renderComposerContext();
     autoGrow();
     updateSendState();

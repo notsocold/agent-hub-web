@@ -3,9 +3,37 @@
   "sessions": {
     "session-251bc05a-32c8-4daf-a6c1-b8a9a4073a9f": {
       "originCwd": "/home/zhaodan/work/NodeJsProjects/agent-hub-web",
-      "eventCount": 1502,
-      "lastEventHash": "sha256:e9061c2cceddefc268cfaedbc080399f9537491a97c04a595a38192e22265cc5",
-      "exportedAt": "2026-11-05T17:27:19.270Z",
+      "eventCount": 1895,
+      "lastEventHash": "sha256:2a9b56edecf52d4e7fb97c98e7cc7b02ea99188f71a12555a72c55ead4488d44",
+      "exportedAt": "2026-11-08T16:36:02.142Z",
+      "lastWriter": "DESKTOP-62HH592-5825208e"
+    },
+    "session-e6e474e4-9377-43a6-bc0c-2e146bafe88a": {
+      "originCwd": "/home/zhaodan/work/NodeJsProjects/agent-hub-web",
+      "eventCount": 958,
+      "lastEventHash": "sha256:9ffe20a7f2e2e2aae287dbd6284e8049993c7c670d96802118451dfe2bbfe2ec",
+      "exportedAt": "2026-11-08T16:36:02.280Z",
+      "lastWriter": "DESKTOP-62HH592-5825208e"
+    },
+    "session-536b6714-d1b7-4f5d-8c08-96302ac4dc09": {
+      "originCwd": "/home/zhaodan/work/NodeJsProjects/agent-hub-web",
+      "eventCount": 1825,
+      "lastEventHash": "sha256:c47574bc4e196ad3f440112dc7ea842bc089c896549eb82ccdeba7d803b70bd9",
+      "exportedAt": "2026-11-08T16:36:02.222Z",
+      "lastWriter": "DESKTOP-62HH592-5825208e"
+    },
+    "88f565a2-0e37-41c1-a224-ee1942655e83": {
+      "originCwd": "/home/zhaodan/work/NodeJsProjects/agent-hub-web",
+      "eventCount": 316,
+      "lastEventHash": "sha256:c47bd992f8c767e839483d142b1eda0809a28515dc82b4a7237a86195fa23fed",
+      "exportedAt": "2026-11-08T16:36:01.836Z",
+      "lastWriter": "DESKTOP-62HH592-5825208e"
+    },
+    "c18382ba-aa95-4483-a0e6-cbdff8a66cfe": {
+      "originCwd": "/home/zhaodan/work/NodeJsProjects/agent-hub-web",
+      "eventCount": 502,
+      "lastEventHash": "sha256:3a66fb9c98c718117f3ae4163d462d92412f401ba5dcfba764955eb569a07d88",
+      "exportedAt": "2026-11-08T16:36:01.876Z",
       "lastWriter": "DESKTOP-62HH592-5825208e"
     }
   }

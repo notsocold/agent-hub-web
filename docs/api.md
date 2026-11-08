@@ -168,3 +168,26 @@ curl -N -X POST http://localhost:8000/api/v1/chat/stream \
 - Network → 选中 SSE 请求 → EventStream 面板看事件；
 - 若长时间无输出，检查 Nginx `proxy_buffering off`；
 - 401 检查 localStorage token 与后端时钟偏差。
+
+## 9. 个人能力层接口（M1.5，规划）
+
+| 功能 | 接口 | 说明 |
+|---|---|---|
+| 指令 | `GET/PUT /instructions` | 生效指令、来源（user/system_default）、默认值、4000 字符上限 |
+| 长期记忆 | `/memories` | 列表/新增/修改/删除/清空/导出，支持 `kind`、`status`、`q` |
+| 技能 | `/skills`、`/skills/catalog` | 系统 + 用户技能；zip 导入；参考文件读取 |
+| MCP | `/mcp/servers`、`/mcp/available` | 系统 + 用户服务器；工具发现；凭据只回显提示 |
+
+请求仍走 `/api/v1`，认证、错误信封与分页约定同上。设置页四区块与输入栏「+」选择器按此契约设计；显式选择只影响当次请求。
+
+## 10. 已知契约缺口
+
+以下原型元素尚无后端契约，接入前需先补设计：
+
+- 工作流管理（`workflows` / `workflow_runs`，或明确不落地）；
+- 管理端用户、角色权限、菜单、字典、审计查询；
+- `chat/stream` 的 `model` / `reasoning_effort` 与 reasoning 事件；
+- 附件上传端点；
+- 知识库选择字段、会话搜索 `q`、`message_count`、审批列表。
+
+详见 [原型自检报告](prototypes/review-2026-11-08.md)；字段级方案、任务包与样例见[后端交接包](handoff/README.md)。

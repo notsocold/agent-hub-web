@@ -5,11 +5,16 @@
 
 Project: `/home/zhaodan/work/NodeJsProjects/agent-hub-web`
 
-Active topics: 6
+Active topics: 11
 
+- [后端交接包 v1.0 位置与关键结论](m_79b5c3ab-后端交接包-v1-0-位置与关键结论.md) — agent-hub-web 已产出 docs/handoff 交接包，包含契约增量、工作包、fixtures、工作流/管理端方案与 8 个待拍板决策。 · `project` · importance 4 · 2026-11-08
+- [原型自检定稿的交互规则：上下文互斥、发送即清空、上限、停止复用发送位与二次确认](m_73771f38-原型自检定稿的交互规则-上下文互斥-发送即清空-上限-停止复用发送位与二次确认.md) — 原型自检定稿的交互规则：上下文互斥、发送即清空、技能/MCP 上限、停止按钮与发送按钮同位（执行中及待审批时切换为停止）、危险操作二次确认。 · `decision` · importance 4 · 2026-11-08
+- [agent-hub 后端能力边界（决定 agent-hub-web 界面可行性）](m_691a33de-agent-hub-后端能力边界-决定-agent-hub-web-界面可行性.md) — agent-hub 后端文档位置与能力边界；A2A 仍为设计稿，且 v7/v8 原型中多项交互仍缺后端契约字段或接口。 · `reference` · importance 4 · 2026-11-08
+- [agent-hub-web v7 对话：过程收起定稿、A2A 流式开关、Agent Skill 移除与六类过程色板](m_894de5a5-agent-hub-web-v7-对话-过程收起定稿-a2a-流式开关-agen.md) — v7 过程收起保留草稿与定稿；移除 Agent Skill 标签（改为保留实际工具名）；Agent 抽屉按 streaming 能力流式或等待最终结果；六类过程改为绿/蓝/琥珀/青/紫/红色板并应用到卡片、轨道、轨迹与工作流。 · `decision` · importance 4 · 2026-11-08
 - [agent-hub-web v8 管理员控制台（独立管理会话原型）](m_e70f698d-agent-hub-web-v8-管理员控制台-独立管理会话原型.md) — v8 管理员控制台独立为 ui-v8-admin.html：深墨管理侧栏 + 概览/用户/角色权限/菜单/字典/审计/系统设置七页，v7 工作台不出现管理员入口。 · `decision` · importance 4 · 2026-11-05
 - [输入框「@」只用于选择文件，上下文能力统一收进「+」菜单](m_93398223-输入框-只用于选择文件-上下文能力统一收进-菜单.md) — 用户明确：@ 是文件选择用途，不用于选择智能体；附件、技能、工作流、知识库等显式选择统一收进输入栏「+」上下文菜单。 · `decision` · importance 4 · 2026-11-05
 - [agent-hub-web 原型 v7：工作流管理页 + 输入区「+」菜单 + 模型/推理等级](m_6855443e-agent-hub-web-原型-v7-工作流管理页-输入区-菜单-模型-推理等.md) — v7 新增工作流管理页与可配置步骤编辑器，重做对话输入区为「+」上下文菜单（附件/技能/工作流/知识库）和右侧模型/推理等级选择，并打通工作流在对话中的调用。 · `decision` · importance 4 · 2026-11-05
-- [agent-hub 后端能力边界（决定 agent-hub-web 界面可行性）](m_691a33de-agent-hub-后端能力边界-决定-agent-hub-web-界面可行性.md) — agent-hub 后端文档位于 /home/zhaodan/work/PythonProjects/agent-hub（README、docs/api.md、docs/a2a.md、docs/database.md），其能力边界决定前端原型哪些元素能做。 · `reference` · importance 4 · 2026-11-05
+- [待用户拍板：交接包 D1–D8 八项决策](m_d505a964-待用户拍板-交接包-d1-d8-八项决策.md) — 后端交接包遗留 8 项决策待用户拍板，其中 D1/D2/D7/D8 直接影响表结构与里程碑，需在 M1 编码前定。 · `todo` · importance 3 · 2026-11-08
+- [A2A 远程委派只经 send_message 工具，per-skill 包装工具非必需](m_c8947c89-a2a-远程委派只经-send-message-工具-per-skill-包装工.md) — A2A 主智能体调用远程智能体走统一 send_message(agent, task, context)，按 skill 生成的 agent_<slug>__<skill_id> 包装工具并非协议所需，也不应暴露到界面。 · `reference` · importance 3 · 2026-11-08
 - [agent-hub-web 定位与 UI 原型约定（调度台 Dispatch Desk）](m_07916c67-agent-hub-web-定位与-ui-原型约定-调度台-dispatch-d.md) — agent-hub-web 以 docs/prototypes/ 单文件 HTML 分版本迭代；v7 含工作流管理、+ 输入菜单、模型/推理等级、智能体卡片、任务结果、流式返回与运行轨迹。 · `project` · importance 3 · 2026-11-05
 - [本机没有 Chromium，HTML 原型只能做静态校验，需用户自己在浏览器看渲染](m_5d920272-本机没有-chromium-html-原型只能做静态校验-需用户自己在浏览器看渲.md) — 该开发机未安装 Chromium，无法对生成的 HTML 原型截图做像素级检查，只能做标签配对/重复 id/CSS 括号/JS 语法/DOM id 引用等静态校验，并把实际渲染确认交给用户在浏览器打开。 · `reference` · importance 3 · 2026-11-05

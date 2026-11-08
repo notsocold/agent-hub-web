@@ -41,11 +41,16 @@
   --mcp:#5A4E72;
   --mcp-soft:#ECE8F1;
 
+  --kind-vector:#2E6485;
+  --kind-a2a:#2E746E;
+  --kind-a2a-soft:#E0EEEB;
+
   --btn-bg:#141B20;
   --btn-fg:#FBFAF5;
 
   --shadow-sm:0 1px 2px rgba(20,27,32,.05);
   --shadow-md:0 1px 2px rgba(20,27,32,.04), 0 10px 28px -18px rgba(20,27,32,.35);
+  --shadow-lg:0 24px 60px -28px rgba(20,27,32,.38);
 
   --sidebar-w:288px;
   --sidebar-rail:56px;
@@ -75,11 +80,16 @@ html[data-theme="dark"]{
   --mcp:#B3A4C9;
   --mcp-soft:rgba(179,164,201,.12);
 
+  --kind-vector:#8FB8CC;
+  --kind-a2a:#8CC7BF;
+  --kind-a2a-soft:rgba(140,199,191,.12);
+
   --btn-bg:#E8E7DF;
   --btn-fg:#10171B;
 
   --shadow-sm:0 1px 0 rgba(255,255,255,.03);
   --shadow-md:0 1px 0 rgba(255,255,255,.03), 0 16px 40px -24px rgba(0,0,0,.9);
+  --shadow-lg:0 28px 72px -30px rgba(0,0,0,.95);
 }
 
 /* ---------- base ---------- */
@@ -1565,7 +1575,7 @@ html[data-theme="dark"] .task-summary:hover{background:rgba(255,255,255,.03)}
 .result-score{font-family:var(--font-mono);font-size:10px;color:var(--prussian)}
 .result-src{margin-top:2px;font-family:var(--font-mono);font-size:9px;color:var(--ink-3)}
 .result-excerpt{margin-top:4px;font-size:10.5px;line-height:1.6;color:var(--ink-2)}
-.debug-meta{padding:9px 15px;border-top:1px solid var(--line-2);font-family:var(--font-mono);font-size:9px;color:var(--ink-3)}
+.debug-meta{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 15px;border-top:1px solid var(--line-2);font-family:var(--font-mono);font-size:9px;color:var(--ink-3)}
 
 /* settings */
 .settings-grid{display:grid;grid-template-columns:150px minmax(0,1fr);gap:32px;align-items:start;margin-top:24px}
@@ -1611,6 +1621,50 @@ html[data-theme="dark"] .task-summary:hover{background:rgba(255,255,255,.03)}
 .settings-kv dd{font-size:11.5px;color:var(--ink-2)}
 .settings-kv dd.mono{font-family:var(--font-mono);font-size:11px}
 
+/* personal capabilities (M1.5) */
+.cap-block{
+  margin-top:16px;padding:14px;
+  border:1px solid var(--line);border-radius:8px;
+  background:var(--surface);
+}
+.cap-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.cap-title{display:flex;align-items:center;gap:8px;min-width:0}
+.cap-title h3{font-size:12px;font-weight:650;letter-spacing:-.005em}
+.cap-hint{margin-left:auto;font-family:var(--font-mono);font-size:8.5px;color:var(--ink-3)}
+.cap-desc{margin-top:4px;font-size:10.5px;line-height:1.55;color:var(--ink-3)}
+.cap-field{display:block;margin-top:10px}
+.cap-textarea{width:100%;max-width:none;height:auto;min-height:92px;padding:9px;resize:vertical;line-height:1.6}
+.cap-count{display:block;margin-top:4px;text-align:right;font-family:var(--font-mono);font-size:9px;color:var(--ink-3)}
+.cap-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px}
+.cap-actions .spacer{flex:1}
+.cap-note{font-size:9.5px;line-height:1.5;color:var(--ink-3)}
+.cap-toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px}
+.cap-toolbar .tool-search{flex:1;max-width:240px;min-width:180px}
+.cap-toolbar .spacer{flex:1}
+.cap-list{margin-top:8px;border-top:1px solid var(--line-2)}
+.cap-item{display:flex;align-items:flex-start;gap:12px;padding:10px 0;border-bottom:1px solid var(--line-2)}
+.cap-item:last-child{border-bottom:0;padding-bottom:0}
+.cap-item-main{flex:1;min-width:0}
+.cap-item-title{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:11.5px;font-weight:600}
+.cap-chip{
+  display:inline-flex;align-items:center;height:17px;padding:0 5px;
+  border:1px solid var(--line-2);border-radius:3px;
+  font-family:var(--font-mono);font-size:8.5px;font-weight:400;color:var(--ink-3);
+}
+.cap-pin{
+  display:inline-flex;align-items:center;height:17px;padding:0 5px;
+  border-radius:3px;background:var(--amber-soft);
+  font-size:8.5px;font-weight:500;color:var(--amber-text);
+}
+.cap-item-text{margin-top:3px;font-size:10.5px;line-height:1.55;color:var(--ink-2)}
+.cap-item-meta{margin-top:3px;font-family:var(--font-mono);font-size:8.5px;line-height:1.5;color:var(--ink-3)}
+.cap-item-actions{display:flex;align-items:center;gap:8px;flex:none;padding-top:2px}
+.cap-block .st{height:18px;padding:0 5px;font-size:8.5px}
+.cap-block .st .dot{width:4px;height:4px}
+.cap-block .tag{height:17px;font-size:8.5px}
+.cap-block .empty-state{margin-top:8px;padding:14px}
+.seg.seg-wrap{flex-wrap:wrap}
+
 @media (max-width:1180px){
   .page{padding:30px 32px 56px}
   .settings-grid{grid-template-columns:130px minmax(0,1fr);gap:26px}
@@ -1648,6 +1702,11 @@ html[data-theme="dark"] .task-summary:hover{background:rgba(255,255,255,.03)}
   .page-actions{width:100%}
   .page-actions .btn{flex:1}
   .stats{gap:0 16px}
+  .cap-block{padding:12px}
+  .cap-hint{margin-left:0;flex-basis:100%}
+  .cap-item{flex-wrap:wrap}
+  .cap-item-actions{width:100%;justify-content:flex-end}
+  .cap-toolbar .tool-search{max-width:none;flex-basis:100%}
   .stat{padding-right:16px;margin-right:16px}
   .stat-value{font-size:18px}
   .agent-detail,.task-detail{grid-template-columns:1fr}
@@ -1680,8 +1739,14 @@ html[data-theme="dark"] .task-summary:hover{background:rgba(255,255,255,.03)}
 .agent-card[data-health="degraded"]{border-left-color:var(--amber)}
 .agent-card:hover{border-color:var(--ink-3);box-shadow:var(--shadow-md)}
 .agent-card-head{display:flex;align-items:flex-start;gap:9px}
-.agent-card-head .agent-badge{width:30px;height:30px;font-size:10px}
+.agent-card-head .agent-badge{width:30px;height:30px;font-size:10px;color:var(--kind-a2a);background:var(--kind-a2a-soft);border-color:transparent}
 .agent-card-head .st{margin-left:auto;flex:none}
+.agent-card-ops{display:flex;align-items:center;gap:7px;flex:none;margin-left:auto}
+.agent-card-ops .st{margin-left:0}
+.agent-switch-label{font-size:9px;color:var(--ink-3);white-space:nowrap}
+.agent-card.is-disabled{opacity:.62}
+.agent-card.is-disabled .agent-switch-label{color:var(--ink-3)}
+.agent-extra-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
 .agent-card-ident{flex:1;min-width:0}
 .agent-name{font-size:13px;font-weight:650;letter-spacing:-.008em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .agent-slug{margin-top:2px;font-family:var(--font-mono);font-size:9px;color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -1875,12 +1940,12 @@ html[data-theme="dark"] .task-summary:hover{background:rgba(255,255,255,.03)}
 .wf-link{width:12px;height:1px;background:var(--line);flex:none}
 .wf-step.step-skill{border-left-color:var(--green)}
 .wf-step.step-skill .wf-step-type{color:var(--green)}
-.wf-step.step-vector{border-left-color:var(--prussian)}
-.wf-step.step-vector .wf-step-type{color:var(--prussian)}
+.wf-step.step-vector{border-left-color:var(--kind-vector)}
+.wf-step.step-vector .wf-step-type{color:var(--kind-vector)}
 .wf-step.step-tool{border-left-color:var(--amber)}
 .wf-step.step-tool .wf-step-type{color:var(--amber-text)}
-.wf-step.step-a2a{border-left-color:var(--prussian)}
-.wf-step.step-a2a .wf-step-type{color:var(--prussian)}
+.wf-step.step-a2a{border-left-color:var(--kind-a2a)}
+.wf-step.step-a2a .wf-step-type{color:var(--kind-a2a)}
 .wf-step.step-mcp{border-left-color:var(--mcp)}
 .wf-step.step-mcp .wf-step-type{color:var(--mcp)}
 .wf-step.step-approval{border-left-color:var(--red)}
@@ -2205,10 +2270,10 @@ html[data-theme="dark"] .task-summary:hover{background:rgba(255,255,255,.03)}
         </header>
 
         <div class="stats">
-          <div class="stat"><span class="stat-value">3</span><span class="stat-label">已注册</span></div>
-          <div class="stat"><span class="stat-value">2</span><span class="stat-label">健康</span></div>
-          <div class="stat"><span class="stat-value">1</span><span class="stat-label">降级</span></div>
-          <div class="stat"><span class="stat-value">3</span><span class="stat-label">已启用</span></div>
+          <div class="stat"><span class="stat-value" id="agentTotalStat">3</span><span class="stat-label">已注册</span></div>
+          <div class="stat"><span class="stat-value" id="agentHealthyStat">2</span><span class="stat-label">健康</span></div>
+          <div class="stat"><span class="stat-value" id="agentDegradedStat">1</span><span class="stat-label">降级</span></div>
+          <div class="stat"><span class="stat-value" id="agentEnabledStat">3</span><span class="stat-label">已启用</span></div>
         </div>
 
         <div class="register-panel" id="registerPanel" hidden>
@@ -2243,9 +2308,13 @@ html[data-theme="dark"] .task-summary:hover{background:rgba(255,255,255,.03)}
               <span class="agent-badge">DA</span>
               <div class="agent-card-ident">
                 <div class="agent-name">data-analyst</div>
-                <div class="agent-slug">data-analyst · A2A 1.0 · 已启用</div>
+                <div class="agent-slug">data-analyst · A2A 1.0</div>
               </div>
-              <span class="st st-ok"><span class="dot is-ok"></span>健康</span>
+              <div class="agent-card-ops">
+                <span class="st st-ok"><span class="dot is-ok"></span>健康</span>
+                <span class="agent-switch-label">已启用</span>
+                <button class="wf-switch is-on" type="button" role="switch" aria-checked="true" aria-label="停用 data-analyst" data-agent-switch><span></span></button>
+              </div>
             </header>
             <div class="agent-card-url">
               <svg class="ic" aria-hidden="true"><use href="#i-external"/></svg>
@@ -2268,13 +2337,17 @@ html[data-theme="dark"] .task-summary:hover{background:rgba(255,255,255,.03)}
                   <dt>最近检查</dt><dd>23:41:08 · 200 OK · 142ms</dd>
                   <dt>最近任务</dt><dd>task_9b2a · completed · 1.2s</dd>
                 </dl>
+                <div class="agent-extra-actions">
+                  <button class="btn btn-outline btn-sm" data-demo="查看原始 Agent Card（原型演示）">查看原始 Card</button>
+                  <button class="btn btn-ghost btn-sm" data-demo="编辑鉴权引用（原型演示）">编辑鉴权</button>
+                </div>
               </div>
             </details>
             <footer class="agent-card-foot">
               <button class="btn btn-outline btn-sm" data-demo="健康检查（原型演示）">健康检查</button>
               <button class="btn btn-ghost btn-sm" data-demo="刷新 Agent Card（原型演示）">刷新 Card</button>
               <span class="spacer"></span>
-              <button class="btn btn-ghost btn-sm is-danger-text" data-demo="删除智能体（原型演示）">删除</button>
+              <button class="btn btn-ghost btn-sm is-danger-text" data-agent-delete>删除</button>
             </footer>
           </article>
 
@@ -2283,9 +2356,13 @@ html[data-theme="dark"] .task-summary:hover{background:rgba(255,255,255,.03)}
               <span class="agent-badge">ER</span>
               <div class="agent-card-ident">
                 <div class="agent-name">editorial-reviewer</div>
-                <div class="agent-slug">editorial-reviewer · A2A 1.0 · 已启用</div>
+                <div class="agent-slug">editorial-reviewer · A2A 1.0</div>
               </div>
-              <span class="st st-ok"><span class="dot is-ok"></span>健康</span>
+              <div class="agent-card-ops">
+                <span class="st st-ok"><span class="dot is-ok"></span>健康</span>
+                <span class="agent-switch-label">已启用</span>
+                <button class="wf-switch is-on" type="button" role="switch" aria-checked="true" aria-label="停用 editorial-reviewer" data-agent-switch><span></span></button>
+              </div>
             </header>
             <div class="agent-card-url">
               <svg class="ic" aria-hidden="true"><use href="#i-external"/></svg>
@@ -2307,13 +2384,17 @@ html[data-theme="dark"] .task-summary:hover{background:rgba(255,255,255,.03)}
                   <dt>最近检查</dt><dd>23:40:55 · 200 OK · 96ms</dd>
                   <dt>最近任务</dt><dd>task_7c1e · completed · 1.8s</dd>
                 </dl>
+                <div class="agent-extra-actions">
+                  <button class="btn btn-outline btn-sm" data-demo="查看原始 Agent Card（原型演示）">查看原始 Card</button>
+                  <button class="btn btn-ghost btn-sm" data-demo="编辑鉴权引用（原型演示）">编辑鉴权</button>
+                </div>
               </div>
             </details>
             <footer class="agent-card-foot">
               <button class="btn btn-outline btn-sm" data-demo="健康检查（原型演示）">健康检查</button>
               <button class="btn btn-ghost btn-sm" data-demo="刷新 Agent Card（原型演示）">刷新 Card</button>
               <span class="spacer"></span>
-              <button class="btn btn-ghost btn-sm is-danger-text" data-demo="删除智能体（原型演示）">删除</button>
+              <button class="btn btn-ghost btn-sm is-danger-text" data-agent-delete>删除</button>
             </footer>
           </article>
 
@@ -2322,9 +2403,13 @@ html[data-theme="dark"] .task-summary:hover{background:rgba(255,255,255,.03)}
               <span class="agent-badge">CA</span>
               <div class="agent-card-ident">
                 <div class="agent-name">code-assistant</div>
-                <div class="agent-slug">code-assistant · A2A 1.0 · 已启用</div>
+                <div class="agent-slug">code-assistant · A2A 1.0</div>
               </div>
-              <span class="st st-warn"><span class="dot"></span>降级</span>
+              <div class="agent-card-ops">
+                <span class="st st-warn"><span class="dot"></span>降级</span>
+                <span class="agent-switch-label">已启用</span>
+                <button class="wf-switch is-on" type="button" role="switch" aria-checked="true" aria-label="停用 code-assistant" data-agent-switch><span></span></button>
+              </div>
             </header>
             <div class="agent-card-url">
               <svg class="ic" aria-hidden="true"><use href="#i-external"/></svg>
@@ -2351,13 +2436,17 @@ html[data-theme="dark"] .task-summary:hover{background:rgba(255,255,255,.03)}
                   <dt>最近检查</dt><dd><span class="is-error-text">23:39:52 · 502 a2a_unavailable</span></dd>
                   <dt>最近任务</dt><dd>task_1a77 · failed · 6.4s</dd>
                 </dl>
+                <div class="agent-extra-actions">
+                  <button class="btn btn-outline btn-sm" data-demo="查看原始 Agent Card（原型演示）">查看原始 Card</button>
+                  <button class="btn btn-ghost btn-sm" data-demo="编辑鉴权引用（原型演示）">编辑鉴权</button>
+                </div>
               </div>
             </details>
             <footer class="agent-card-foot">
               <button class="btn btn-outline btn-sm" data-demo="健康检查（原型演示）">健康检查</button>
               <button class="btn btn-ghost btn-sm" data-demo="刷新 Agent Card（原型演示）">刷新 Card</button>
               <span class="spacer"></span>
-              <button class="btn btn-ghost btn-sm is-danger-text" data-demo="删除智能体（原型演示）">删除</button>
+              <button class="btn btn-ghost btn-sm is-danger-text" data-agent-delete>删除</button>
             </footer>
           </article>
 
@@ -2406,16 +2495,20 @@ html[data-theme="dark"] .task-summary:hover{background:rgba(255,255,255,.03)}
         </header>
 
         <div class="stats">
-          <div class="stat"><span class="stat-value">4</span><span class="stat-label">全部任务</span></div>
+          <div class="stat"><span class="stat-value">6</span><span class="stat-label">全部任务</span></div>
           <div class="stat"><span class="stat-value">1</span><span class="stat-label">运行中</span></div>
+          <div class="stat"><span class="stat-value">1</span><span class="stat-label">等待输入</span></div>
+          <div class="stat"><span class="stat-value">1</span><span class="stat-label">需要授权</span></div>
           <div class="stat"><span class="stat-value">2</span><span class="stat-label">已完成</span></div>
           <div class="stat"><span class="stat-value">1</span><span class="stat-label">失败</span></div>
         </div>
 
         <div class="toolbar">
-          <div class="seg" role="group" aria-label="按状态筛选任务">
-            <button class="is-active" data-task-filter="all">全部 <span>4</span></button>
+          <div class="seg seg-wrap" role="group" aria-label="按状态筛选任务">
+            <button class="is-active" data-task-filter="all">全部 <span>6</span></button>
             <button data-task-filter="working">运行中 <span>1</span></button>
+            <button data-task-filter="input_required">等待输入 <span>1</span></button>
+            <button data-task-filter="auth_required">需要授权 <span>1</span></button>
             <button data-task-filter="completed">已完成 <span>2</span></button>
             <button data-task-filter="failed">失败 <span>1</span></button>
           </div>
@@ -2428,7 +2521,7 @@ html[data-theme="dark"] .task-summary:hover{background:rgba(255,255,255,.03)}
 
           <details class="task-item" data-state="working" open>
             <summary class="task-summary">
-              <span class="task-main"><span class="task-id mono">task_2e91</span><span class="task-skill">review_copy</span></span>
+              <span class="task-main"><span class="task-id mono">task_2e91</span></span>
               <span class="task-agent">editorial-reviewer <small>a2a</small></span>
               <span><span class="st st-live"><span class="dot is-live"></span>运行中</span></span>
               <span class="task-duration mono">00:12</span>
@@ -2439,7 +2532,7 @@ html[data-theme="dark"] .task-summary:hover{background:rgba(255,255,255,.03)}
               <div class="detail-block">
                 <h4>请求</h4>
                 <dl class="kv">
-                  <dt>工具</dt><dd><span class="mono">agent_editorial_reviewer__review_copy</span></dd>
+                  <dt>工具</dt><dd><span class="mono">send_message</span></dd>
                   <dt>参数</dt><dd>审阅“退款政策变更说明”的措辞</dd>
                   <dt>Run</dt><dd><span class="mono">run_4c1d_e8</span></dd>
                 </dl>
@@ -2463,9 +2556,86 @@ html[data-theme="dark"] .task-summary:hover{background:rgba(255,255,255,.03)}
             </div>
           </details>
 
+          <details class="task-item" data-state="input_required" open>
+            <summary class="task-summary">
+              <span class="task-main"><span class="task-id mono">task_4d18</span></span>
+              <span class="task-agent">data-analyst <small>a2a</small></span>
+              <span><span class="st st-warn"><span class="dot"></span>等待输入</span></span>
+              <span class="task-duration mono">00:48</span>
+              <span class="task-conv">退款政策变更的影响面</span>
+              <svg class="ic task-chev" aria-hidden="true"><use href="#i-chevron"/></svg>
+            </summary>
+            <div class="task-detail">
+              <div class="detail-block">
+                <h4>远程请求</h4>
+                <p class="detail-note">请补充 9 月退款工单的统计口径：按创建时间还是完成时间？</p>
+                <dl class="kv">
+                  <dt>任务</dt><dd><span class="mono">task_4d18</span></dd>
+                  <dt>状态</dt><dd>A2A input-required</dd>
+                  <dt>Run</dt><dd><span class="mono">run_4c1d_e8</span></dd>
+                </dl>
+              </div>
+              <div class="detail-block">
+                <h4>状态时间线</h4>
+                <ol class="task-timeline">
+                  <li class="is-done"><span class="tl-dot"></span><div><b>submitted</b><small>23:43:20</small></div></li>
+                  <li class="is-done"><span class="tl-dot"></span><div><b>working</b><small>23:43:21</small></div></li>
+                  <li class="is-now"><span class="tl-dot"></span><div><b>input-required</b><small>等待你的补充</small></div></li>
+                </ol>
+              </div>
+              <div class="detail-block wide">
+                <h4>操作</h4>
+                <p class="detail-note">补充信息后沿用同一 taskId 继续，不创建新任务；超时未补会进入 canceled。</p>
+                <div class="detail-actions">
+                  <button class="btn btn-primary btn-sm" data-demo="补充信息（原型演示）">补充信息</button>
+                  <button class="btn btn-outline btn-sm is-danger-text" data-demo="取消任务（原型演示）">取消任务</button>
+                  <a class="btn btn-ghost btn-sm" href="ui-v7.html">打开会话</a>
+                </div>
+              </div>
+            </div>
+          </details>
+
+          <details class="task-item" data-state="auth_required">
+            <summary class="task-summary">
+              <span class="task-main"><span class="task-id mono">task_6f02</span></span>
+              <span class="task-agent">code-assistant <small>a2a</small></span>
+              <span><span class="st st-warn"><span class="dot"></span>需要授权</span></span>
+              <span class="task-duration mono">01:12</span>
+              <span class="task-conv">审查：payment 模块重试逻辑</span>
+              <svg class="ic task-chev" aria-hidden="true"><use href="#i-chevron"/></svg>
+            </summary>
+            <div class="task-detail">
+              <div class="detail-block">
+                <h4>远程请求</h4>
+                <p class="detail-note">远程 Agent 请求读取仓库 <span class="mono">acme/payment</span> 的 PR diff，需要 GitHub 授权。</p>
+                <dl class="kv">
+                  <dt>任务</dt><dd><span class="mono">task_6f02</span></dd>
+                  <dt>状态</dt><dd>A2A auth-required</dd>
+                  <dt>要求</dt><dd>repo:read · 只读</dd>
+                </dl>
+              </div>
+              <div class="detail-block">
+                <h4>状态时间线</h4>
+                <ol class="task-timeline">
+                  <li class="is-done"><span class="tl-dot"></span><div><b>submitted</b><small>23:37:40</small></div></li>
+                  <li class="is-now"><span class="tl-dot"></span><div><b>auth-required</b><small>等待授权</small></div></li>
+                </ol>
+              </div>
+              <div class="detail-block wide">
+                <h4>操作</h4>
+                <p class="detail-note">授权只作用于本次远程任务；拒绝后任务进入 rejected，不会重试。</p>
+                <div class="detail-actions">
+                  <button class="btn btn-primary btn-sm" data-demo="前往授权（原型演示）">前往授权</button>
+                  <button class="btn btn-outline btn-sm is-danger-text" data-demo="拒绝授权（原型演示）">拒绝</button>
+                  <a class="btn btn-ghost btn-sm" href="ui-v7.html">打开会话</a>
+                </div>
+              </div>
+            </div>
+          </details>
+
           <details class="task-item" data-state="completed">
             <summary class="task-summary">
-              <span class="task-main"><span class="task-id mono">task_7c1e</span><span class="task-skill">review_copy</span></span>
+              <span class="task-main"><span class="task-id mono">task_7c1e</span></span>
               <span class="task-agent">editorial-reviewer <small>a2a</small></span>
               <span><span class="st st-ok"><span class="dot is-ok"></span>已完成</span></span>
               <span class="task-duration mono">1.8s</span>
@@ -2476,7 +2646,7 @@ html[data-theme="dark"] .task-summary:hover{background:rgba(255,255,255,.03)}
               <div class="detail-block">
                 <h4>请求</h4>
                 <dl class="kv">
-                  <dt>工具</dt><dd><span class="mono">agent_editorial_reviewer__review_copy</span></dd>
+                  <dt>工具</dt><dd><span class="mono">send_message</span></dd>
                   <dt>参数</dt><dd>审阅周报措辞，标注生硬表达</dd>
                   <dt>Run</dt><dd><span class="mono">run_9a8b7c</span></dd>
                 </dl>
@@ -2494,7 +2664,7 @@ html[data-theme="dark"] .task-summary:hover{background:rgba(255,255,255,.03)}
 
           <details class="task-item" data-state="completed">
             <summary class="task-summary">
-              <span class="task-main"><span class="task-id mono">task_9b2a</span><span class="task-skill">verify_numbers</span></span>
+              <span class="task-main"><span class="task-id mono">task_9b2a</span></span>
               <span class="task-agent">data-analyst <small>a2a</small></span>
               <span><span class="st st-ok"><span class="dot is-ok"></span>已完成</span></span>
               <span class="task-duration mono">1.2s</span>
@@ -2505,7 +2675,7 @@ html[data-theme="dark"] .task-summary:hover{background:rgba(255,255,255,.03)}
               <div class="detail-block">
                 <h4>请求</h4>
                 <dl class="kv">
-                  <dt>工具</dt><dd><span class="mono">agent_data_analyst__verify_numbers</span></dd>
+                  <dt>工具</dt><dd><span class="mono">send_message</span></dd>
                   <dt>参数</dt><dd>核对周报数字与知识库来源</dd>
                   <dt>Run</dt><dd><span class="mono">run_9a8b7c</span></dd>
                 </dl>
@@ -2523,7 +2693,7 @@ html[data-theme="dark"] .task-summary:hover{background:rgba(255,255,255,.03)}
 
           <details class="task-item" data-state="failed">
             <summary class="task-summary">
-              <span class="task-main"><span class="task-id mono">task_1a77</span><span class="task-skill">review_code</span></span>
+              <span class="task-main"><span class="task-id mono">task_1a77</span></span>
               <span class="task-agent">code-assistant <small>a2a</small></span>
               <span><span class="st st-error"><span class="dot is-warn"></span>失败</span></span>
               <span class="task-duration mono">6.4s</span>
@@ -2582,6 +2752,7 @@ html[data-theme="dark"] .task-summary:hover{background:rgba(255,255,255,.03)}
               <h2>文档</h2>
               <span class="count">5 / 128</span>
               <span class="spacer"></span>
+              <button class="text-link" data-demo="重建全部索引（管理端，原型演示）">重建索引</button>
               <button class="text-link" data-demo="查看全部文档（原型演示）">查看全部</button>
             </div>
             <div class="doc-toolbar">
@@ -2615,6 +2786,7 @@ html[data-theme="dark"] .task-summary:hover{background:rgba(255,255,255,.03)}
               <div class="doc-row" data-category="产品">
                 <div class="doc-main"><div class="doc-title">产品发布说明 Q3</div><div class="doc-meta">产品 · 0 chunks · 07-15 上传</div></div>
                 <span class="st st-error">失败</span>
+                <button class="text-link" data-demo="重试入库（原型演示）">重试</button>
               </div>
               <div class="empty-state" id="docEmpty" hidden>没有匹配的文档。</div>
             </div>
@@ -2655,7 +2827,7 @@ html[data-theme="dark"] .task-summary:hover{background:rgba(255,255,255,.03)}
                 <p class="result-excerpt">对客户解释退款时效时，避免承诺固定到账时间…</p>
               </div>
             </div>
-            <div class="debug-meta">42ms · top_k=5 · cosine</div>
+            <div class="debug-meta"><span>42ms · top_k=5 · cosine</span><button class="text-link" data-demo="已复制检索结果（原型演示）">复制结果</button></div>
           </section>
         </div>
       </section>
@@ -2672,6 +2844,7 @@ html[data-theme="dark"] .task-summary:hover{background:rgba(255,255,255,.03)}
         <div class="settings-grid">
           <nav class="settings-nav" aria-label="设置分区">
             <button class="settings-nav-item is-active" data-scroll="settings-account">账号</button>
+            <button class="settings-nav-item" data-scroll="settings-capabilities">个人能力</button>
             <button class="settings-nav-item" data-scroll="settings-model">模型</button>
             <button class="settings-nav-item" data-scroll="settings-a2a">A2A</button>
             <button class="settings-nav-item" data-scroll="settings-interface">界面</button>
@@ -2703,6 +2876,159 @@ html[data-theme="dark"] .task-summary:hover{background:rgba(255,255,255,.03)}
                 <button class="btn btn-ghost is-danger-text" data-demo="退出登录（原型演示）">退出登录</button>
               </div>
               <p class="settings-note">账号资料修改与密码接口待后端补（M1）；当前仅支持退出登录。</p>
+            </section>
+
+            <section class="settings-section" id="settings-capabilities">
+              <div class="section-head">
+                <h2>个人能力</h2>
+                <p>账号级生效：系统默认 + 用户覆盖。本轮显式选择在输入框「+」菜单中完成，不写回这里。</p>
+              </div>
+
+              <div class="cap-block">
+                <div class="cap-head">
+                  <div class="cap-title"><h3>指令</h3><span class="st st-muted" id="instructionSource">用户覆盖</span></div>
+                  <span class="cap-hint">GET / PUT /api/v1/instructions</span>
+                </div>
+                <p class="cap-desc">覆盖平台默认指令，只影响你自己的对话；不得覆盖安全规则、工具权限与审批要求。保存后下一轮生效，不写入历史会话。</p>
+                <label class="cap-field">
+                  <textarea class="input cap-textarea" id="instructionText" rows="4" maxlength="4000" placeholder="例如：回答先给结论，再给依据；不确定时明确说明。">回答先给结论，再给依据；涉及数据时标注来源，不确定时明确说明。</textarea>
+                  <span class="cap-count"><b id="instructionCount">31</b> / 4000</span>
+                </label>
+                <div class="cap-actions">
+                  <button class="btn btn-primary btn-sm" id="saveInstruction">保存指令</button>
+                  <button class="btn btn-ghost btn-sm" id="resetInstruction">恢复默认</button>
+                  <span class="spacer"></span>
+                  <span class="cap-note">平台默认由管理员在「系统设置」维护。</span>
+                </div>
+              </div>
+
+              <div class="cap-block">
+                <div class="cap-head">
+                  <div class="cap-title"><h3>长期记忆</h3><span class="tag" id="memoryCount">3 条</span></div>
+                  <span class="cap-hint">/api/v1/memories</span>
+                </div>
+                <p class="cap-desc">跨会话记住稳定事实与偏好。记忆作为参考信息注入，不覆盖系统规则；可编辑、归档、删除或清空。</p>
+                <div class="cap-toolbar">
+                  <label class="tool-search"><svg class="ic" aria-hidden="true"><use href="#i-search"/></svg><input id="memorySearch" type="search" placeholder="搜索记忆" autocomplete="off"></label>
+                  <button class="btn btn-outline btn-sm" data-demo="新增记忆（原型演示）">新增</button>
+                  <span class="spacer"></span>
+                  <button class="text-link" data-demo="导出记忆 JSON（原型演示）">导出</button>
+                  <button class="text-link is-danger-text" data-demo="清空全部记忆（需二次确认）">清空</button>
+                </div>
+                <div class="cap-list" id="memoryList">
+                  <div class="cap-item" data-memory-title="称呼偏好">
+                    <div class="cap-item-main">
+                      <div class="cap-item-title">称呼偏好 <span class="cap-chip">偏好</span><span class="cap-pin">置顶</span></div>
+                      <p class="cap-item-text">希望被称为「老赵」，回答保持简洁，先给结论。</p>
+                      <div class="cap-item-meta">来源：Q3 客服工单周报 · 11-05 · agent 保存</div>
+                    </div>
+                    <div class="cap-item-actions">
+                      <button class="text-link" data-demo="编辑记忆（原型演示）">编辑</button>
+                      <button class="text-link is-danger-text" data-memory-delete>删除</button>
+                    </div>
+                  </div>
+                  <div class="cap-item" data-memory-title="团队周报口径">
+                    <div class="cap-item-main">
+                      <div class="cap-item-title">团队周报口径 <span class="cap-chip">事实</span></div>
+                      <p class="cap-item-text">客服周报按主标签聚合，多标签工单只计一次；数据截止到每季度末。</p>
+                      <div class="cap-item-meta">来源：weekly-report 运行 · 11-03 · user 手动保存</div>
+                    </div>
+                    <div class="cap-item-actions">
+                      <button class="text-link" data-demo="编辑记忆（原型演示）">编辑</button>
+                      <button class="text-link is-danger-text" data-memory-delete>删除</button>
+                    </div>
+                  </div>
+                  <div class="cap-item" data-memory-title="Slack 发布习惯">
+                    <div class="cap-item-main">
+                      <div class="cap-item-title">Slack 发布习惯 <span class="cap-chip">偏好</span></div>
+                      <p class="cap-item-text">发布到 #support-weekly 前先给草稿，确认后再发送。</p>
+                      <div class="cap-item-meta">来源：审批记录 · 10-28 · user 手动保存</div>
+                    </div>
+                    <div class="cap-item-actions">
+                      <button class="text-link" data-demo="编辑记忆（原型演示）">编辑</button>
+                      <button class="text-link is-danger-text" data-memory-delete>删除</button>
+                    </div>
+                  </div>
+                </div>
+                <div class="empty-state" id="memoryEmpty" hidden>没有匹配的记忆。</div>
+              </div>
+
+              <div class="cap-block">
+                <div class="cap-head">
+                  <div class="cap-title"><h3>技能</h3><span class="tag" id="skillCount">3 个</span></div>
+                  <span class="cap-hint">/api/v1/skills</span>
+                </div>
+                <p class="cap-desc">技能包是 SKILL.md 流程指令；输入框「+ → 技能」可显式激活，每轮最多 3 个。系统技能只能启停，不能修改正文。</p>
+                <div class="cap-toolbar">
+                  <button class="btn btn-outline btn-sm" data-demo="导入技能包（zip，原型演示）">导入技能包</button>
+                  <button class="btn btn-ghost btn-sm" data-demo="手写创建技能（原型演示）">手写创建</button>
+                  <span class="spacer"></span>
+                  <span class="cap-note">技能正文与参考文件按不可信内容渲染。</span>
+                </div>
+                <div class="cap-list">
+                  <div class="cap-item">
+                    <div class="cap-item-main">
+                      <div class="cap-item-title">weekly-report <span class="cap-chip">系统 · builtin</span></div>
+                      <p class="cap-item-text">周报生成：固定章节、口径引用规则与团队语气。</p>
+                      <div class="cap-item-meta">3 个参考文件 · 1.2 KB · 更新于 10-30</div>
+                    </div>
+                    <button class="wf-switch is-on" role="switch" aria-checked="true" aria-label="停用 weekly-report" data-cap-switch><span></span></button>
+                  </div>
+                  <div class="cap-item">
+                    <div class="cap-item-main">
+                      <div class="cap-item-title">knowledge-qa <span class="cap-chip">系统 · builtin</span></div>
+                      <p class="cap-item-text">知识问答：先检索再回答，要求逐条标注来源。</p>
+                      <div class="cap-item-meta">1 个参考文件 · 0.6 KB · 更新于 10-18</div>
+                    </div>
+                    <button class="wf-switch is-on" role="switch" aria-checked="true" aria-label="停用 knowledge-qa" data-cap-switch><span></span></button>
+                  </div>
+                  <div class="cap-item">
+                    <div class="cap-item-main">
+                      <div class="cap-item-title">translate <span class="cap-chip">用户 · upload</span></div>
+                      <p class="cap-item-text">中英互译：保留术语表与原文格式，先给译文再列改动。</p>
+                      <div class="cap-item-meta">2 个参考文件 · 0.9 KB · 更新于 11-02</div>
+                    </div>
+                    <button class="wf-switch is-on" role="switch" aria-checked="true" aria-label="停用 translate" data-cap-switch><span></span></button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="cap-block">
+                <div class="cap-head">
+                  <div class="cap-title"><h3>MCP 服务器</h3><span class="tag">2 个</span></div>
+                  <span class="cap-hint">/api/v1/mcp/servers</span>
+                </div>
+                <p class="cap-desc">连接外部工具服务器。系统项只读，普通用户不能使用系统写工具；MCP 写操作必须审批，拒绝后不执行。</p>
+                <div class="cap-toolbar">
+                  <button class="btn btn-outline btn-sm" data-demo="添加 MCP 服务器（原型演示）">添加服务器</button>
+                  <span class="spacer"></span>
+                  <span class="cap-note">凭据只保存引用，接口只回显脱敏提示。</span>
+                </div>
+                <div class="cap-list">
+                  <div class="cap-item">
+                    <div class="cap-item-main">
+                      <div class="cap-item-title">slack-mcp <span class="cap-chip">系统</span><span class="st st-ok"><span class="dot is-ok"></span>健康</span></div>
+                      <p class="cap-item-text">streamable-http · 12 个工具 · 最近检查 23:41:08</p>
+                      <div class="cap-item-meta">凭据：Bearer ****xxx · 写工具仅管理员可用</div>
+                    </div>
+                    <div class="cap-item-actions">
+                      <button class="text-link" data-demo="检查 MCP 连接（原型演示）">检查</button>
+                      <button class="wf-switch is-on" role="switch" aria-checked="true" aria-label="停用 slack-mcp" data-cap-switch><span></span></button>
+                    </div>
+                  </div>
+                  <div class="cap-item">
+                    <div class="cap-item-main">
+                      <div class="cap-item-title">github-mcp <span class="cap-chip">用户</span><span class="st st-ok"><span class="dot is-ok"></span>健康</span></div>
+                      <p class="cap-item-text">streamable-http · 8 个工具 · 最近检查 23:38:52</p>
+                      <div class="cap-item-meta">凭据：Bearer ****9f2a · 写工具需本人审批</div>
+                    </div>
+                    <div class="cap-item-actions">
+                      <button class="text-link" data-demo="检查 MCP 连接（原型演示）">检查</button>
+                      <button class="wf-switch is-on" role="switch" aria-checked="true" aria-label="停用 github-mcp" data-cap-switch><span></span></button>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </section>
 
             <section class="settings-section" id="settings-model">
@@ -2767,7 +3093,7 @@ html[data-theme="dark"] .task-summary:hover{background:rgba(255,255,255,.03)}
                 <p>Agent Hub 前端与后端版本信息。</p>
               </div>
               <dl class="settings-kv">
-                <div><dt>版本</dt><dd class="mono">0.1.0 · M0</dd></div>
+                <div><dt>版本</dt><dd class="mono">0.1.0 · 设计原型</dd></div>
                 <div><dt>构建</dt><dd class="mono">2026-11-05</dd></div>
                 <div><dt>文档</dt><dd><button class="text-link" data-demo="接口文档（原型演示）">查看接口文档</button></dd></div>
               </dl>
@@ -2785,7 +3111,7 @@ html[data-theme="dark"] .task-summary:hover{background:rgba(255,255,255,.03)}
   <header class="result-head">
     <div>
       <h2 id="resultTitle">任务返回结果</h2>
-      <div class="result-sub" id="resultSub">task_7c1e · editorial-reviewer · review_copy</div>
+      <div class="result-sub" id="resultSub">task_7c1e · editorial-reviewer</div>
     </div>
     <button class="drawer-close" id="closeResult" aria-label="关闭任务返回结果">
       <svg class="ic" aria-hidden="true"><use href="#i-x"/></svg>
@@ -2856,6 +3182,17 @@ html[data-theme="dark"] .task-summary:hover{background:rgba(255,255,255,.03)}
     <div class="dialog-actions">
       <button class="btn btn-outline" id="cancelDelete">取消</button>
       <button class="btn btn-danger" id="confirmDelete">删除会话</button>
+    </div>
+  </div>
+</div>
+
+<div class="dialog-backdrop" id="confirmDialog">
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="confirmTitle" tabindex="-1">
+    <h2 id="confirmTitle">确认操作？</h2>
+    <p id="confirmText">此操作不可撤销。</p>
+    <div class="dialog-actions">
+      <button class="btn btn-outline" id="cancelConfirm">取消</button>
+      <button class="btn btn-danger" id="confirmAction">确认删除</button>
     </div>
   </div>
 </div>
@@ -3064,6 +3401,93 @@ html[data-theme="dark"] .task-summary:hover{background:rgba(255,255,255,.03)}
     });
   });
 
+  /* ---------- personal capabilities ---------- */
+  var instructionText = document.getElementById('instructionText');
+  var instructionCount = document.getElementById('instructionCount');
+  var instructionSource = document.getElementById('instructionSource');
+  var memoryList = document.getElementById('memoryList');
+  var memoryCount = document.getElementById('memoryCount');
+  var memorySearch = document.getElementById('memorySearch');
+  var memoryEmpty = document.getElementById('memoryEmpty');
+
+  function syncInstructionCount() {
+    if (instructionText && instructionCount) {
+      instructionCount.textContent = String(instructionText.value.length);
+    }
+  }
+
+  function updateMemoryState() {
+    if (!memoryList || !memoryCount) return;
+    var items = Array.prototype.slice.call(memoryList.querySelectorAll('.cap-item'));
+    var visible = items.filter(function (item) { return !item.hidden; }).length;
+    memoryCount.textContent = items.length + ' 条';
+    if (memoryEmpty) memoryEmpty.hidden = visible > 0;
+  }
+
+  if (instructionText) {
+    syncInstructionCount();
+    instructionText.addEventListener('input', syncInstructionCount);
+  }
+
+  var saveInstruction = document.getElementById('saveInstruction');
+  if (saveInstruction) {
+    saveInstruction.addEventListener('click', function () {
+      var value = instructionText.value.trim();
+      if (!value) {
+        showToast('指令不能为空；如需继承平台默认，请点「恢复默认」');
+        instructionText.focus();
+        return;
+      }
+      instructionSource.textContent = '用户覆盖';
+      instructionSource.className = 'st st-ok';
+      showToast('指令已保存，下一轮生效');
+    });
+  }
+
+  var resetInstruction = document.getElementById('resetInstruction');
+  if (resetInstruction) {
+    resetInstruction.addEventListener('click', function () {
+      instructionText.value = '';
+      syncInstructionCount();
+      instructionSource.textContent = '平台默认';
+      instructionSource.className = 'st st-muted';
+      showToast('已恢复平台默认指令');
+    });
+  }
+
+  if (memoryList) {
+    memoryList.addEventListener('click', function (event) {
+      var btn = event.target.closest('[data-memory-delete]');
+      if (!btn) return;
+      var item = btn.closest('.cap-item');
+      if (!item) return;
+      item.remove();
+      updateMemoryState();
+      showToast('记忆已删除');
+    });
+    updateMemoryState();
+  }
+
+  if (memorySearch) {
+    memorySearch.addEventListener('input', function () {
+      var q = memorySearch.value.trim().toLowerCase();
+      memoryList.querySelectorAll('.cap-item').forEach(function (item) {
+        item.hidden = q !== '' && item.textContent.toLowerCase().indexOf(q) === -1;
+      });
+      updateMemoryState();
+    });
+  }
+
+  document.querySelectorAll('[data-cap-switch]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var on = btn.classList.toggle('is-on');
+      btn.setAttribute('aria-checked', String(on));
+      var label = btn.getAttribute('aria-label') || '';
+      btn.setAttribute('aria-label', (on ? '停用' : '启用') + label.replace(/^(停用|启用)/, ''));
+      showToast(on ? '已启用' : '已停用');
+    });
+  });
+
   /* ---------- sidebar sessions ---------- */
   var sessions = Array.prototype.slice.call(document.querySelectorAll('.session'));
 
@@ -3257,21 +3681,96 @@ html[data-theme="dark"] .task-summary:hover{background:rgba(255,255,255,.03)}
   if (newSession) newSession.addEventListener('click', function () { window.location.href = 'ui-v7.html'; });
 
   /* ---------- agents ---------- */
+  var confirmDialog = document.getElementById('confirmDialog');
+  var confirmTitle = document.getElementById('confirmTitle');
+  var confirmText = document.getElementById('confirmText');
+  var confirmAction = document.getElementById('confirmAction');
+  var cancelConfirm = document.getElementById('cancelConfirm');
+  var pendingConfirm = null;
+  var confirmReturnFocus = null;
+
+  function openConfirm(title, text, action, label) {
+    pendingConfirm = action;
+    confirmReturnFocus = document.activeElement;
+    confirmTitle.textContent = title;
+    confirmText.textContent = text;
+    confirmAction.textContent = label || '确认';
+    confirmDialog.classList.add('is-open');
+    var dialog = confirmDialog.querySelector('.dialog');
+    if (dialog) dialog.focus();
+  }
+
+  function closeConfirm() {
+    confirmDialog.classList.remove('is-open');
+    var target = confirmReturnFocus;
+    pendingConfirm = null;
+    confirmReturnFocus = null;
+    if (target && document.contains(target) && typeof target.focus === 'function') {
+      target.focus();
+    }
+  }
+
+  confirmAction.addEventListener('click', function () {
+    var action = pendingConfirm;
+    closeConfirm();
+    if (action) action();
+  });
+  cancelConfirm.addEventListener('click', closeConfirm);
+  confirmDialog.addEventListener('click', function (event) {
+    if (event.target === confirmDialog) closeConfirm();
+  });
+  document.addEventListener('keydown', function (event) {
+    if (event.key === 'Escape' && confirmDialog.classList.contains('is-open')) {
+      event.stopImmediatePropagation();
+      closeConfirm();
+    }
+  });
+
   var agentFilter = 'all';
   var agentQuery = '';
 
+  function agentCards() {
+    return Array.prototype.slice.call(document.querySelectorAll('.agent-card'));
+  }
+
   function filterAgents() {
     var visible = 0;
-    document.querySelectorAll('.agent-card').forEach(function (item) {
+    agentCards().forEach(function (item) {
       var health = item.getAttribute('data-health');
+      var disabled = item.classList.contains('is-disabled');
       var text = item.textContent.toLowerCase();
-      var match = (agentFilter === 'all' || health === agentFilter)
-        && (agentQuery === '' || text.indexOf(agentQuery) !== -1);
+      var matchesFilter = agentFilter === 'all' ||
+        (agentFilter === 'disabled' ? disabled : (!disabled && health === agentFilter));
+      var match = matchesFilter && (agentQuery === '' || text.indexOf(agentQuery) !== -1);
       item.hidden = !match;
       if (match) visible += 1;
     });
     var empty = document.getElementById('agentEmpty');
     if (empty) empty.hidden = visible > 0;
+  }
+
+  function updateAgentStats() {
+    var cards = agentCards();
+    var enabled = cards.filter(function (card) { return !card.classList.contains('is-disabled'); });
+    var healthy = enabled.filter(function (card) { return card.getAttribute('data-health') === 'healthy'; }).length;
+    var degraded = enabled.filter(function (card) { return card.getAttribute('data-health') === 'degraded'; }).length;
+    var disabled = cards.length - enabled.length;
+    var set = function (id, value) {
+      var el = document.getElementById(id);
+      if (el) el.textContent = String(value);
+    };
+    set('agentTotalStat', cards.length);
+    set('agentHealthyStat', healthy);
+    set('agentDegradedStat', degraded);
+    set('agentEnabledStat', enabled.length);
+    var allCount = document.querySelector('[data-agent-filter="all"] span');
+    var healthyCount = document.querySelector('[data-agent-filter="healthy"] span');
+    var degradedCount = document.querySelector('[data-agent-filter="degraded"] span');
+    var disabledCount = document.querySelector('[data-agent-filter="disabled"] span');
+    if (allCount) allCount.textContent = String(cards.length);
+    if (healthyCount) healthyCount.textContent = String(healthy);
+    if (degradedCount) degradedCount.textContent = String(degraded);
+    if (disabledCount) disabledCount.textContent = String(disabled);
   }
 
   document.querySelectorAll('[data-agent-filter]').forEach(function (btn) {
@@ -3292,6 +3791,39 @@ html[data-theme="dark"] .task-summary:hover{background:rgba(255,255,255,.03)}
     });
   }
 
+  document.querySelectorAll('[data-agent-switch]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var card = btn.closest('.agent-card');
+      if (!card) return;
+      var enabled = btn.classList.toggle('is-on');
+      btn.setAttribute('aria-checked', String(enabled));
+      var nameEl = card.querySelector('.agent-name');
+      var name = nameEl ? nameEl.textContent : '智能体';
+      btn.setAttribute('aria-label', (enabled ? '停用 ' : '启用 ') + name);
+      var label = card.querySelector('.agent-switch-label');
+      if (label) label.textContent = enabled ? '已启用' : '已停用';
+      card.classList.toggle('is-disabled', !enabled);
+      updateAgentStats();
+      filterAgents();
+      showToast(enabled ? '已启用 ' + name : '已停用 ' + name);
+    });
+  });
+
+  document.querySelectorAll('[data-agent-delete]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var card = btn.closest('.agent-card');
+      if (!card) return;
+      var nameEl = card.querySelector('.agent-name');
+      var name = nameEl ? nameEl.textContent : '该智能体';
+      openConfirm('删除智能体？', '将从注册表移除「' + name + '」，其技能不再出现在工具目录；历史任务记录保留。', function () {
+        card.remove();
+        updateAgentStats();
+        filterAgents();
+        showToast('已删除 ' + name);
+      }, '删除智能体');
+    });
+  });
+
   var registerPanel = document.getElementById('registerPanel');
   var registerAgentBtn = document.getElementById('registerAgentBtn');
   if (registerAgentBtn) {
@@ -3306,6 +3838,9 @@ html[data-theme="dark"] .task-summary:hover{background:rgba(255,255,255,.03)}
       showToast('注册请求已提交（原型）');
     });
   }
+
+  updateAgentStats();
+  filterAgents();
 
   /* ---------- tasks ---------- */
   document.querySelectorAll('[data-task-filter]').forEach(function (btn) {
@@ -3373,7 +3908,7 @@ html[data-theme="dark"] .task-summary:hover{background:rgba(255,255,255,.03)}
   /* ---------- task result drawer ---------- */
   var RESULT_DATA = {
     '7c1e': {
-      sub: 'task_7c1e · editorial-reviewer · review_copy',
+      sub: 'task_7c1e · editorial-reviewer',
       html: `<div class="res-summary">
         <span class="st st-ok"><span class="dot is-ok"></span>completed</span>
         <span>artifact · 3 处措辞建议</span>
@@ -3402,7 +3937,7 @@ html[data-theme="dark"] .task-summary:hover{background:rgba(255,255,255,.03)}
       }
     },
     '9b2a': {
-      sub: 'task_9b2a · data-analyst · verify_numbers',
+      sub: 'task_9b2a · data-analyst',
       html: `<div class="res-summary">
         <span class="st st-ok"><span class="dot is-ok"></span>completed</span>
         <span>artifact · 12/12 数字核对</span>
@@ -3434,7 +3969,7 @@ html[data-theme="dark"] .task-summary:hover{background:rgba(255,255,255,.03)}
       }
     },
     '1a77': {
-      sub: 'task_1a77 · code-assistant · review_code',
+      sub: 'task_1a77 · code-assistant',
       html: `<div class="res-summary">
         <span class="st st-error"><span class="dot is-warn"></span>failed</span>
         <span>task_1a77 · code-assistant</span>
@@ -3444,7 +3979,7 @@ html[data-theme="dark"] .task-summary:hover{background:rgba(255,255,255,.03)}
         <h3>错误上下文</h3>
         <dl class="kv">
           <dt>任务</dt><dd class="mono">task_1a77</dd>
-          <dt>工具</dt><dd class="mono">agent_code_assistant__review_code</dd>
+          <dt>工具</dt><dd class="mono">send_message</dd>
           <dt>开始 / 失败</dt><dd>23:38:11 → 23:38:17</dd>
           <dt>可重试</dt><dd>是 · 可回到会话重新发起</dd>
         </dl>
@@ -3524,7 +4059,7 @@ html[data-theme="dark"] .task-summary:hover{background:rgba(255,255,255,.03)}
     skill: { label: '技能', options: ['weekly-report', 'knowledge-qa', 'translate'] },
     vector: { label: '检索', options: ['search_knowledge'] },
     tool: { label: '工具', options: ['tickets.aggregate', 'repo.diff', 'review.format_comment', 'knowledge.list_documents', 'knowledge.rebuild_index', 'knowledge.build_report'] },
-    a2a: { label: '远程智能体', options: ['data-analyst · verify_numbers', 'editorial-reviewer · review_copy', 'code-assistant · review_code'] },
+    a2a: { label: '远程智能体', options: ['data-analyst', 'editorial-reviewer', 'code-assistant'] },
     mcp: { label: 'MCP', options: ['slack · conversations.info', 'slack · post_message'] },
     approval: { label: '审批', options: ['发送审批', '写评论审批', '通用写操作审批'] }
   };
@@ -3537,8 +4072,8 @@ html[data-theme="dark"] .task-summary:hover{background:rgba(255,255,255,.03)}
         { type: 'skill', name: 'weekly-report' },
         { type: 'vector', name: 'search_knowledge' },
         { type: 'tool', name: 'tickets.aggregate' },
-        { type: 'a2a', name: 'data-analyst · verify_numbers' },
-        { type: 'a2a', name: 'editorial-reviewer · review_copy' },
+        { type: 'a2a', name: 'data-analyst' },
+        { type: 'a2a', name: 'editorial-reviewer' },
         { type: 'mcp', name: 'slack · conversations.info' },
         { type: 'approval', name: '发送审批' }
       ]
@@ -3548,7 +4083,7 @@ html[data-theme="dark"] .task-summary:hover{background:rgba(255,255,255,.03)}
       desc: '读取变更 diff，交给 code-assistant 审查，整理评论草稿；写入 PR 评论前需要人工审批。',
       steps: [
         { type: 'tool', name: 'repo.diff' },
-        { type: 'a2a', name: 'code-assistant · review_code' },
+        { type: 'a2a', name: 'code-assistant' },
         { type: 'tool', name: 'review.format_comment' },
         { type: 'approval', name: '写评论审批' }
       ]
@@ -3671,9 +4206,11 @@ html[data-theme="dark"] .task-summary:hover{background:rgba(255,255,255,.03)}
       return;
     }
     if (event.target.closest('[data-wf-delete]')) {
-      WORKFLOWS = WORKFLOWS.filter(function (item) { return item.id !== id; });
-      renderWorkflows();
-      showToast('已删除「' + wf.name + '」');
+      openConfirm('删除工作流？', '「' + wf.name + '」将被删除，历史运行记录保留；此操作不可撤销。', function () {
+        WORKFLOWS = WORKFLOWS.filter(function (item) { return item.id !== id; });
+        renderWorkflows();
+        showToast('已删除「' + wf.name + '」');
+      }, '删除工作流');
     }
   });
 
@@ -3687,6 +4224,7 @@ html[data-theme="dark"] .task-summary:hover{background:rgba(255,255,255,.03)}
   var wfEditorBody = wfEditor ? wfEditor.querySelector('.wf-editor-body') : null;
   var editingWfId = null;
   var editingSteps = [];
+  var wfDirty = false;
 
   function openWorkflowEditor(id) {
     editingWfId = id || null;
@@ -3704,6 +4242,7 @@ html[data-theme="dark"] .task-summary:hover{background:rgba(255,255,255,.03)}
       editingSteps = [{ type: 'skill', name: STEP_CATALOG.skill.options[0], approval: false }];
     }
     renderEditSteps();
+    wfDirty = false;
     wfEditorScrim.classList.add('is-open');
     wfEditor.classList.add('is-open');
     wfEditor.setAttribute('aria-hidden', 'false');
@@ -3717,6 +4256,16 @@ html[data-theme="dark"] .task-summary:hover{background:rgba(255,255,255,.03)}
     wfEditor.setAttribute('aria-hidden', 'true');
     editingWfId = null;
     editingSteps = [];
+    wfDirty = false;
+  }
+
+  function requestCloseWorkflowEditor() {
+    if (!wfEditor.classList.contains('is-open')) return;
+    if (!wfDirty) {
+      closeWorkflowEditor();
+      return;
+    }
+    openConfirm('放弃未保存的更改？', '工作流「' + (wfName.value.trim() || '未命名') + '」的修改尚未保存，关闭后将丢失。', closeWorkflowEditor, '放弃更改');
   }
 
   function stepTypeOptions(selected) {
@@ -3758,7 +4307,11 @@ html[data-theme="dark"] .task-summary:hover{background:rgba(255,255,255,.03)}
     }).join('');
   }
 
+  if (wfName) wfName.addEventListener('input', function () { wfDirty = true; });
+  if (wfDesc) wfDesc.addEventListener('input', function () { wfDirty = true; });
+
   wfEditSteps.addEventListener('change', function (event) {
+    wfDirty = true;
     var target = event.target;
     var row = target.closest('.wf-edit-step');
     if (!row) return;
@@ -3779,6 +4332,7 @@ html[data-theme="dark"] .task-summary:hover{background:rgba(255,255,255,.03)}
   wfEditSteps.addEventListener('click', function (event) {
     var btn = event.target.closest('[data-step-action]');
     if (!btn) return;
+    wfDirty = true;
     var row = btn.closest('.wf-edit-step');
     var index = Number(row.getAttribute('data-index'));
     var action = btn.getAttribute('data-step-action');
@@ -3800,6 +4354,7 @@ html[data-theme="dark"] .task-summary:hover{background:rgba(255,255,255,.03)}
     btn.addEventListener('click', function () {
       var type = btn.getAttribute('data-add-step');
       editingSteps.push({ type: type, name: STEP_CATALOG[type].options[0], approval: false });
+      wfDirty = true;
       renderEditSteps();
       if (wfEditorBody) wfEditorBody.scrollTop = wfEditorBody.scrollHeight;
     });
@@ -3809,9 +4364,9 @@ html[data-theme="dark"] .task-summary:hover{background:rgba(255,255,255,.03)}
     openWorkflowEditor(null);
   });
 
-  document.getElementById('closeWfEditor').addEventListener('click', closeWorkflowEditor);
-  document.getElementById('cancelWfEditor').addEventListener('click', closeWorkflowEditor);
-  wfEditorScrim.addEventListener('click', closeWorkflowEditor);
+  document.getElementById('closeWfEditor').addEventListener('click', requestCloseWorkflowEditor);
+  document.getElementById('cancelWfEditor').addEventListener('click', requestCloseWorkflowEditor);
+  wfEditorScrim.addEventListener('click', requestCloseWorkflowEditor);
 
   document.getElementById('saveWfEditor').addEventListener('click', function () {
     var name = wfName.value.trim();
@@ -3852,7 +4407,7 @@ html[data-theme="dark"] .task-summary:hover{background:rgba(255,255,255,.03)}
   });
 
   document.addEventListener('keydown', function (event) {
-    if (event.key === 'Escape') closeWorkflowEditor();
+    if (event.key === 'Escape' && !confirmDialog.classList.contains('is-open')) requestCloseWorkflowEditor();
   });
 
   renderWorkflows();

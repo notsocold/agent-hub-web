@@ -6,7 +6,8 @@
 
 > **当前状态：M0 结构初始化。**
 > 已用 create-vue（`--bare`）生成 Vue 工程配置与最小入口，并确定目录规划；**没有实现任何页面、路由、请求层或业务代码，未安装依赖**。
-> 需求还在细化，后续在独立工作区继续。
+> 另有单文件 HTML 原型（v7 工作台 / v8 管理控制台），见 [docs/prototypes](docs/prototypes/README.md)；原型只用于设计评审，不属于 M0 代码实现。
+> 原型已整理为后端交接包，见 [docs/handoff](docs/handoff/README.md)；其中包含契约增量、工作流/管理端方案、工作包与 fixtures。
 
 ## 1. 规划定位
 
@@ -122,9 +123,14 @@ pnpm format       # Prettier
 | [API 对接](docs/api.md) | Axios/SSE 用法、认证、错误、类型生成（设计稿） |
 | [开发指南](docs/development.md) | 环境、命令、规范、新增页面步骤 |
 | [路线图](docs/roadmap.md) | 与后端对齐的 M1–M6 前端任务 |
+| [HTML 原型索引](docs/prototypes/README.md) | v7 工作台 / v7 页面样例 / v8 管理控制台 |
+| [原型自检报告](docs/prototypes/review-2026-11-08.md) | 前后端契约对照、可行性风险、已修复问题与待补契约 |
+| [后端交接包](docs/handoff/README.md) | 契约增量、工作流/管理端方案、后端工作包与联调 fixtures |
 
 ## 7. 与后端的关系
 
 - 后端契约：[agent-hub/docs/api.md](../../PythonProjects/agent-hub/docs/api.md)、[A2A 设计](../../PythonProjects/agent-hub/docs/a2a.md)；
-- 后端当前同样处于 M0 结构初始化，未实现接口；
+- 后端当前同样处于 M0 结构初始化，未实现接口；A2A 只有设计稿；
+- 原型中工作流、v8 管理后台的 RBAC/菜单/字典/审计查询、模型/推理等级、附件上传、知识库选择等仍缺后端契约，详见[自检报告](docs/prototypes/review-2026-11-08.md)；
+- **后端开发交接**：字段级契约增量、工作流与管理端方案、BE-00–BE-14 工作包、SSE/fixtures 见[交接包](docs/handoff/README.md)；
 - 建议先确认需求与页面范围，再同步推进两端接口契约。
