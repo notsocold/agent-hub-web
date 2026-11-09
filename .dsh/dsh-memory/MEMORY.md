@@ -5,7 +5,7 @@
 
 Project: `/home/zhaodan/work/NodeJsProjects/agent-hub-web`
 
-Active topics: 15
+Active topics: 17
 
 - [agent-hub-web 当前实现与 v7 原型有差距，视觉对齐拆为独立 P0–P3 工作包](m_6f21d7a9-agent-hub-web-当前实现与-v7-原型有差距-视觉对齐拆为独立-p0.md) — M1 实现只做到结构近似、视觉未收口，已分类为「呈现型欠账」与「功能型里程碑」，并提议把还原原型作为独立工作包先做 P0+P1。 · `decision` · importance 4 · 2026-11-09
 - [UI 混合策略：Element Plus 做通用件、对话区自研；降级不造假](m_c422d95c-ui-混合策略-element-plus-做通用件-对话区自研-降级不造假.md) — 通用交互用 Element Plus，对话时间线/过程卡片/审批卡/输入栏按原型自研；未接入能力统一提示后续里程碑而不做本地假成功。 · `decision` · importance 4 · 2026-11-09
@@ -17,6 +17,8 @@ Active topics: 15
 - [agent-hub-web v8 管理员控制台（独立管理会话原型）](m_e70f698d-agent-hub-web-v8-管理员控制台-独立管理会话原型.md) — v8 管理员控制台独立为 ui-v8-admin.html：深墨管理侧栏 + 概览/用户/角色权限/菜单/字典/审计/系统设置七页，v7 工作台不出现管理员入口。 · `decision` · importance 4 · 2026-11-05
 - [输入框「@」只用于选择文件，上下文能力统一收进「+」菜单](m_93398223-输入框-只用于选择文件-上下文能力统一收进-菜单.md) — 用户明确：@ 是文件选择用途，不用于选择智能体；附件、技能、工作流、知识库等显式选择统一收进输入栏「+」上下文菜单。 · `decision` · importance 4 · 2026-11-05
 - [agent-hub-web 原型 v7：工作流管理页 + 输入区「+」菜单 + 模型/推理等级](m_6855443e-agent-hub-web-原型-v7-工作流管理页-输入区-菜单-模型-推理等.md) — v7 新增工作流管理页与可配置步骤编辑器，重做对话输入区为「+」上下文菜单（附件/技能/工作流/知识库）和右侧模型/推理等级选择，并打通工作流在对话中的调用。 · `decision` · importance 4 · 2026-11-05
+- [agent-hub-web：DSH 运行态已加入 .gitignore 并移出索引](m_54f277cf-agent-hub-web-dsh-运行态已加入-gitignore-并移出索引.md) — DSH 持续写入的 .dsh/sessions/ 与 .dsh/workspace-session.json 已加入 .gitignore 并从版本库移除，本地文件保留。 · `project` · importance 3 · 2026-11-09
+- [master 迁移采用 ff-only 快进合并，保留 14 个 M1 提交历史](m_35ab530a-master-迁移采用-ff-only-快进合并-保留-14-个-m1-提交历史.md) — 把 feat/m1-chat-workbench 迁到 master 时选择快进合并而非 squash/rebase，完整保留提交历史，推送由用户自己完成。 · `decision` · importance 3 · 2026-11-09
 - [本机没有 Chromium，HTML 原型只能做静态校验，需用户自己在浏览器看渲染](m_5d920272-本机没有-chromium-html-原型只能做静态校验-需用户自己在浏览器看渲.md) — 该开发机未安装 Chromium，无法对生成的 HTML 原型截图做像素级检查，只能做标签配对/重复 id/CSS 括号/JS 语法/DOM id 引用等静态校验，并把实际渲染确认交给用户在浏览器打开。 · `reference` · importance 3 · 2026-11-09
 - [agent-hub-web 后续里程碑与真实后端联调待办](m_deebfa8e-agent-hub-web-后续里程碑与真实后端联调待办.md) — M1 前端已完成，待真实后端启动后复验 SSE/停止/审批恢复/字段一致性，之后按 M1.5、M2、M4、M5+ 推进。 · `todo` · importance 3 · 2026-11-09
 - [待用户拍板：交接包 D1–D8 八项决策](m_d505a964-待用户拍板-交接包-d1-d8-八项决策.md) — 后端交接包遗留 8 项决策待用户拍板，其中 D1/D2/D7/D8 直接影响表结构与里程碑，需在 M1 编码前定。 · `todo` · importance 3 · 2026-11-08
