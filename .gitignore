@@ -38,3 +38,9 @@ __screenshots__/
 
 # Vite
 *.timestamp-*-*.mjs
+
+# DSH workspace-session machine-local index and transient artifacts
+.dsh/workspace-session.json
+.dsh/sessions/**/session.lock
+.dsh/sessions/**/*.tmp
+.dsh/sessions/.backup/
