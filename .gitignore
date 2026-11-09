@@ -42,3 +42,8 @@ __screenshots__/
 # DSH 本机会话与运行态数据：对话/工具输出可能含密钥与隐私，只留本地，绝不入库
 .dsh/sessions/
 .dsh/workspace-session.json
+
+# DSH workspace-session (managed by dsh-workspace-session)
+.dsh/sessions/**/session.lock
+.dsh/sessions/**/*.tmp
+.dsh/sessions/.backup/
