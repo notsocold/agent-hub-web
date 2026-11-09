@@ -1,24 +1,77 @@
 <script setup lang="ts">
-import { RouterView } from 'vue-router'
+import { ref } from 'vue'
+import { RouterView, useRoute, useRouter } from 'vue-router'
+import { ElMessageBox } from 'element-plus'
+
+import SideNav from '@/components/layout/SideNav.vue'
+import { useMediaQuery } from '@/composables/useMediaQuery'
+import { useTheme } from '@/composables/useTheme'
+import { useAuthStore } from '@/stores/auth'
+
+const route = useRoute()
+const router = useRouter()
+const auth = useAuthStore()
+const { theme, toggle } = useTheme()
+const isMobile = useMediaQuery('(max-width: 900px)')
+
+const collapsed = ref(false)
+const mobileOpen = ref(false)
+
+function openSettings(): void {
+  mobileOpen.value = false
+  void router.push({ name: 'settings' })
+}
+
+async function logout(): Promise<void> {
+  try {
+    await ElMessageBox.confirm('退出后需要重新登录，未发送的内容不会保留。', '退出登录', {
+      confirmButtonText: '退出',
+      cancelButtonText: '取消',
+      type: 'warning',
+    })
+  } catch {
+    return
+  }
+  await auth.logout()
+  await router.replace({ name: 'login' })
+}
 </script>
 
 <template>
-  <div class="app-shell">
-    <aside class="app-sidebar" aria-label="主导航">
-      <div class="brand">
-        <span class="brand-mark" aria-hidden="true">A</span>
-        <span>Agent Hub</span>
-      </div>
-      <nav class="nav">
-        <RouterLink to="/chat" class="nav-item">对话</RouterLink>
-        <RouterLink to="/workflows" class="nav-item">工作流</RouterLink>
-        <RouterLink to="/agents" class="nav-item">智能体</RouterLink>
-        <RouterLink to="/tasks" class="nav-item">任务</RouterLink>
-        <RouterLink to="/knowledge" class="nav-item">知识库</RouterLink>
-      </nav>
-    </aside>
+  <div class="app-shell" :class="{ 'is-collapsed': collapsed && !isMobile }">
+    <SideNav
+      :collapsed="collapsed"
+      :mobile="isMobile"
+      :open="mobileOpen"
+      :user="auth.user"
+      :theme="theme"
+      @toggle="collapsed = !collapsed"
+      @navigate="mobileOpen = false"
+      @settings="openSettings"
+      @toggle-theme="toggle"
+      @logout="logout"
+    />
+
+    <div
+      v-if="isMobile && mobileOpen"
+      class="scrim"
+      aria-hidden="true"
+      @click="mobileOpen = false"
+    ></div>
+
     <main class="app-main">
-      <RouterView />
+      <header v-if="isMobile" class="mobile-bar">
+        <button class="mobile-menu" type="button" aria-label="打开导航" @click="mobileOpen = true">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M4 7h16M4 12h16M4 17h16" />
+          </svg>
+        </button>
+        <span class="mobile-title">{{ route.meta.title }}</span>
+      </header>
+
+      <div class="app-content">
+        <RouterView />
+      </div>
     </main>
   </div>
 </template>
@@ -29,66 +82,76 @@ import { RouterView } from 'vue-router'
   grid-template-columns: var(--sidebar-w) minmax(0, 1fr);
   height: 100dvh;
   min-height: 0;
+  transition: grid-template-columns 0.22s ease;
 }
 
-.app-sidebar {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 12px;
-  background: var(--paper-2);
-  border-right: 1px solid var(--line);
-}
-
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  height: 40px;
-  font-weight: 650;
-}
-
-.brand-mark {
-  display: grid;
-  place-items: center;
-  width: 24px;
-  height: 24px;
-  border-radius: 6px;
-  background: var(--btn-bg);
-  color: var(--btn-fg);
-  font-family: var(--font-mono);
-  font-size: 12px;
-}
-
-.nav {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.nav-item {
-  padding: 7px 10px;
-  border-radius: 6px;
-  color: var(--ink-2);
-  font-size: 13px;
-}
-
-.nav-item:hover {
-  background: var(--surface-2);
-  color: var(--ink);
-}
-
-.nav-item.router-link-active {
-  background: var(--surface);
-  color: var(--ink);
-  font-weight: 600;
-  box-shadow: var(--shadow-sm);
+.app-shell.is-collapsed {
+  grid-template-columns: var(--sidebar-rail) minmax(0, 1fr);
 }
 
 .app-main {
+  display: flex;
+  flex-direction: column;
   min-width: 0;
   min-height: 0;
   overflow: hidden;
   background: var(--paper);
+}
+
+.app-content {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.mobile-bar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 10px;
+  height: 48px;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--line);
+  background: var(--paper);
+}
+
+.mobile-menu {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--surface);
+  color: var(--ink-2);
+}
+
+.mobile-menu svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+}
+
+.mobile-title {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 25;
+  background: rgba(20, 27, 32, 0.42);
+}
+
+@media (max-width: 900px) {
+  .app-shell,
+  .app-shell.is-collapsed {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 </style>
