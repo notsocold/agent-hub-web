@@ -11,12 +11,30 @@ export {}
 /* prettier-ignore */
 declare module 'vue' {
   export interface GlobalComponents {
+    A2ACard: typeof import('./components/chat/cards/A2ACard.vue')['default']
+    AccountMenu: typeof import('./components/layout/AccountMenu.vue')['default']
+    ApprovalCard: typeof import('./components/chat/cards/ApprovalCard.vue')['default']
+    ChatComposer: typeof import('./components/chat/ChatComposer.vue')['default']
+    ConversationItem: typeof import('./components/chat/ConversationItem.vue')['default']
+    ConversationSidebar: typeof import('./components/chat/ConversationSidebar.vue')['default']
     ElButton: typeof import('element-plus/es')['ElButton']
     ElConfigProvider: typeof import('element-plus/es')['ElConfigProvider']
     ElForm: typeof import('element-plus/es')['ElForm']
     ElFormItem: typeof import('element-plus/es')['ElFormItem']
     ElInput: typeof import('element-plus/es')['ElInput']
+    MarkdownView: typeof import('./components/common/MarkdownView.vue')['default']
+    MessageBubble: typeof import('./components/chat/MessageBubble.vue')['default']
+    MessageList: typeof import('./components/chat/MessageList.vue')['default']
+    NoticeCard: typeof import('./components/chat/cards/NoticeCard.vue')['default']
+    ProcessCardShell: typeof import('./components/chat/cards/ProcessCardShell.vue')['default']
+    ProcessTimeline: typeof import('./components/chat/ProcessTimeline.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
+    RunTraceDrawer: typeof import('./components/chat/RunTraceDrawer.vue')['default']
+    SideNav: typeof import('./components/layout/SideNav.vue')['default']
+    SkillCard: typeof import('./components/chat/cards/SkillCard.vue')['default']
+    ThinkingCard: typeof import('./components/chat/cards/ThinkingCard.vue')['default']
+    ToolCard: typeof import('./components/chat/cards/ToolCard.vue')['default']
+    WorkflowStepCard: typeof import('./components/chat/cards/WorkflowStepCard.vue')['default']
   }
 }

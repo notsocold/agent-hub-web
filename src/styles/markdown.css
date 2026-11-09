@@ -1,0 +1,186 @@
+/* Markdown 正文与代码高亮；v-html 内容需要全局样式。 */
+.markdown > *:first-child {
+  margin-top: 0;
+}
+
+.markdown > *:last-child {
+  margin-bottom: 0;
+}
+
+.markdown h1,
+.markdown h2,
+.markdown h3,
+.markdown h4 {
+  margin: 18px 0 8px;
+  font-weight: 650;
+  line-height: 1.35;
+  letter-spacing: -0.015em;
+}
+
+.markdown h1 {
+  font-size: 20px;
+}
+
+.markdown h2 {
+  font-size: 17px;
+}
+
+.markdown h3 {
+  font-size: 15px;
+}
+
+.markdown h4 {
+  font-size: 14px;
+}
+
+.markdown p {
+  margin: 8px 0;
+}
+
+.markdown ul,
+.markdown ol {
+  margin: 8px 0;
+  padding-left: 22px;
+}
+
+.markdown ul {
+  list-style: disc;
+}
+
+.markdown ol {
+  list-style: decimal;
+}
+
+.markdown li {
+  margin: 3px 0;
+}
+
+.markdown li::marker {
+  color: var(--ink-3);
+}
+
+.markdown blockquote {
+  margin: 10px 0;
+  padding: 6px 12px;
+  border-left: 3px solid var(--line);
+  color: var(--ink-2);
+  background: var(--surface-2);
+  border-radius: 0 6px 6px 0;
+}
+
+.markdown a {
+  color: var(--prussian);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.markdown code {
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--surface-2);
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+}
+
+.markdown pre.code-block {
+  margin: 12px 0;
+  padding: 12px 14px;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-2);
+}
+
+.markdown pre.code-block code {
+  padding: 0;
+  background: none;
+  font-size: 12px;
+  line-height: 1.65;
+}
+
+.markdown table {
+  width: 100%;
+  margin: 12px 0;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+
+.markdown th,
+.markdown td {
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  text-align: left;
+}
+
+.markdown th {
+  background: var(--surface-2);
+  font-weight: 600;
+}
+
+.markdown hr {
+  margin: 16px 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+}
+
+.markdown img {
+  max-width: 100%;
+  border-radius: 6px;
+}
+
+/* highlight.js 常用 token 配色（明暗各一套） */
+.markdown .hljs-comment,
+.markdown .hljs-quote {
+  color: var(--ink-3);
+  font-style: italic;
+}
+
+.markdown .hljs-keyword,
+.markdown .hljs-selector-tag,
+.markdown .hljs-literal {
+  color: #8c4a7a;
+}
+
+.markdown .hljs-string,
+.markdown .hljs-attr,
+.markdown .hljs-template-tag {
+  color: #3d6a4e;
+}
+
+.markdown .hljs-number,
+.markdown .hljs-symbol,
+.markdown .hljs-bullet {
+  color: #a9741f;
+}
+
+.markdown .hljs-title,
+.markdown .hljs-function,
+.markdown .hljs-section {
+  color: #17465e;
+}
+
+.markdown .hljs-type,
+.markdown .hljs-built_in {
+  color: #2e746e;
+}
+
+html[data-theme='dark'] .markdown .hljs-keyword,
+html[data-theme='dark'] .markdown .hljs-selector-tag,
+html[data-theme='dark'] .markdown .hljs-literal {
+  color: #d3a3c4;
+}
+
+html[data-theme='dark'] .markdown .hljs-string,
+html[data-theme='dark'] .markdown .hljs-attr {
+  color: #8dbba0;
+}
+
+html[data-theme='dark'] .markdown .hljs-number,
+html[data-theme='dark'] .markdown .hljs-symbol {
+  color: #d4a04a;
+}
+
+html[data-theme='dark'] .markdown .hljs-title,
+html[data-theme='dark'] .markdown .hljs-function {
+  color: #93bed1;
+}
