@@ -5,10 +5,10 @@
 
 Project: `/home/zhaodan/work/NodeJsProjects/agent-hub-web`
 
-Active topics: 25
+Active topics: 26
 
-- [agent-hub-web 的 DSH 会话：脱敏原生 zstd 与工作区快照后随仓库提交](m_54f277cf-agent-hub-web-的-dsh-会话-脱敏原生-zstd-与工作区快照后.md) — 会话快照不整目录忽略，而是用 scripts/dsh-session-sanitize.mjs 把原生 zstd 与工作区快照用同一规则脱敏后再提交（两边文本必须逐字节一致，否则插件判分叉）。 · `reference` · importance 4 · 2026-11-09
-- [事故善后待办：活动会话脱敏、Key 轮换、其他工作区](m_b5975052-事故善后待办-活动会话脱敏-key-轮换-其他工作区.md) — 会话脱敏后续：当前活动会话待会话结束后脱敏；4 把 key 待轮换；其他工作区会话与公开历史待决定。 · `todo` · importance 4 · 2026-11-09
+- [事故善后：活动会话已脱敏，剩余 Key 轮换与其他工作区](m_b5975052-事故善后-活动会话已脱敏-剩余-key-轮换与其他工作区.md) — 活动会话已脱敏并推送；剩余：轮换 4 把 key、清理其他工作区会话、公开历史清理、钩子跨机安装。 · `todo` · importance 4 · 2026-11-09
+- [agent-hub-web 的 DSH 会话：脱敏原生 zstd 与工作区快照后随仓库提交](m_54f277cf-agent-hub-web-的-dsh-会话-脱敏原生-zstd-与工作区快照后.md) — 会话快照不整目录忽略，用 scripts/dsh-session-sanitize.mjs 同一规则脱敏原生 zstd 与工作区快照后提交，脚本带并发写保护可在 dsh web 运行时安全处理活动会话。 · `reference` · importance 4 · 2026-11-09
 - [agent-hub M1.5/M2 真实字段差异与前端归一化](m_df7d70bd-agent-hub-m1-5-m2-真实字段差异与前端归一化.md) — 真实后端与 contract-delta 草稿的字段差异，以及 M1.5/M2 对齐与后端交接文档位置。 · `reference` · importance 4 · 2026-11-09
 - [agent-hub-web 真实后端联调环境与限流约定](m_25168cdb-agent-hub-web-真实后端联调环境与限流约定.md) — agent-hub-web 真实联调：8000 实例 + Vite 代理、dev server 仅监听 127.0.0.1，M1/M1.5/M2 各自有冒烟与真实用例脚本。 · `reference` · importance 4 · 2026-11-09
 - [agent-hub 后端 M1.5/M2 遗留限制与后续里程碑归属](m_7c140300-agent-hub-后端-m1-5-m2-遗留限制与后续里程碑归属.md) — M1.5/M2 已完成但入站 A2A Server、写操作 RBAC、单实例 HITL registry 等留给后续里程碑。 · `project` · importance 4 · 2026-11-09
@@ -26,6 +26,7 @@ Active topics: 25
 - [agent-hub-web v8 管理员控制台（独立管理会话原型）](m_e70f698d-agent-hub-web-v8-管理员控制台-独立管理会话原型.md) — v8 管理员控制台独立为 ui-v8-admin.html：深墨管理侧栏 + 概览/用户/角色权限/菜单/字典/审计/系统设置七页，v7 工作台不出现管理员入口。 · `decision` · importance 4 · 2026-11-05
 - [输入框「@」只用于选择文件，上下文能力统一收进「+」菜单](m_93398223-输入框-只用于选择文件-上下文能力统一收进-菜单.md) — 用户明确：@ 是文件选择用途，不用于选择智能体；附件、技能、工作流、知识库等显式选择统一收进输入栏「+」上下文菜单。 · `decision` · importance 4 · 2026-11-05
 - [agent-hub-web 原型 v7：工作流管理页 + 输入区「+」菜单 + 模型/推理等级](m_6855443e-agent-hub-web-原型-v7-工作流管理页-输入区-菜单-模型-推理等.md) — v7 新增工作流管理页与可配置步骤编辑器，重做对话输入区为「+」上下文菜单（附件/技能/工作流/知识库）和右侧模型/推理等级选择，并打通工作流在对话中的调用。 · `decision` · importance 4 · 2026-11-05
+- [agent-hub-web 的 DSH 会话脱敏钩子与脚本行为约定](m_fd58cf40-agent-hub-web-的-dsh-会话脱敏钩子与脚本行为约定.md) — 脱敏钩子只在提交前拦截、不自动改写；脚本以 stat 一致性校验保证活动会话可安全脱敏。 · `reference` · importance 3 · 2026-11-09
 - [agent-hub-web 公开仓库推送：沙箱无 HTTPS 凭据，改用 SSH remote](m_1108af97-agent-hub-web-公开仓库推送-沙箱无-https-凭据-改用-ssh.md) — agent-hub-web 是 public 仓库，Agent 沙箱内没有 HTTPS git 凭据助手，push 需用 SSH 地址而非 https。 · `reference` · importance 3 · 2026-11-09
 - [master 迁移采用 ff-only 快进合并，保留 14 个 M1 提交历史](m_35ab530a-master-迁移采用-ff-only-快进合并-保留-14-个-m1-提交历史.md) — 把 feat/m1-chat-workbench 迁到 master 时选择快进合并而非 squash/rebase，完整保留提交历史，推送由用户自己完成。 · `decision` · importance 3 · 2026-11-09
 - [本机没有 Chromium，HTML 原型只能做静态校验，需用户自己在浏览器看渲染](m_5d920272-本机没有-chromium-html-原型只能做静态校验-需用户自己在浏览器看渲.md) — 该开发机未安装 Chromium，无法对生成的 HTML 原型截图做像素级检查，只能做标签配对/重复 id/CSS 括号/JS 语法/DOM id 引用等静态校验，并把实际渲染确认交给用户在浏览器打开。 · `reference` · importance 3 · 2026-11-09
