@@ -276,6 +276,49 @@ class MockDb {
     }
   }
 
+  createApproval(input: {
+    run_id: string
+    conversation_id: string
+    conversation_title: string
+    tool_name: string
+    tool_display_name: string
+    source: string
+    executor: string
+    target: string
+    side_effect: string
+    risk: Approval['risk']
+    reason: string
+    payload: Record<string, unknown>
+  }): Approval {
+    const timestamp = new Date().toISOString()
+    const approval: Approval = {
+      id: crypto.randomUUID(),
+      run_id: input.run_id,
+      conversation_id: input.conversation_id,
+      conversation_title: input.conversation_title,
+      status: 'pending',
+      tool_name: input.tool_name,
+      tool_display_name: input.tool_display_name,
+      source: input.source,
+      executor: input.executor,
+      target: input.target,
+      side_effect: input.side_effect,
+      risk: input.risk,
+      reason: input.reason,
+      payload: input.payload,
+      payload_preview: JSON.stringify(input.payload),
+      expires_at: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+      created_at: timestamp,
+      decided_at: null,
+      decided_by: null,
+      decision_note: '',
+    }
+    this.approvals.unshift(approval)
+    const conversation = this.conversations.find((item) => item.id === input.conversation_id)
+    if (conversation) conversation.pending_approval_count += 1
+    return approval
+  }
+
   resolveApproval(
     id: string,
     decision: 'approve' | 'reject',
