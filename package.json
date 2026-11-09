@@ -18,7 +18,10 @@
     "smoke:real": "node scripts/smoke-real-backend.mjs",
     "test:real": "VITE_API_BASE_URL=http://127.0.0.1:8000/api/v1 VITE_USE_MOCK=false vitest run -c vitest.real.config.ts",
     "format": "prettier --write --experimental-cli src/",
-    "smoke:m15": "node scripts/smoke-m15-backend.mjs"
+    "smoke:m15": "node scripts/smoke-m15-backend.mjs",
+    "sessions:scan": "node scripts/dsh-session-sanitize.mjs",
+    "sessions:sanitize": "node scripts/dsh-session-sanitize.mjs --current-workspace --apply",
+    "sessions:check": "node scripts/dsh-session-sanitize.mjs --staged"
   },
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.2",
