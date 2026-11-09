@@ -152,6 +152,8 @@ function validateJsonl(text, label) {
 
 /** 读取明文 JSONL 并脱敏。 */
 async function sanitizePlainFile(file) {
+  const info = await stat(file)
+  const stamp = { size: info.size, mtimeMs: info.mtimeMs }
   const before = await readFile(file, 'utf8')
   const { text, counts } = redactText(before)
   const hits = Object.values(counts).reduce((a, b) => a + b, 0)
@@ -162,11 +164,13 @@ async function sanitizePlainFile(file) {
   if (Object.keys(again.counts).length > 0) {
     throw new Error(`${file}: redaction is not idempotent (${JSON.stringify(again.counts)})`)
   }
-  return { file, hits, counts, text, changed: true }
+  return { file, hits, counts, text, changed: true, stamp }
 }
 
 /** 读取 zstd 会话日志并脱敏。 */
 async function sanitizeZstdFile(file) {
+  const info = await stat(file)
+  const stamp = { size: info.size, mtimeMs: info.mtimeMs }
   const buf = await readFile(file)
   const frames = decodeZstdFrames(buf)
   let hits = 0
@@ -183,11 +187,18 @@ async function sanitizeZstdFile(file) {
   if (Object.keys(again.counts).length > 0) {
     throw new Error(`${file}: redaction is not idempotent (${JSON.stringify(again.counts)})`)
   }
-  return { file, hits, counts, buf: encodeZstdFrames(texts), changed: true }
+  return { file, hits, counts, buf: encodeZstdFrames(texts), changed: true, stamp }
 }
 
 /** 原子写回，写前备份。 */
 async function applyResult(result, backupDir) {
+  // 活动会话可能正在被 DSH 追加写入：写入前确认文件没有变化，避免覆盖丢事件
+  if (result.stamp !== undefined) {
+    const now = await stat(result.file)
+    if (now.size !== result.stamp.size || now.mtimeMs !== result.stamp.mtimeMs) {
+      throw new Error(`文件在脱敏期间被修改（可能是活动会话正在写入），已中止：${result.file}`)
+    }
+  }
   const rel = relative(process.cwd(), result.file)
   const backup = join(backupDir, rel.split(sep).join('__'))
   await mkdir(dirname(backup), { recursive: true })
