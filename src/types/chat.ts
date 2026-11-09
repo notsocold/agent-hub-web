@@ -389,6 +389,7 @@ export interface ChatState {
   process: ProcessItem[]
   streaming: boolean
   runId: string | null
+  currentAssistantId: string | null
   pendingApprovalId: string | null
   usage: Usage | null
   finishReason: string | null
