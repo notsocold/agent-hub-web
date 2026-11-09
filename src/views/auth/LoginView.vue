@@ -16,8 +16,8 @@ const errorText = ref('')
 const isMock = import.meta.env.VITE_USE_MOCK === 'true'
 
 const form = reactive({
-  email: 'you@example.com',
-  password: 'password123',
+  email: isMock ? 'you@example.com' : '',
+  password: isMock ? 'password123' : '',
 })
 
 const rules: FormRules = {

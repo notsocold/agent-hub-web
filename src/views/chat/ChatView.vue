@@ -61,7 +61,6 @@ async function loadConversation(id: string): Promise<void> {
 }
 
 onMounted(async () => {
-  void conversations.load()
   void system.load()
   model.value = system.defaultModel
   reasoningEffort.value = system.defaultReasoningEffort
