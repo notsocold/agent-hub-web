@@ -14,10 +14,30 @@ const system = useSystemStore()
 const capabilityItems = computed(() => {
   const capabilities = system.capabilities
   return [
-    { key: 'instructions', title: '指令', description: '生效指令与用户覆盖', enabled: capabilities.instructions },
-    { key: 'memories', title: '长期记忆', description: '按 kind / 来源管理记忆', enabled: capabilities.memories },
-    { key: 'skills', title: '技能', description: '系统与用户技能启停、导入', enabled: capabilities.skills },
-    { key: 'mcp', title: 'MCP', description: '服务器启停、凭据与工具发现', enabled: capabilities.mcp },
+    {
+      key: 'instructions',
+      title: '指令',
+      description: '生效指令与用户覆盖',
+      enabled: capabilities.instructions,
+    },
+    {
+      key: 'memories',
+      title: '长期记忆',
+      description: '按 kind / 来源管理记忆',
+      enabled: capabilities.memories,
+    },
+    {
+      key: 'skills',
+      title: '技能',
+      description: '系统与用户技能启停、导入',
+      enabled: capabilities.skills,
+    },
+    {
+      key: 'mcp',
+      title: 'MCP',
+      description: '服务器启停、凭据与工具发现',
+      enabled: capabilities.mcp,
+    },
   ]
 })
 

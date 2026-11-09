@@ -41,6 +41,21 @@ function onEscape(event: KeyboardEvent): void {
   if (event.key === 'Escape') close()
 }
 
+function openSettings(): void {
+  emit('settings')
+  close()
+}
+
+function toggleTheme(): void {
+  emit('theme')
+  close()
+}
+
+function logout(): void {
+  emit('logout')
+  close()
+}
+
 onMounted(() => {
   document.addEventListener('click', onDocumentClick)
   document.addEventListener('keydown', onEscape)
@@ -83,19 +98,12 @@ onUnmounted(() => {
         </span>
       </div>
       <div class="sep"></div>
-      <button type="button" role="menuitem" class="menu-item" @click="emit('settings'); close()">
-        设置
-      </button>
-      <button type="button" role="menuitem" class="menu-item" @click="emit('theme'); close()">
+      <button type="button" role="menuitem" class="menu-item" @click="openSettings">设置</button>
+      <button type="button" role="menuitem" class="menu-item" @click="toggleTheme">
         {{ theme === 'dark' ? '切换到浅色' : '切换到深色' }}
       </button>
       <div class="sep"></div>
-      <button
-        type="button"
-        role="menuitem"
-        class="menu-item is-danger"
-        @click="emit('logout'); close()"
-      >
+      <button type="button" role="menuitem" class="menu-item is-danger" @click="logout">
         退出登录
       </button>
       <p class="version mono">v0.1.0 · M1</p>

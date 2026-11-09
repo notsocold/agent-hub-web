@@ -105,7 +105,9 @@ class MockDb {
     const status = query.status && query.status !== 'all' ? query.status : null
     const filtered = this.conversations
       .filter((conversation) => (status ? conversation.status === status : true))
-      .filter((conversation) => (keyword ? conversation.title.toLowerCase().includes(keyword) : true))
+      .filter((conversation) =>
+        keyword ? conversation.title.toLowerCase().includes(keyword) : true,
+      )
       .sort((a, b) => {
         const left = a.last_message_at ? Date.parse(a.last_message_at) : 0
         const right = b.last_message_at ? Date.parse(b.last_message_at) : 0
@@ -177,10 +179,7 @@ class MockDb {
     return true
   }
 
-  listMessages(
-    conversationId: string,
-    query: PageQuery,
-  ): PageResult<ChatMessage> | null {
+  listMessages(conversationId: string, query: PageQuery): PageResult<ChatMessage> | null {
     const all = this.messages[conversationId]
     if (!all) return null
     const limit = Math.min(Math.max(query.limit ?? 20, 1), 100)
@@ -233,9 +232,7 @@ class MockDb {
       .filter((event) => (query.after_seq ? event.seq > query.after_seq : true))
       .filter((event) => (allowed.length ? allowed.includes(event.type) : true))
       .filter((event) =>
-        keyword
-          ? `${event.title} ${event.subtitle}`.toLowerCase().includes(keyword)
-          : true,
+        keyword ? `${event.title} ${event.subtitle}`.toLowerCase().includes(keyword) : true,
       )
     return paginate(filtered, query)
   }
@@ -319,11 +316,7 @@ class MockDb {
     return approval
   }
 
-  resolveApproval(
-    id: string,
-    decision: 'approve' | 'reject',
-    note = '',
-  ): Approval | null {
+  resolveApproval(id: string, decision: 'approve' | 'reject', note = ''): Approval | null {
     const approval = this.approvals.find((item) => item.id === id)
     if (!approval) return null
     if (approval.status !== 'pending') {
@@ -334,9 +327,7 @@ class MockDb {
     approval.decided_by = { id: this.user.id, display_name: this.user.display_name }
     approval.decision_note = note
 
-    const conversation = this.conversations.find(
-      (item) => item.id === approval.conversation_id,
-    )
+    const conversation = this.conversations.find((item) => item.id === approval.conversation_id)
     if (conversation && conversation.pending_approval_count > 0) {
       conversation.pending_approval_count -= 1
     }
@@ -360,12 +351,8 @@ class MockDb {
   ): PageResult<Agent> {
     const keyword = query.q?.trim().toLowerCase() ?? ''
     const filtered = this.agents
-      .filter((agent) =>
-        query.health_status ? agent.health_status === query.health_status : true,
-      )
-      .filter((agent) =>
-        query.enabled ? String(agent.enabled) === query.enabled : true,
-      )
+      .filter((agent) => (query.health_status ? agent.health_status === query.health_status : true))
+      .filter((agent) => (query.enabled ? String(agent.enabled) === query.enabled : true))
       .filter((agent) =>
         keyword ? `${agent.name} ${agent.slug}`.toLowerCase().includes(keyword) : true,
       )
@@ -468,7 +455,9 @@ class MockDb {
               expires_at: null,
             }
           : null,
-      timeline: [{ state: task.state, at: task.updated_at, duration_ms: task.duration_ms, note: '' }],
+      timeline: [
+        { state: task.state, at: task.updated_at, duration_ms: task.duration_ms, note: '' },
+      ],
       started_at: task.created_at,
       finished_at: task.state === 'completed' ? task.updated_at : null,
     }
@@ -481,9 +470,7 @@ class MockDb {
     const filtered = this.knowledgeDocuments
       .filter((document) => (query.category ? document.category === query.category : true))
       .filter((document) => (query.status ? document.status === query.status : true))
-      .filter((document) =>
-        keyword ? document.title.toLowerCase().includes(keyword) : true,
-      )
+      .filter((document) => (keyword ? document.title.toLowerCase().includes(keyword) : true))
       .sort((a, b) => Date.parse(b.updated_at) - Date.parse(a.updated_at))
 
     return {

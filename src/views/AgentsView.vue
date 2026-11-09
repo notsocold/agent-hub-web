@@ -54,10 +54,12 @@ const filtered = computed(() =>
 
 const total = computed(() => stats.value.total ?? items.value.length)
 const healthy = computed(
-  () => stats.value.healthy ?? items.value.filter((item) => item.health_status === 'healthy').length,
+  () =>
+    stats.value.healthy ?? items.value.filter((item) => item.health_status === 'healthy').length,
 )
 const degraded = computed(
-  () => stats.value.degraded ?? items.value.filter((item) => item.health_status === 'degraded').length,
+  () =>
+    stats.value.degraded ?? items.value.filter((item) => item.health_status === 'degraded').length,
 )
 const disabled = computed(
   () => stats.value.disabled ?? items.value.filter((item) => !item.enabled).length,
@@ -115,7 +117,9 @@ onMounted(load)
     >
       <template #actions>
         <button type="button" class="btn" @click="notReady('刷新 Agent Card')">刷新 Card</button>
-        <button type="button" class="btn primary" @click="notReady('注册智能体')">注册智能体</button>
+        <button type="button" class="btn primary" @click="notReady('注册智能体')">
+          注册智能体
+        </button>
       </template>
     </PageHeader>
 
@@ -163,7 +167,10 @@ onMounted(load)
         </el-table-column>
         <el-table-column label="健康" width="108">
           <template #default="{ row }">
-            <StatusBadge :tone="healthTone(row.health_status)" :label="healthLabel(row.health_status)" />
+            <StatusBadge
+              :tone="healthTone(row.health_status)"
+              :label="healthLabel(row.health_status)"
+            />
           </template>
         </el-table-column>
         <el-table-column prop="skill_count" label="技能" width="72" />

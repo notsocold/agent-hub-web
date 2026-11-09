@@ -102,7 +102,9 @@ function durationOf(item: ProcessItem): string {
           <dl>
             <div>
               <dt>状态</dt>
-              <dd>{{ streaming ? '运行中' : finishReason === 'canceled' ? '已取消' : '已结束' }}</dd>
+              <dd>
+                {{ streaming ? '运行中' : finishReason === 'canceled' ? '已取消' : '已结束' }}
+              </dd>
             </div>
             <div>
               <dt>Run ID</dt>

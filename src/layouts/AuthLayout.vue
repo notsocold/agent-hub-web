@@ -12,7 +12,8 @@
         <p class="eyebrow mono">MULTI-AGENT DISPATCH DESK</p>
         <h1>把对话、工具与远程智能体，<br />收进同一张工作台。</h1>
         <p class="lede">
-          主智能体负责调度，远程 Agent 负责专长；每一次工具调用、审批与产出，都留在同一条运行轨迹里。
+          主智能体负责调度，远程 Agent
+          负责专长；每一次工具调用、审批与产出，都留在同一条运行轨迹里。
         </p>
         <ul class="points">
           <li><span class="point-dot" data-kind="skill"></span>技能与 MCP 按需装配</li>
@@ -179,8 +180,7 @@ h1 {
 
   .form-pane {
     background:
-      radial-gradient(90% 60% at 50% 0%, var(--prussian-soft), transparent 70%),
-      var(--paper);
+      radial-gradient(90% 60% at 50% 0%, var(--prussian-soft), transparent 70%), var(--paper);
   }
 }
 </style>

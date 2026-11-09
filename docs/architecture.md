@@ -1,8 +1,8 @@
 # 前端架构
 
 - 项目：Agent Hub Web（`agent-hub-web`）
-- 状态：设计稿；当前仅有 create-vue 脚手架配置，页面与请求层未实现
-- 更新时间：2026-11-04
+- 状态：M1 已实现（默认 mock）；本文设计已落地，未实现部分见路线图
+- 更新时间：2026-11-09
 
 ## 1. 目标
 
@@ -40,8 +40,8 @@ flowchart TB
 
 ## 3. 分层职责
 
-> 下表是规划目标；当前仓库只有 `src/main.ts`、`src/App.vue`、`src/router/index.ts`，
-> 其余目录为空占位（`.gitkeep`），尚未创建对应实现。
+> 下表已按 M1 实现落地：`views/`、`components/`、`stores/`、`api/`、`types/`、
+> `composables/`、`layouts/` 均有对应代码；mock 数据层位于 `src/api/mock/`。
 
 | 层 | 目录 | 职责 | 禁止 |
 |---|---|---|---|

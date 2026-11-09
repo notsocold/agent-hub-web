@@ -1,5 +1,8 @@
 # M1 对话闭环 + 全站骨架 Implementation Plan
 
+> 状态：2026-11-09 已执行完成。`pnpm lint` / `type-check` / `test`（49 用例）/ `build` 均通过；
+> 真实后端联调与 M1.5+ 交互仍按路线图推进。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** 让 `agent-hub-web` 从 M0 空脚手架变成可独立演示、后端就绪后可一键切换真实接口的 M1 前端：登录/注册、应用布局、对话工作台（会话、SSE 流、过程卡片、审批、停止、历史），并搭好工作流/智能体/任务/知识库/设置页骨架。

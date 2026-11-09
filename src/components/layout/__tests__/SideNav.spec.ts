@@ -38,13 +38,7 @@ describe('SideNav', () => {
     const links = wrapper.findAllComponents(RouterLinkStub)
 
     expect(links).toHaveLength(5)
-    expect(links.map((link) => link.text())).toEqual([
-      '对话',
-      '工作流',
-      '智能体',
-      '任务',
-      '知识库',
-    ])
+    expect(links.map((link) => link.text())).toEqual(['对话', '工作流', '智能体', '任务', '知识库'])
     expect(links.map((link) => link.props('to'))).toEqual([
       { name: 'chat' },
       { name: 'workflows' },

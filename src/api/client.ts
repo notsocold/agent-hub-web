@@ -1,8 +1,4 @@
-import axios, {
-  type AxiosInstance,
-  type InternalAxiosRequestConfig,
-  type AxiosError,
-} from 'axios'
+import axios, { type AxiosInstance, type InternalAxiosRequestConfig, type AxiosError } from 'axios'
 
 import type { ApiErrorBody, AuthTokens } from '@/types'
 import { storage } from '@/utils/storage'
@@ -12,10 +8,7 @@ export class ApiRequestError extends Error {
   readonly status: number
   readonly requestId: string
 
-  constructor(
-    message: string,
-    options: { code: string; status: number; requestId?: string },
-  ) {
+  constructor(message: string, options: { code: string; status: number; requestId?: string }) {
     super(message)
     this.name = 'ApiRequestError'
     this.code = options.code
@@ -70,8 +63,7 @@ function toApiRequestError(error: unknown): ApiRequestError {
     const body = error.response?.data
     const code = body?.error?.code ?? (status === 0 ? 'network_error' : 'unknown_error')
     const message =
-      body?.error?.message ??
-      (status === 0 ? '网络异常，请稍后重试' : error.message || '请求失败')
+      body?.error?.message ?? (status === 0 ? '网络异常，请稍后重试' : error.message || '请求失败')
     const requestId = body?.error?.request_id ?? ''
     return new ApiRequestError(message, { code, status, requestId })
   }

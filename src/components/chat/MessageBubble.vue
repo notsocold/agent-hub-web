@@ -57,7 +57,9 @@ async function copy(text: string): Promise<void> {
               <RouterLink :to="{ name: 'knowledge', query: { q: citation.title } }">
                 <span class="index mono">[{{ citation.index }}]</span>
                 <span class="citation-title">{{ citation.title }}</span>
-                <span class="citation-meta">{{ citation.category }} · {{ citation.score.toFixed(2) }}</span>
+                <span class="citation-meta"
+                  >{{ citation.category }} · {{ citation.score.toFixed(2) }}</span
+                >
               </RouterLink>
             </li>
           </ol>

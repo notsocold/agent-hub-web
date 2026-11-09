@@ -179,7 +179,9 @@ export async function mockChatStream(
       capabilities: baseCapabilities(payload.knowledge_categories ?? []),
       artifacts: [],
       usage: { input_tokens: 1280, output_tokens: 320, reasoning_tokens: 96, total_tokens: 1600 },
-      error: isError ? { code: 'mock_stream_error', message: '演示用错误：模型返回异常。', retryable: true } : null,
+      error: isError
+        ? { code: 'mock_stream_error', message: '演示用错误：模型返回异常。', retryable: true }
+        : null,
       created_at: new Date().toISOString(),
     }
     mockDb.appendMessage(conversation.id, message)
@@ -331,22 +333,37 @@ export async function mockChatStream(
 
     if (!isApproval) {
       await play([
-        { event: 'message.delta', data: { message_id: assistantMessageId, delta: '## 结论\n\nQ3 共收到 ' }, delay: 180 },
         {
           event: 'message.delta',
-          data: { message_id: assistantMessageId, delta: '**128 条**工单，退款与物流类合计占 61%。\n\n' },
+          data: { message_id: assistantMessageId, delta: '## 结论\n\nQ3 共收到 ' },
+          delay: 180,
+        },
+        {
+          event: 'message.delta',
+          data: {
+            message_id: assistantMessageId,
+            delta: '**128 条**工单，退款与物流类合计占 61%。\n\n',
+          },
           delay: 140,
         },
         {
           event: 'message.delta',
-          data: { message_id: assistantMessageId, delta: '建议先更新售后 FAQ 的退款时限，再补充「吊牌保留」说明。' },
+          data: {
+            message_id: assistantMessageId,
+            delta: '建议先更新售后 FAQ 的退款时限，再补充「吊牌保留」说明。',
+          },
           delay: 200,
         },
       ])
       emit('message.done', {
         run_id: runId,
         message_id: assistantMessageId,
-        usage: { input_tokens: 6842, output_tokens: 436, reasoning_tokens: 128, total_tokens: 7278 },
+        usage: {
+          input_tokens: 6842,
+          output_tokens: 436,
+          reasoning_tokens: 128,
+          total_tokens: 7278,
+        },
         finish_reason: 'stop',
         model: payload.model ?? 'deepseek-chat',
         first_token_ms: 120,
@@ -479,23 +496,38 @@ export async function mockChatStream(
       emit('message.done', {
         run_id: runId,
         message_id: assistantMessageId,
-        usage: { input_tokens: 6842, output_tokens: 1236, reasoning_tokens: 642, total_tokens: 8078 },
+        usage: {
+          input_tokens: 6842,
+          output_tokens: 1236,
+          reasoning_tokens: 642,
+          total_tokens: 8078,
+        },
         finish_reason: 'stop',
         model: payload.model ?? 'deepseek-chat',
         first_token_ms: 120,
         duration_ms: 108000,
         active_duration_ms: 42000,
         citations: CITATIONS,
-        reasoning: { duration_ms: 12000, tokens: 642, summary: '先固定口径；数字交 data-analyst 核对；Slack 发布前必须审批。' },
+        reasoning: {
+          duration_ms: 12000,
+          tokens: 642,
+          summary: '先固定口径；数字交 data-analyst 核对；Slack 发布前必须审批。',
+        },
       })
-      saveAssistantMessage('已批准并发布到 #support-weekly。\n\n周报已归档，数字由 data-analyst 复核通过。', 'stop')
+      saveAssistantMessage(
+        '已批准并发布到 #support-weekly。\n\n周报已归档，数字由 data-analyst 复核通过。',
+        'stop',
+      )
       return
     }
 
     await play([
       {
         event: 'message.delta',
-        data: { message_id: assistantMessageId, delta: '已拒绝发布，周报草稿保留在会话中，未写入 Slack。' },
+        data: {
+          message_id: assistantMessageId,
+          delta: '已拒绝发布，周报草稿保留在会话中，未写入 Slack。',
+        },
         delay: 100,
       },
     ])

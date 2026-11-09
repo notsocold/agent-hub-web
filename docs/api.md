@@ -2,7 +2,8 @@
 
 后端契约以 [`agent-hub/docs/api.md`](../../../PythonProjects/agent-hub/docs/api.md) 为准；本文只写前端如何消费。
 
-> 当前前端处于 M0，`src/api/`、`src/types/` 均为空占位；本文中的文件与代码片段是后续实现的规划。
+> 前端已实现 `src/api/client.ts`、`src/api/<domain>.ts`、`src/types/` 与 `src/api/mock/`；
+> 开发环境默认 mock，联调时设置 `VITE_USE_MOCK=false`。
 
 ## 1. 地址与代理
 

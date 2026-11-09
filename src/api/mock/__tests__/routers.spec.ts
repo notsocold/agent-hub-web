@@ -8,7 +8,11 @@ const authHeaders = { authorization: 'Bearer mock-access-test' }
 function request(
   method: string,
   path: string,
-  options: { query?: Record<string, string>; body?: unknown; headers?: Record<string, string> } = {},
+  options: {
+    query?: Record<string, string>
+    body?: unknown
+    headers?: Record<string, string>
+  } = {},
 ): MockRequest {
   return {
     method,
@@ -34,8 +38,14 @@ describe('mock REST 路由', () => {
   })
 
   it('分页返回可用 cursor', async () => {
-    const first = await handleMockRequest(request('GET', '/conversations', { query: { limit: '2' } }))
-    const firstPage = first.data as { items: unknown[]; next_cursor: string | null; has_more: boolean }
+    const first = await handleMockRequest(
+      request('GET', '/conversations', { query: { limit: '2' } }),
+    )
+    const firstPage = first.data as {
+      items: unknown[]
+      next_cursor: string | null
+      has_more: boolean
+    }
     expect(firstPage.items).toHaveLength(2)
     expect(firstPage.has_more).toBe(true)
     expect(firstPage.next_cursor).toBeTruthy()

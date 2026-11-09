@@ -38,8 +38,7 @@ function asUsage(value: unknown): Usage | null {
   return {
     input_tokens: record.input_tokens,
     output_tokens: record.output_tokens,
-    reasoning_tokens:
-      typeof record.reasoning_tokens === 'number' ? record.reasoning_tokens : null,
+    reasoning_tokens: typeof record.reasoning_tokens === 'number' ? record.reasoning_tokens : null,
     total_tokens: typeof record.total_tokens === 'number' ? record.total_tokens : null,
   }
 }
@@ -81,11 +80,7 @@ export function createInitialChatState(): ChatState {
   }
 }
 
-function assistantMessage(
-  id: string,
-  runId: string | null,
-  createdAt?: string,
-): ChatMessageView {
+function assistantMessage(id: string, runId: string | null, createdAt?: string): ChatMessageView {
   return {
     id,
     role: 'assistant',
@@ -533,11 +528,7 @@ export function reduceChat(state: ChatState, event: ChatEventName, raw: unknown)
       const artifacts = Array.isArray(data.artifacts) ? (data.artifacts as MessageArtifact[]) : []
       const reasoning = asReasons(data.reasoning)
       const status =
-        finishReason === 'stop'
-          ? 'completed'
-          : finishReason === 'error'
-            ? 'failed'
-            : 'canceled'
+        finishReason === 'stop' ? 'completed' : finishReason === 'error' ? 'failed' : 'canceled'
 
       if (messageId && !next.messages.some((message) => message.id === messageId)) {
         next.messages = [...next.messages, assistantMessage(messageId, next.runId)]

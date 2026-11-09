@@ -25,12 +25,7 @@ const open = ref(true)
 <template>
   <section class="process" aria-label="执行过程">
     <header class="process-head">
-      <button
-        class="process-toggle"
-        type="button"
-        :aria-expanded="open"
-        @click="open = !open"
-      >
+      <button class="process-toggle" type="button" :aria-expanded="open" @click="open = !open">
         <span class="dot is-live"></span>
         <span>执行过程 · {{ items.length }}</span>
         <svg class="chevron" :class="{ 'is-open': open }" viewBox="0 0 24 24" aria-hidden="true">

@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest'
 
 import { normalizeEnum, TASK_STATES } from '@/types'
-import type { Approval, ChatEventName, Conversation, MessageDoneData, RunStartedData } from '@/types'
+import type {
+  Approval,
+  ChatEventName,
+  Conversation,
+  MessageDoneData,
+  RunStartedData,
+} from '@/types'
 
 describe('契约类型与 fixtures 对齐', () => {
   it('会话列表项字段与 fixtures 3.1 一致', () => {

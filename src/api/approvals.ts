@@ -1,10 +1,5 @@
 import { apiClient } from './client'
-import type {
-  Approval,
-  ApprovalDecisionRequest,
-  ApprovalDecisionResult,
-  PageResult,
-} from '@/types'
+import type { Approval, ApprovalDecisionRequest, ApprovalDecisionResult, PageResult } from '@/types'
 
 export interface ApprovalListParams {
   status?: string
@@ -21,10 +16,7 @@ export const approvalsApi = {
   },
 
   async decide(id: string, body: ApprovalDecisionRequest): Promise<ApprovalDecisionResult> {
-    const { data } = await apiClient.post<ApprovalDecisionResult>(
-      `/approvals/${id}/decision`,
-      body,
-    )
+    const { data } = await apiClient.post<ApprovalDecisionResult>(`/approvals/${id}/decision`, body)
     return data
   },
 }

@@ -2,12 +2,7 @@ import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 
 import { systemApi } from '@/api/system'
-import type {
-  ReasoningEffortId,
-  SystemCapabilities,
-  SystemInfo,
-  SystemLimits,
-} from '@/types'
+import type { ReasoningEffortId, SystemCapabilities, SystemInfo, SystemLimits } from '@/types'
 
 const EMPTY_CAPABILITIES: SystemCapabilities = {
   instructions: false,

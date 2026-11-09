@@ -19,12 +19,7 @@ const label = computed(() => {
 
 <template>
   <div class="thinking">
-    <button
-      class="thinking-head"
-      type="button"
-      :aria-expanded="open"
-      @click="open = !open"
-    >
+    <button class="thinking-head" type="button" :aria-expanded="open" @click="open = !open">
       <span class="dot" :class="{ 'is-live': !reasoning.done }"></span>
       <span class="label">{{ label }}</span>
       <svg class="chevron" :class="{ 'is-open': open }" viewBox="0 0 24 24" aria-hidden="true">

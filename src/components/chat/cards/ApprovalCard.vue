@@ -35,9 +35,7 @@ const decidedLabel = computed(() => {
   return expired.value ? '已过期' : '等待决定'
 })
 
-const canDecide = computed(
-  () => !props.item.decision && !expired.value && !props.busy,
-)
+const canDecide = computed(() => !props.item.decision && !expired.value && !props.busy)
 </script>
 
 <template>
@@ -73,9 +71,7 @@ const canDecide = computed(
     </dl>
 
     <div v-if="canDecide" class="actions">
-      <button type="button" class="btn ghost" :disabled="busy" @click="emit('reject')">
-        拒绝
-      </button>
+      <button type="button" class="btn ghost" :disabled="busy" @click="emit('reject')">拒绝</button>
       <button type="button" class="btn primary" :disabled="busy" @click="emit('approve')">
         {{ busy ? '处理中…' : '批准并继续' }}
       </button>

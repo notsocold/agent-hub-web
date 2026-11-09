@@ -80,17 +80,10 @@ onUnmounted(() => document.removeEventListener('click', onDocumentClick))
 
     <div v-if="menuOpen" class="session-menu" role="menu">
       <button type="button" role="menuitem" @click.stop="action('rename')">重命名</button>
-      <button
-        v-if="!isArchived"
-        type="button"
-        role="menuitem"
-        @click.stop="action('archive')"
-      >
+      <button v-if="!isArchived" type="button" role="menuitem" @click.stop="action('archive')">
         归档
       </button>
-      <button v-else type="button" role="menuitem" @click.stop="action('restore')">
-        恢复
-      </button>
+      <button v-else type="button" role="menuitem" @click.stop="action('restore')">恢复</button>
       <button type="button" role="menuitem" class="danger" @click.stop="action('remove')">
         删除
       </button>

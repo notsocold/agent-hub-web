@@ -1,7 +1,8 @@
 # 开发指南
 
-> **当前仓库处于 M0 结构初始化**：只有 create-vue 脚手架配置与最小入口，没有页面/请求层代码，未安装依赖。
-> 本文是后续编码时的目标流程；命令需先执行 `pnpm install`。
+> **当前状态：M1 前端已实现，开发环境默认使用内置 mock。**
+> 登录/注册、应用布局、对话工作台与各业务页骨架已可用；依赖已安装，命令可直接执行。
+> 后端联调时在 `.env.local` 设置 `VITE_USE_MOCK=false`。
 
 ## 1. 环境要求
 
@@ -19,12 +20,25 @@
 | `pnpm install` | 安装依赖 |
 | `pnpm dev` | 开发服务器（5173，热更新） |
 | `pnpm build` | 类型检查 + 生产构建 |
+| `pnpm test` | Vitest 单测（46 个用例） |
+| `pnpm test:watch` | Vitest 监听模式 |
 | `pnpm preview` | 预览构建产物 |
 | `pnpm type-check` | 仅类型检查 |
 | `pnpm lint` | oxlint + eslint（自动修复） |
 | `pnpm format` | Prettier 格式化 `src/` |
 
 首次拉取后建议先跑 `pnpm install && pnpm build`，确认环境正常。
+
+### mock 与真实后端
+
+| 场景 | 配置 | 行为 |
+|---|---|---|
+| 默认开发 | `.env.development` 的 `VITE_USE_MOCK=true` | `src/api` 使用内置 adapter；SSE 走 `src/api/mock/stream.ts` |
+| 联调 | `.env.local` 写 `VITE_USE_MOCK=false` | 请求经 Vite 代理 `/api`、`/a2a` 到 `http://127.0.0.1:8000` |
+| 直连 | `VITE_API_BASE_URL=http://localhost:8000/api/v1` | 需后端允许 CORS |
+| 生产 | `.env.production` 固定 `false` | 同源 `/api/v1`，由 Nginx 反代 |
+
+mock 登录：任意邮箱 + 8 位以上密码；输入 `wrong-password` 可测试 401。
 
 ## 3. 目录与命名
 

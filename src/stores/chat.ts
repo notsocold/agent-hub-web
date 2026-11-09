@@ -65,7 +65,9 @@ export const useChatStore = defineStore('chat', () => {
   const pendingApproval = computed(() => {
     const id = state.value.pendingApprovalId
     if (!id) return null
-    return state.value.process.find((item) => item.kind === 'approval' && item.approvalId === id) ?? null
+    return (
+      state.value.process.find((item) => item.kind === 'approval' && item.approvalId === id) ?? null
+    )
   })
 
   function cancelRaf(): void {
@@ -124,10 +126,7 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
-  async function send(
-    text: string,
-    context: ChatContextSelection = {},
-  ): Promise<void> {
+  async function send(text: string, context: ChatContextSelection = {}): Promise<void> {
     const trimmed = text.trim()
     if (!trimmed || state.value.streaming) return
 
@@ -207,11 +206,7 @@ export const useChatStore = defineStore('chat', () => {
       await approvalsApi.decide(approvalId, {
         decision: approve ? 'approve' : 'reject',
       })
-      state.value = markApprovalResolved(
-        state.value,
-        approvalId,
-        approve ? 'approve' : 'reject',
-      )
+      state.value = markApprovalResolved(state.value, approvalId, approve ? 'approve' : 'reject')
     } finally {
       resolvingApproval.value = false
     }

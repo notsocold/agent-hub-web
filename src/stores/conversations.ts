@@ -24,7 +24,9 @@ export const useConversationsStore = defineStore('conversations', () => {
   const error = ref<string | null>(null)
 
   const pendingCount = computed(
-    () => stats.value.pending_approval ?? items.value.reduce((sum, item) => sum + item.pending_approval_count, 0),
+    () =>
+      stats.value.pending_approval ??
+      items.value.reduce((sum, item) => sum + item.pending_approval_count, 0),
   )
 
   const groups = computed<ConversationGroup[]>(() => {
@@ -73,7 +75,7 @@ export const useConversationsStore = defineStore('conversations', () => {
         q: q.value.trim() || undefined,
         status: status.value,
         limit: 30,
-        cursor: reset ? undefined : nextCursor.value ?? undefined,
+        cursor: reset ? undefined : (nextCursor.value ?? undefined),
       })
       items.value = reset ? page.items : [...items.value, ...page.items]
       stats.value = page.stats ?? {}

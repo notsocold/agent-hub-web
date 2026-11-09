@@ -87,7 +87,8 @@ describe('mock SSE 回放', () => {
     expect(names).toContain('approval.required')
     expect(names.filter((name) => name === 'message.delta').length).toBeGreaterThan(0)
     expect(names.at(-1)).toBe('message.done')
-    expect((events.at(-1)?.data as { finish_reason: string }).finish_reason).toBe('stop')
+    const done = events.at(-1)?.data as { finish_reason?: string } | undefined
+    expect(done?.finish_reason).toBe('stop')
   })
 
   it('拒绝审批后以 canceled 结束且不写 Slack 工具结果', async () => {
@@ -124,10 +125,15 @@ describe('mock SSE 回放', () => {
     const events: Captured[] = []
     const controller = new AbortController()
 
-    await runStream('触发一个错误', (event, data) => events.push({ event, data }), controller.signal)
+    await runStream(
+      '触发一个错误',
+      (event, data) => events.push({ event, data }),
+      controller.signal,
+    )
 
     const names = events.map((item) => item.event)
     expect(names).toContain('error')
-    expect((events.at(-1)?.data as { finish_reason: string }).finish_reason).toBe('error')
+    const done = events.at(-1)?.data as { finish_reason?: string } | undefined
+    expect(done?.finish_reason).toBe('error')
   })
 })

@@ -16,10 +16,9 @@ export interface KnowledgeListParams {
 
 export const knowledgeApi = {
   async documents(params: KnowledgeListParams = {}): Promise<PageResult<KnowledgeDocument>> {
-    const { data } = await apiClient.get<PageResult<KnowledgeDocument>>(
-      '/knowledge/documents',
-      { params },
-    )
+    const { data } = await apiClient.get<PageResult<KnowledgeDocument>>('/knowledge/documents', {
+      params,
+    })
     return data
   },
 

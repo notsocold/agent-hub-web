@@ -38,7 +38,12 @@ const progressPercent = computed(() =>
   >
     <p v-if="item.requestSummary" class="line">{{ item.requestSummary }}</p>
 
-    <div v-if="progressPercent !== null" class="progress" role="progressbar" :aria-valuenow="progressPercent">
+    <div
+      v-if="progressPercent !== null"
+      class="progress"
+      role="progressbar"
+      :aria-valuenow="progressPercent"
+    >
       <span :style="{ width: `${progressPercent}%` }"></span>
     </div>
 

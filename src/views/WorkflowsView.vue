@@ -84,7 +84,9 @@ onMounted(load)
     >
       <template #actions>
         <button type="button" class="btn" @click="notReady('工作流导入')">导入</button>
-        <button type="button" class="btn primary" @click="notReady('新建工作流')">新建工作流</button>
+        <button type="button" class="btn primary" @click="notReady('新建工作流')">
+          新建工作流
+        </button>
       </template>
     </PageHeader>
 

@@ -23,9 +23,7 @@ describe('ChatComposer', () => {
     await textarea.setValue('整理一份周报')
     await textarea.trigger('keydown', { key: 'Enter' })
 
-    expect(wrapper.emitted('send')?.[0]).toEqual([
-      { text: '整理一份周报', context: {} },
-    ])
+    expect(wrapper.emitted('send')?.[0]).toEqual([{ text: '整理一份周报', context: {} }])
     expect((textarea.element as HTMLTextAreaElement).value).toBe('')
   })
 

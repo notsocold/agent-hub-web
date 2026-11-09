@@ -93,9 +93,7 @@ async function submit(): Promise<void> {
       </el-button>
     </el-form>
 
-    <p v-if="isMock" class="mock-hint">
-      当前为本地 mock：任意邮箱 + 8 位以上密码即可登录。
-    </p>
+    <p v-if="isMock" class="mock-hint">当前为本地 mock：任意邮箱 + 8 位以上密码即可登录。</p>
 
     <p class="switch">
       还没有账号？

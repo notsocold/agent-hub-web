@@ -1,10 +1,5 @@
 import { apiClient } from './client'
-import type {
-  ChatMessage,
-  Conversation,
-  ConversationDetail,
-  PageResult,
-} from '@/types'
+import type { ChatMessage, Conversation, ConversationDetail, PageResult } from '@/types'
 
 export interface ConversationListParams {
   q?: string
@@ -48,10 +43,9 @@ export const conversationsApi = {
   },
 
   async messages(id: string, params: MessageListParams = {}): Promise<PageResult<ChatMessage>> {
-    const { data } = await apiClient.get<PageResult<ChatMessage>>(
-      `/conversations/${id}/messages`,
-      { params },
-    )
+    const { data } = await apiClient.get<PageResult<ChatMessage>>(`/conversations/${id}/messages`, {
+      params,
+    })
     return data
   },
 }

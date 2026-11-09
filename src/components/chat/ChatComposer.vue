@@ -35,9 +35,7 @@ const root = ref<HTMLElement | null>(null)
 const menuOpen = ref(false)
 const context = ref<ChatContextSelection>({})
 
-const canSend = computed(
-  () => !props.streaming && !props.disabled && text.value.trim().length > 0,
-)
+const canSend = computed(() => !props.streaming && !props.disabled && text.value.trim().length > 0)
 
 const count = computed(() => text.value.length)
 
@@ -169,7 +167,9 @@ onUnmounted(() => {
         class="composer-input"
         rows="1"
         :maxlength="maxChars"
-        :placeholder="streaming ? '正在生成，可点击停止…' : '继续调度…（Enter 发送，Shift+Enter 换行）'"
+        :placeholder="
+          streaming ? '正在生成，可点击停止…' : '继续调度…（Enter 发送，Shift+Enter 换行）'
+        "
         aria-label="输入消息"
         @input="autoResize"
         @keydown="onKeydown"

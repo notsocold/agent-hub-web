@@ -178,7 +178,8 @@ export async function handleMockRequest(req: MockRequest): Promise<MockResult> {
     }
     if (method === 'PATCH') {
       const title = body.title === undefined ? undefined : String(body.title).trim()
-      const status = body.status === 'archived' ? 'archived' : body.status === 'active' ? 'active' : undefined
+      const status =
+        body.status === 'archived' ? 'archived' : body.status === 'active' ? 'active' : undefined
       if (title !== undefined && (title.length < 1 || title.length > 200)) {
         return fail(422, 'validation_error', '标题需为 1–200 个字符')
       }
@@ -208,9 +209,7 @@ export async function handleMockRequest(req: MockRequest): Promise<MockResult> {
     const run = mockDb.getRun(runCancelMatch[1]!)
     if (!run) return fail(404, 'not_found', '运行不存在')
     const canceled = mockDb.cancelRun(run.id)
-    return canceled
-      ? ok(canceled)
-      : fail(409, 'run_not_cancelable', '该运行已结束，无法取消')
+    return canceled ? ok(canceled) : fail(409, 'run_not_cancelable', '该运行已结束，无法取消')
   }
 
   const runMatch = /^\/runs\/([^/]+)$/.exec(path)

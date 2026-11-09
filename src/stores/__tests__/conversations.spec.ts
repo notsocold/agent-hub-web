@@ -84,9 +84,7 @@ describe('conversations store', () => {
       next_cursor: null,
       has_more: false,
     })
-    vi.mocked(conversationsApi.update).mockResolvedValue(
-      conversation('a', { status: 'archived' }),
-    )
+    vi.mocked(conversationsApi.update).mockResolvedValue(conversation('a', { status: 'archived' }))
 
     const store = useConversationsStore()
     await store.load()

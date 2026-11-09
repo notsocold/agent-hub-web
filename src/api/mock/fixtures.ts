@@ -184,7 +184,12 @@ export const mockMessages: Record<string, ChatMessage[]> = {
             updated_at: '2026-09-18T00:00:00Z',
           },
         ],
-        usage: { input_tokens: 6842, output_tokens: 1236, reasoning_tokens: 642, total_tokens: 8078 },
+        usage: {
+          input_tokens: 6842,
+          output_tokens: 1236,
+          reasoning_tokens: 642,
+          total_tokens: 8078,
+        },
         artifacts: [
           {
             id: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
@@ -216,13 +221,9 @@ export const mockMessages: Record<string, ChatMessage[]> = {
         usage: { input_tokens: 5120, output_tokens: 380, reasoning_tokens: 0, total_tokens: 5500 },
       },
     ),
-    message(
-      '44444444-4444-4444-8444-000000000003',
-      'user',
-      '先别发，我再看看措辞。',
-      ago(0, 2),
-      { client_message_id: 'c-003' },
-    ),
+    message('44444444-4444-4444-8444-000000000003', 'user', '先别发，我再看看措辞。', ago(0, 2), {
+      client_message_id: 'c-003',
+    }),
     message(
       '55555555-5555-4555-8555-000000000003',
       'assistant',
@@ -232,53 +233,139 @@ export const mockMessages: Record<string, ChatMessage[]> = {
     ),
   ],
   '22222222-2222-4222-8222-222222222223': [
-    message('44444444-4444-4444-8444-000000000011', 'user', '退款政策从 30 天改成 7 天后，哪些话术和文档需要改？', ago(0, 20)),
-    message('55555555-5555-4555-8555-000000000011', 'assistant', '受影响的有三处：售后 FAQ、退款邮件模板、客服快捷回复。建议先改 FAQ，并同步知识库文档。', ago(0, 18), {
-      citations: [
-        {
-          index: 1,
-          document_id: '99999999-9999-4999-8999-999999999997',
-          chunk_id: 'cccccccc-cccc-4ccc-8ccc-ccccccccccc1',
-          title: '退款政策',
-          category: '售后',
-          score: 0.83,
-          updated_at: '2026-09-18T00:00:00Z',
-        },
-      ],
-    }),
-    message('44444444-4444-4444-8444-000000000012', 'user', '把 FAQ 的修改建议写成清单。', ago(0, 5)),
-    message('55555555-5555-4555-8555-000000000012', 'assistant', '1. 明确「签收后 7 天」与「吊牌保留」；\n2. 删除「30 天无理由」；\n3. 增加跨境订单例外说明。', ago(0, 4)),
+    message(
+      '44444444-4444-4444-8444-000000000011',
+      'user',
+      '退款政策从 30 天改成 7 天后，哪些话术和文档需要改？',
+      ago(0, 20),
+    ),
+    message(
+      '55555555-5555-4555-8555-000000000011',
+      'assistant',
+      '受影响的有三处：售后 FAQ、退款邮件模板、客服快捷回复。建议先改 FAQ，并同步知识库文档。',
+      ago(0, 18),
+      {
+        citations: [
+          {
+            index: 1,
+            document_id: '99999999-9999-4999-8999-999999999997',
+            chunk_id: 'cccccccc-cccc-4ccc-8ccc-ccccccccccc1',
+            title: '退款政策',
+            category: '售后',
+            score: 0.83,
+            updated_at: '2026-09-18T00:00:00Z',
+          },
+        ],
+      },
+    ),
+    message(
+      '44444444-4444-4444-8444-000000000012',
+      'user',
+      '把 FAQ 的修改建议写成清单。',
+      ago(0, 5),
+    ),
+    message(
+      '55555555-5555-4555-8555-000000000012',
+      'assistant',
+      '1. 明确「签收后 7 天」与「吊牌保留」；\n2. 删除「30 天无理由」；\n3. 增加跨境订单例外说明。',
+      ago(0, 4),
+    ),
   ],
   '22222222-2222-4222-8222-222222222224': [
-    message('44444444-4444-4444-8444-000000000021', 'user', '把这份 release notes 翻成英文，保留版本号和技术术语。', ago(1, 22)),
-    message('55555555-5555-4555-8555-000000000021', 'assistant', '英文版已按产品术语表校对，版本号格式保持不变。需要我再生成一版更口语化的吗？', ago(1, 20)),
+    message(
+      '44444444-4444-4444-8444-000000000021',
+      'user',
+      '把这份 release notes 翻成英文，保留版本号和技术术语。',
+      ago(1, 22),
+    ),
+    message(
+      '55555555-5555-4555-8555-000000000021',
+      'assistant',
+      '英文版已按产品术语表校对，版本号格式保持不变。需要我再生成一版更口语化的吗？',
+      ago(1, 20),
+    ),
     message('44444444-4444-4444-8444-000000000022', 'user', '不用，先这样。', ago(1, 19)),
-    message('55555555-5555-4555-8555-000000000022', 'assistant', '好的，文件已附在会话产物里。', ago(1, 19)),
+    message(
+      '55555555-5555-4555-8555-000000000022',
+      'assistant',
+      '好的，文件已附在会话产物里。',
+      ago(1, 19),
+    ),
   ],
   '22222222-2222-4222-8222-222222222225': [
-    message('44444444-4444-4444-8444-000000000031', 'user', '审查 payment 模块的重试逻辑，重点看幂等键。', ago(3)),
-    message('55555555-5555-4555-8555-000000000031', 'assistant', '重试上限与幂等键的冲突点在第 3 段：同一个 idempotency_key 在退避重试时被复用，可能吞掉合法的第二次支付。建议按「支付意图 + 尝试序号」生成键。', ago(2, 20)),
+    message(
+      '44444444-4444-4444-8444-000000000031',
+      'user',
+      '审查 payment 模块的重试逻辑，重点看幂等键。',
+      ago(3),
+    ),
+    message(
+      '55555555-5555-4555-8555-000000000031',
+      'assistant',
+      '重试上限与幂等键的冲突点在第 3 段：同一个 idempotency_key 在退避重试时被复用，可能吞掉合法的第二次支付。建议按「支付意图 + 尝试序号」生成键。',
+      ago(2, 20),
+    ),
     message('44444444-4444-4444-8444-000000000032', 'user', '给出补测试的建议。', ago(2)),
-    message('55555555-5555-4555-8555-000000000032', 'assistant', '覆盖三个场景：并发重复提交、超时后重试、退避期间取消。断言最终只产生一条支付记录。', ago(1, 18)),
+    message(
+      '55555555-5555-4555-8555-000000000032',
+      'assistant',
+      '覆盖三个场景：并发重复提交、超时后重试、退避期间取消。断言最终只产生一条支付记录。',
+      ago(1, 18),
+    ),
     message('44444444-4444-4444-8444-000000000033', 'user', '记一下。', ago(1, 18)),
-    message('55555555-5555-4555-8555-000000000033', 'assistant', '已记录到本会话，稍后可以导出为审查报告。', ago(1, 18)),
+    message(
+      '55555555-5555-4555-8555-000000000033',
+      'assistant',
+      '已记录到本会话，稍后可以导出为审查报告。',
+      ago(1, 18),
+    ),
   ],
   '22222222-2222-4222-8222-222222222226': [
-    message('44444444-4444-4444-8444-000000000041', 'user', '最近知识库检索召回率偏低，帮我排查。', ago(32)),
-    message('55555555-5555-4555-8555-000000000041', 'assistant', '从抽样看，售后分类的 chunk 边界被切在条款中间，导致召回缺失。建议重建该分类索引，并把 chunk_size 提到 800。', ago(30)),
+    message(
+      '44444444-4444-4444-8444-000000000041',
+      'user',
+      '最近知识库检索召回率偏低，帮我排查。',
+      ago(32),
+    ),
+    message(
+      '55555555-5555-4555-8555-000000000041',
+      'assistant',
+      '从抽样看，售后分类的 chunk 边界被切在条款中间，导致召回缺失。建议重建该分类索引，并把 chunk_size 提到 800。',
+      ago(30),
+    ),
     message('44444444-4444-4444-8444-000000000042', 'user', '先记录，不动生产。', ago(30)),
-    message('55555555-5555-4555-8555-000000000042', 'assistant', '好的，已记录建议，未触发任何重建操作。', ago(30)),
+    message(
+      '55555555-5555-4555-8555-000000000042',
+      'assistant',
+      '好的，已记录建议，未触发任何重建操作。',
+      ago(30),
+    ),
     message('44444444-4444-4444-8444-000000000043', 'user', '谢谢。', ago(30)),
   ],
   '22222222-2222-4222-8222-222222222227': [
     message('44444444-4444-4444-8444-000000000051', 'user', '把客服话术改得更简洁。', ago(24 * 12)),
-    message('55555555-5555-4555-8555-000000000051', 'assistant', '第二版已把语气调整为更简洁的书面表达，并统一了称呼。', ago(24 * 10)),
+    message(
+      '55555555-5555-4555-8555-000000000051',
+      'assistant',
+      '第二版已把语气调整为更简洁的书面表达，并统一了称呼。',
+      ago(24 * 10),
+    ),
     message('44444444-4444-4444-8444-000000000052', 'user', '归档吧。', ago(24 * 11)),
     message('55555555-5555-4555-8555-000000000052', 'assistant', '已归档本会话。', ago(24 * 10)),
   ],
   '22222222-2222-4222-8222-222222222228': [
-    message('44444444-4444-4444-8444-000000000061', 'user', '检查新接入的 A2A 智能体。', ago(24 * 15)),
-    message('55555555-5555-4555-8555-000000000061', 'assistant', 'Agent Card 与健康检查均通过，鉴权使用 env 引用，未发现明文密钥。', ago(24 * 14)),
+    message(
+      '44444444-4444-4444-8444-000000000061',
+      'user',
+      '检查新接入的 A2A 智能体。',
+      ago(24 * 15),
+    ),
+    message(
+      '55555555-5555-4555-8555-000000000061',
+      'assistant',
+      'Agent Card 与健康检查均通过，鉴权使用 env 引用，未发现明文密钥。',
+      ago(24 * 14),
+    ),
     message('44444444-4444-4444-8444-000000000062', 'user', '很好。', ago(24 * 14)),
   ],
 }
@@ -307,7 +394,13 @@ export const mockRuns: Record<string, Run> = {
       assistant: '55555555-5555-4555-8555-000000000001',
     },
     agents: [
-      { kind: 'local', id: 'main-agent', name: 'main-agent', model: 'deepseek-chat', state: 'online' },
+      {
+        kind: 'local',
+        id: 'main-agent',
+        name: 'main-agent',
+        model: 'deepseek-chat',
+        state: 'online',
+      },
       {
         kind: 'a2a',
         id: '77777777-7777-4777-8777-777777777777',
@@ -528,7 +621,11 @@ export const mockTasks: A2aTaskListItem[] = [
   {
     id: '88888888-8888-4888-8888-888888888880',
     a2a_task_id: 'task_2e91',
-    agent: { id: '77777777-7777-4777-8777-777777777779', slug: 'editorial-reviewer', name: 'Editorial Reviewer' },
+    agent: {
+      id: '77777777-7777-4777-8777-777777777779',
+      slug: 'editorial-reviewer',
+      name: 'Editorial Reviewer',
+    },
     run_id: '33333333-3333-4333-8333-333333333334',
     conversation: { id: '22222222-2222-4222-8222-222222222223', title: '退款政策变更的影响面' },
     state: 'working',
@@ -543,7 +640,11 @@ export const mockTasks: A2aTaskListItem[] = [
   {
     id: '88888888-8888-4888-8888-888888888881',
     a2a_task_id: 'task_4d18',
-    agent: { id: '77777777-7777-4777-8777-777777777777', slug: 'data-analyst', name: 'Data Analyst' },
+    agent: {
+      id: '77777777-7777-4777-8777-777777777777',
+      slug: 'data-analyst',
+      name: 'Data Analyst',
+    },
     run_id: '33333333-3333-4333-8333-333333333334',
     conversation: { id: '22222222-2222-4222-8222-222222222223', title: '退款政策变更的影响面' },
     state: 'input_required',
@@ -558,9 +659,16 @@ export const mockTasks: A2aTaskListItem[] = [
   {
     id: '88888888-8888-4888-8888-888888888882',
     a2a_task_id: 'task_6f02',
-    agent: { id: '77777777-7777-4777-8777-777777777778', slug: 'code-assistant', name: 'Code Assistant' },
+    agent: {
+      id: '77777777-7777-4777-8777-777777777778',
+      slug: 'code-assistant',
+      name: 'Code Assistant',
+    },
     run_id: '33333333-3333-4333-8333-333333333335',
-    conversation: { id: '22222222-2222-4222-8222-222222222225', title: '审查：payment 模块重试逻辑' },
+    conversation: {
+      id: '22222222-2222-4222-8222-222222222225',
+      title: '审查：payment 模块重试逻辑',
+    },
     state: 'auth_required',
     progress: null,
     duration_ms: 1000,
@@ -573,7 +681,11 @@ export const mockTasks: A2aTaskListItem[] = [
   {
     id: '88888888-8888-4888-8888-888888888883',
     a2a_task_id: 'task_7a10',
-    agent: { id: '77777777-7777-4777-8777-777777777777', slug: 'data-analyst', name: 'Data Analyst' },
+    agent: {
+      id: '77777777-7777-4777-8777-777777777777',
+      slug: 'data-analyst',
+      name: 'Data Analyst',
+    },
     run_id: weeklyRunId,
     conversation: { id: weeklyConversationId, title: 'Q3 客服工单周报' },
     state: 'completed',
@@ -588,9 +700,16 @@ export const mockTasks: A2aTaskListItem[] = [
   {
     id: '88888888-8888-4888-8888-888888888884',
     a2a_task_id: 'task_8b21',
-    agent: { id: '77777777-7777-4777-8777-777777777778', slug: 'code-assistant', name: 'Code Assistant' },
+    agent: {
+      id: '77777777-7777-4777-8777-777777777778',
+      slug: 'code-assistant',
+      name: 'Code Assistant',
+    },
     run_id: '33333333-3333-4333-8333-333333333335',
-    conversation: { id: '22222222-2222-4222-8222-222222222225', title: '审查：payment 模块重试逻辑' },
+    conversation: {
+      id: '22222222-2222-4222-8222-222222222225',
+      title: '审查：payment 模块重试逻辑',
+    },
     state: 'failed',
     progress: null,
     duration_ms: 6400,
@@ -603,7 +722,11 @@ export const mockTasks: A2aTaskListItem[] = [
   {
     id: '88888888-8888-4888-8888-888888888885',
     a2a_task_id: 'task_9c32',
-    agent: { id: '77777777-7777-4777-8777-777777777779', slug: 'editorial-reviewer', name: 'Editorial Reviewer' },
+    agent: {
+      id: '77777777-7777-4777-8777-777777777779',
+      slug: 'editorial-reviewer',
+      name: 'Editorial Reviewer',
+    },
     run_id: '33333333-3333-4333-8333-333333333336',
     conversation: { id: '22222222-2222-4222-8222-222222222227', title: '客服话术改写 · 第二版' },
     state: 'canceled',
@@ -618,7 +741,11 @@ export const mockTasks: A2aTaskListItem[] = [
   {
     id: '88888888-8888-4888-8888-888888888886',
     a2a_task_id: 'task_ad43',
-    agent: { id: '77777777-7777-4777-8777-777777777779', slug: 'editorial-reviewer', name: 'Editorial Reviewer' },
+    agent: {
+      id: '77777777-7777-4777-8777-777777777779',
+      slug: 'editorial-reviewer',
+      name: 'Editorial Reviewer',
+    },
     run_id: '33333333-3333-4333-8333-333333333336',
     conversation: { id: '22222222-2222-4222-8222-222222222227', title: '客服话术改写 · 第二版' },
     state: 'rejected',
@@ -633,7 +760,11 @@ export const mockTasks: A2aTaskListItem[] = [
   {
     id: '88888888-8888-4888-8888-888888888887',
     a2a_task_id: 'task_be54',
-    agent: { id: '77777777-7777-4777-8777-777777777777', slug: 'data-analyst', name: 'Data Analyst' },
+    agent: {
+      id: '77777777-7777-4777-8777-777777777777',
+      slug: 'data-analyst',
+      name: 'Data Analyst',
+    },
     run_id: weeklyRunId,
     conversation: { id: weeklyConversationId, title: 'Q3 客服工单周报' },
     state: 'submitted',
@@ -785,7 +916,8 @@ export const mockWorkflows: Workflow[] = [
     id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
     slug: 'customer-weekly',
     name: '客服周报',
-    description: '检索复盘与工单表，生成周报草稿，交给数据分析与措辞审阅，校验 Slack 频道后审批发布。',
+    description:
+      '检索复盘与工单表，生成周报草稿，交给数据分析与措辞审阅，校验 Slack 频道后审批发布。',
     scope: 'user',
     status: 'published',
     version: 2,

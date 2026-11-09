@@ -52,19 +52,13 @@ export const mockAdapter: AxiosAdapter = async (config) => {
   await delay(MIN_DELAY + Math.random() * (MAX_DELAY - MIN_DELAY))
 
   if (result.status >= 400) {
-    throw new AxiosError(
-      `Mock 请求失败：${result.status}`,
-      'ERR_BAD_REQUEST',
+    throw new AxiosError(`Mock 请求失败：${result.status}`, 'ERR_BAD_REQUEST', config, undefined, {
+      status: result.status,
+      statusText: 'Mock Error',
+      data: result.data,
+      headers: {},
       config,
-      undefined,
-      {
-        status: result.status,
-        statusText: 'Mock Error',
-        data: result.data,
-        headers: {},
-        config,
-      },
-    )
+    })
   }
 
   return {
