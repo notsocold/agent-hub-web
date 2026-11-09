@@ -1,33 +1,11 @@
-<script setup lang="ts"></script>
+<script setup lang="ts">
+import zhCn from 'element-plus/es/locale/lang/zh-cn'
+
+import { RouterView } from 'vue-router'
+</script>
 
 <template>
-  <main class="app-placeholder">
-    <h1>Agent Hub</h1>
-    <p>前端骨架已初始化，页面与交互待需求细化后实现。</p>
-  </main>
+  <el-config-provider :locale="zhCn">
+    <RouterView />
+  </el-config-provider>
 </template>
-
-<style scoped>
-.app-placeholder {
-  display: grid;
-  place-content: center;
-  min-height: 100vh;
-  gap: 8px;
-  font-family:
-    'Inter', 'PingFang SC', 'Microsoft YaHei', 'Segoe UI', system-ui, -apple-system, sans-serif;
-  text-align: center;
-  color: #1e293b;
-  background: #f4f6fb;
-}
-
-.app-placeholder h1 {
-  margin: 0;
-  font-size: 22px;
-}
-
-.app-placeholder p {
-  margin: 0;
-  color: #64748b;
-  font-size: 13px;
-}
-</style>

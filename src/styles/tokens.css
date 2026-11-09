@@ -1,0 +1,114 @@
+/* Agent Hub 设计 token：取自原型 v7「Dispatch Desk」，明暗两套。 */
+:root {
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB',
+    'Noto Sans SC', 'Source Han Sans SC', 'Microsoft YaHei', sans-serif;
+  --font-mono:
+    ui-monospace, 'SF Mono', 'JetBrains Mono', 'Cascadia Mono', 'Roboto Mono', Menlo, Consolas,
+    monospace;
+
+  --paper: #f0efe8;
+  --paper-2: #e9e7dd;
+  --surface: #fbfaf5;
+  --surface-2: #f4f3ec;
+  --ink: #141b20;
+  --ink-2: #4f5b63;
+  --ink-3: #606b72;
+  --line: #d7d5c9;
+  --line-2: #e3e1d6;
+
+  --prussian: #17465e;
+  --prussian-soft: #e4ecef;
+  --amber: #a9741f;
+  --amber-text: #8a5d14;
+  --amber-soft: #f3e9d3;
+  --red: #9c3a2b;
+  --red-soft: #f6e5e0;
+  --green: #3d6a4e;
+  --green-soft: #e4ede6;
+  --mcp: #5a4e72;
+  --mcp-soft: #ece8f1;
+
+  --kind-skill: #3d6a4e;
+  --kind-skill-soft: #e4ede6;
+  --kind-vector: #2e6485;
+  --kind-vector-soft: #e3edf3;
+  --kind-tool: #a9741f;
+  --kind-tool-soft: #f3e9d3;
+  --kind-a2a: #2e746e;
+  --kind-a2a-soft: #e0eeeb;
+  --kind-mcp: #5a4e72;
+  --kind-mcp-soft: #ece8f1;
+  --kind-approval: #9c3a2b;
+  --kind-approval-soft: #f6e5e0;
+
+  --btn-bg: #141b20;
+  --btn-fg: #fbfaf5;
+
+  --user-bubble-bg: #17465e;
+  --user-bubble-fg: #fbfaf5;
+  --user-bubble-border: #2a5a73;
+
+  --shadow-sm: 0 1px 2px rgba(20, 27, 32, 0.05);
+  --shadow-md:
+    0 1px 2px rgba(20, 27, 32, 0.04), 0 10px 28px -18px rgba(20, 27, 32, 0.35);
+  --shadow-lg: 0 24px 60px -28px rgba(20, 27, 32, 0.38);
+
+  --sidebar-w: 288px;
+  --sidebar-rail: 56px;
+  --trace-w: 332px;
+  --content-max: 880px;
+
+  color-scheme: light;
+}
+
+html[data-theme='dark'] {
+  --paper: #0f1418;
+  --paper-2: #141a1f;
+  --surface: #171f24;
+  --surface-2: #1a2329;
+  --ink: #e8e7df;
+  --ink-2: #a3aeb4;
+  --ink-3: #85929a;
+  --line: #2a353c;
+  --line-2: #212b31;
+
+  --prussian: #93bed1;
+  --prussian-soft: rgba(147, 190, 209, 0.12);
+  --amber: #d4a04a;
+  --amber-text: #e0b76e;
+  --amber-soft: rgba(212, 160, 74, 0.13);
+  --red: #de907e;
+  --red-soft: rgba(222, 144, 126, 0.12);
+  --green: #8dbba0;
+  --green-soft: rgba(141, 187, 160, 0.12);
+  --mcp: #b3a4c9;
+  --mcp-soft: rgba(179, 164, 201, 0.12);
+
+  --kind-skill: #8dbba0;
+  --kind-skill-soft: rgba(141, 187, 160, 0.12);
+  --kind-vector: #8fb8cc;
+  --kind-vector-soft: rgba(143, 184, 204, 0.12);
+  --kind-tool: #d4a04a;
+  --kind-tool-soft: rgba(212, 160, 74, 0.13);
+  --kind-a2a: #8cc7bf;
+  --kind-a2a-soft: rgba(140, 199, 191, 0.12);
+  --kind-mcp: #b3a4c9;
+  --kind-mcp-soft: rgba(179, 164, 201, 0.12);
+  --kind-approval: #de907e;
+  --kind-approval-soft: rgba(222, 144, 126, 0.12);
+
+  --btn-bg: #e8e7df;
+  --btn-fg: #10171b;
+
+  --user-bubble-bg: #233a46;
+  --user-bubble-fg: #f2f4f3;
+  --user-bubble-border: #355463;
+
+  --shadow-sm: 0 1px 0 rgba(255, 255, 255, 0.03);
+  --shadow-md:
+    0 1px 0 rgba(255, 255, 255, 0.03), 0 16px 40px -24px rgba(0, 0, 0, 0.9);
+  --shadow-lg: 0 28px 72px -30px rgba(0, 0, 0, 0.95);
+
+  color-scheme: dark;
+}

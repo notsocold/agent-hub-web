@@ -1,0 +1,125 @@
+/* Element Plus 主题映射：用原型 token 覆盖默认蓝紫色系。 */
+:root {
+  --el-font-family: var(--font-sans);
+  --el-font-size-base: 13px;
+  --el-border-radius-base: 6px;
+  --el-border-radius-small: 5px;
+  --el-border-radius-round: 999px;
+
+  --el-color-primary: var(--prussian);
+  --el-color-primary-light-3: color-mix(in srgb, var(--prussian) 70%, #fff);
+  --el-color-primary-light-5: color-mix(in srgb, var(--prussian) 50%, #fff);
+  --el-color-primary-light-7: color-mix(in srgb, var(--prussian) 30%, #fff);
+  --el-color-primary-light-8: color-mix(in srgb, var(--prussian) 20%, #fff);
+  --el-color-primary-light-9: color-mix(in srgb, var(--prussian) 10%, #fff);
+  --el-color-primary-dark-2: color-mix(in srgb, var(--prussian) 80%, #000);
+
+  --el-color-success: var(--green);
+  --el-color-warning: var(--amber);
+  --el-color-danger: var(--red);
+  --el-color-error: var(--red);
+
+  --el-bg-color: var(--surface);
+  --el-bg-color-page: var(--paper);
+  --el-bg-color-overlay: var(--surface);
+  --el-text-color-primary: var(--ink);
+  --el-text-color-regular: var(--ink-2);
+  --el-text-color-secondary: var(--ink-3);
+  --el-text-color-placeholder: var(--ink-3);
+  --el-border-color: var(--line);
+  --el-border-color-light: var(--line-2);
+  --el-border-color-lighter: var(--line-2);
+  --el-border-color-extra-light: var(--line-2);
+  --el-fill-color-blank: var(--surface);
+  --el-fill-color-light: var(--surface-2);
+  --el-fill-color-lighter: var(--surface-2);
+  --el-mask-color: rgba(20, 27, 32, 0.42);
+
+  --el-box-shadow-light: var(--shadow-md);
+  --el-box-shadow: var(--shadow-md);
+  --el-box-shadow-lighter: var(--shadow-sm);
+
+  --el-input-bg-color: var(--surface);
+  --el-input-border-color: var(--line);
+  --el-input-hover-border-color: var(--ink-3);
+  --el-input-focus-border-color: var(--prussian);
+
+  --el-table-bg-color: transparent;
+  --el-table-tr-bg-color: transparent;
+  --el-table-header-bg-color: var(--surface-2);
+  --el-table-border-color: var(--line-2);
+  --el-table-row-hover-bg-color: var(--surface-2);
+  --el-table-text-color: var(--ink-2);
+  --el-table-header-text-color: var(--ink-3);
+
+  --el-dialog-bg-color: var(--surface);
+  --el-dialog-border-radius: 10px;
+  --el-messagebox-border-radius: 10px;
+  --el-messagebox-title-color: var(--ink);
+}
+
+html[data-theme='dark'] {
+  --el-color-primary-light-3: color-mix(in srgb, var(--prussian) 70%, #0f1418);
+  --el-color-primary-light-5: color-mix(in srgb, var(--prussian) 50%, #0f1418);
+  --el-color-primary-light-7: color-mix(in srgb, var(--prussian) 30%, #0f1418);
+  --el-color-primary-light-8: color-mix(in srgb, var(--prussian) 20%, #0f1418);
+  --el-color-primary-light-9: color-mix(in srgb, var(--prussian) 10%, #0f1418);
+  --el-color-primary-dark-2: color-mix(in srgb, var(--prussian) 80%, #fff);
+}
+
+/* 按钮：主按钮沿用原型的深墨/深蓝实底 */
+.el-button {
+  font-weight: 550;
+}
+
+.el-button--primary {
+  --el-button-text-color: var(--surface);
+  --el-button-bg-color: var(--prussian);
+  --el-button-border-color: var(--prussian);
+  --el-button-hover-text-color: var(--surface);
+  --el-button-hover-bg-color: color-mix(in srgb, var(--prussian) 88%, var(--ink));
+  --el-button-hover-border-color: color-mix(in srgb, var(--prussian) 88%, var(--ink));
+  --el-button-active-bg-color: color-mix(in srgb, var(--prussian) 76%, var(--ink));
+  --el-button-active-border-color: color-mix(in srgb, var(--prussian) 76%, var(--ink));
+}
+
+/* 表格：纸感背景下去掉重边框 */
+.el-table {
+  --el-table-border: 1px solid var(--line-2);
+  background: transparent;
+}
+
+.el-table th.el-table__cell {
+  font-weight: 550;
+  font-size: 11.5px;
+  letter-spacing: 0.02em;
+}
+
+.el-table .cell {
+  line-height: 1.5;
+}
+
+.el-dialog,
+.el-message-box {
+  border: 1px solid var(--line);
+}
+
+.el-message {
+  border-color: var(--line);
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
+}
+
+.el-popper.is-light {
+  border-color: var(--line);
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
+}
+
+.el-dropdown-menu {
+  background: var(--surface);
+}
+
+.el-drawer {
+  background: var(--surface);
+}
