@@ -39,11 +39,9 @@ __screenshots__/
 # Vite
 *.timestamp-*-*.mjs
 
-# DSH 本机会话与运行态数据：对话/工具输出可能含密钥与隐私，只留本地，绝不入库
-.dsh/sessions/
+# DSH 工作区会话快照：脱敏后随仓库提交（提交前跑 scripts/dsh-session-sanitize.mjs）
+# 机器本地索引、运行时锁、临时文件与冲突备份不入库
 .dsh/workspace-session.json
-
-# DSH workspace-session (managed by dsh-workspace-session)
 .dsh/sessions/**/session.lock
 .dsh/sessions/**/*.tmp
 .dsh/sessions/.backup/
