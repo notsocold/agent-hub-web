@@ -7,8 +7,8 @@ Project: `/home/zhaodan/work/NodeJsProjects/agent-hub-web`
 
 Active topics: 25
 
-- [agent-hub-web（公开仓库）的 DSH 会话数据绝不能入库](m_54f277cf-agent-hub-web-公开仓库-的-dsh-会话数据绝不能入库.md) — 密钥泄露事故根因是 DSH 会话快照插件只忽略 lock/tmp/backup 而不忽略 session.v4.jsonl，现已整目录忽略并从索引移除，但公共历史里的旧快照未清理。 · `reference` · importance 5 · 2026-11-09
-- [待办：轮换泄露密钥并决定是否改写公开仓库历史](m_b5975052-待办-轮换泄露密钥并决定是否改写公开仓库历史.md) — 事故善后待办：轮换 4 把已明文落盘的 Key、决定是否 git filter-repo 清公共历史、可选加 pre-commit 密钥扫描钩子。 · `todo` · importance 4 · 2026-11-09
+- [agent-hub-web 的 DSH 会话：脱敏原生 zstd 与工作区快照后随仓库提交](m_54f277cf-agent-hub-web-的-dsh-会话-脱敏原生-zstd-与工作区快照后.md) — 会话快照不整目录忽略，而是用 scripts/dsh-session-sanitize.mjs 把原生 zstd 与工作区快照用同一规则脱敏后再提交（两边文本必须逐字节一致，否则插件判分叉）。 · `reference` · importance 4 · 2026-11-09
+- [事故善后待办：活动会话脱敏、Key 轮换、其他工作区](m_b5975052-事故善后待办-活动会话脱敏-key-轮换-其他工作区.md) — 会话脱敏后续：当前活动会话待会话结束后脱敏；4 把 key 待轮换；其他工作区会话与公开历史待决定。 · `todo` · importance 4 · 2026-11-09
 - [agent-hub M1.5/M2 真实字段差异与前端归一化](m_df7d70bd-agent-hub-m1-5-m2-真实字段差异与前端归一化.md) — 真实后端与 contract-delta 草稿的字段差异，以及 M1.5/M2 对齐与后端交接文档位置。 · `reference` · importance 4 · 2026-11-09
 - [agent-hub-web 真实后端联调环境与限流约定](m_25168cdb-agent-hub-web-真实后端联调环境与限流约定.md) — agent-hub-web 真实联调：8000 实例 + Vite 代理、dev server 仅监听 127.0.0.1，M1/M1.5/M2 各自有冒烟与真实用例脚本。 · `reference` · importance 4 · 2026-11-09
 - [agent-hub 后端 M1.5/M2 遗留限制与后续里程碑归属](m_7c140300-agent-hub-后端-m1-5-m2-遗留限制与后续里程碑归属.md) — M1.5/M2 已完成但入站 A2A Server、写操作 RBAC、单实例 HITL registry 等留给后续里程碑。 · `project` · importance 4 · 2026-11-09
