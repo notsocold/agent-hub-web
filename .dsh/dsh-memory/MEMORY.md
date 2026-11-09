@@ -5,8 +5,15 @@
 
 Project: `/home/zhaodan/work/NodeJsProjects/agent-hub-web`
 
-Active topics: 17
+Active topics: 23
 
+- [agent-hub M1.5/M2 真实字段差异与前端归一化](m_df7d70bd-agent-hub-m1-5-m2-真实字段差异与前端归一化.md) — 真实后端与 contract-delta 草稿的字段差异，以及 M1.5/M2 对齐与后端交接文档位置。 · `reference` · importance 4 · 2026-11-09
+- [agent-hub-web 真实后端联调环境与限流约定](m_25168cdb-agent-hub-web-真实后端联调环境与限流约定.md) — agent-hub-web 真实联调：8000 实例 + Vite 代理、dev server 仅监听 127.0.0.1，M1/M1.5/M2 各自有冒烟与真实用例脚本。 · `reference` · importance 4 · 2026-11-09
+- [agent-hub 后端 M1.5/M2 遗留限制与后续里程碑归属](m_7c140300-agent-hub-后端-m1-5-m2-遗留限制与后续里程碑归属.md) — M1.5/M2 已完成但入站 A2A Server、写操作 RBAC、单实例 HITL registry 等留给后续里程碑。 · `project` · importance 4 · 2026-11-09
+- [M1.5/M2 前后端已完成并联调通过](m_025de865-m1-5-m2-前后端已完成并联调通过.md) — M1.5（附件/指令/记忆/技能/MCP/审批）与 M2（远程智能体/A2A/任务）前后端已全部完成并真实联调通过。 · `project` · importance 4 · 2026-11-09
+- [agent-hub 本地联调直接用 seeded 开发账号，无需注册；当前无管理端接口](m_6a1cb133-agent-hub-本地联调直接用-seeded-开发账号-无需注册-当前无管理.md) — 后端 scripts/seed_dev_account.py 幂等维护一个开发账号（dev@example.com），注册有 5 次/小时/IP 限流且不会自动提权；库中账号全为 user，/api/v1/admin/* 实测 404，admin 角色目前只影响设置页角色标签。 · `reference` · importance 4 · 2026-11-09
+- [agent-hub 后端 M1 联调缺陷（已修复并复验）](m_0bffd3bd-agent-hub-后端-m1-联调缺陷-已修复并复验.md) — 后端 P0/P1/P2 热修已在 8000 实例复验通过：cursor 分页不再 500、request_id 一致、OpenAPI 相关字段收紧为必填可空，前端类型已同步。 · `reference` · importance 4 · 2026-11-09
+- [agent-hub-web M1 真实后端联调与热修复复验结果](m_deebfa8e-agent-hub-web-m1-真实后端联调与热修复复验结果.md) — M1 真实联调与后端热修复复验全部通过；cursor 分页已修复，后续按 M1.5/M2/M4/M5+ 推进。 · `todo` · importance 4 · 2026-11-09
 - [agent-hub-web 当前实现与 v7 原型有差距，视觉对齐拆为独立 P0–P3 工作包](m_6f21d7a9-agent-hub-web-当前实现与-v7-原型有差距-视觉对齐拆为独立-p0.md) — M1 实现只做到结构近似、视觉未收口，已分类为「呈现型欠账」与「功能型里程碑」，并提议把还原原型作为独立工作包先做 P0+P1。 · `decision` · importance 4 · 2026-11-09
 - [UI 混合策略：Element Plus 做通用件、对话区自研；降级不造假](m_c422d95c-ui-混合策略-element-plus-做通用件-对话区自研-降级不造假.md) — 通用交互用 Element Plus，对话时间线/过程卡片/审批卡/输入栏按原型自研；未接入能力统一提示后续里程碑而不做本地假成功。 · `decision` · importance 4 · 2026-11-09
 - [agent-hub-web M1 前端技术选型与工程约定](m_bbc06ee6-agent-hub-web-m1-前端技术选型与工程约定.md) — M1 前端采用 Vue3+TS+Vite8+Pinia+Router 加 Element Plus 按需自动导入，契约先行（src/types + mock 层），用 VITE_USE_MOCK 在 mock 与真实后端间切换。 · `project` · importance 4 · 2026-11-09
@@ -20,7 +27,6 @@ Active topics: 17
 - [agent-hub-web：DSH 运行态已加入 .gitignore 并移出索引](m_54f277cf-agent-hub-web-dsh-运行态已加入-gitignore-并移出索引.md) — DSH 持续写入的 .dsh/sessions/ 与 .dsh/workspace-session.json 已加入 .gitignore 并从版本库移除，本地文件保留。 · `project` · importance 3 · 2026-11-09
 - [master 迁移采用 ff-only 快进合并，保留 14 个 M1 提交历史](m_35ab530a-master-迁移采用-ff-only-快进合并-保留-14-个-m1-提交历史.md) — 把 feat/m1-chat-workbench 迁到 master 时选择快进合并而非 squash/rebase，完整保留提交历史，推送由用户自己完成。 · `decision` · importance 3 · 2026-11-09
 - [本机没有 Chromium，HTML 原型只能做静态校验，需用户自己在浏览器看渲染](m_5d920272-本机没有-chromium-html-原型只能做静态校验-需用户自己在浏览器看渲.md) — 该开发机未安装 Chromium，无法对生成的 HTML 原型截图做像素级检查，只能做标签配对/重复 id/CSS 括号/JS 语法/DOM id 引用等静态校验，并把实际渲染确认交给用户在浏览器打开。 · `reference` · importance 3 · 2026-11-09
-- [agent-hub-web 后续里程碑与真实后端联调待办](m_deebfa8e-agent-hub-web-后续里程碑与真实后端联调待办.md) — M1 前端已完成，待真实后端启动后复验 SSE/停止/审批恢复/字段一致性，之后按 M1.5、M2、M4、M5+ 推进。 · `todo` · importance 3 · 2026-11-09
 - [待用户拍板：交接包 D1–D8 八项决策](m_d505a964-待用户拍板-交接包-d1-d8-八项决策.md) — 后端交接包遗留 8 项决策待用户拍板，其中 D1/D2/D7/D8 直接影响表结构与里程碑，需在 M1 编码前定。 · `todo` · importance 3 · 2026-11-08
 - [A2A 远程委派只经 send_message 工具，per-skill 包装工具非必需](m_c8947c89-a2a-远程委派只经-send-message-工具-per-skill-包装工.md) — A2A 主智能体调用远程智能体走统一 send_message(agent, task, context)，按 skill 生成的 agent_<slug>__<skill_id> 包装工具并非协议所需，也不应暴露到界面。 · `reference` · importance 3 · 2026-11-08
 - [agent-hub-web 定位与 UI 原型约定（调度台 Dispatch Desk）](m_07916c67-agent-hub-web-定位与-ui-原型约定-调度台-dispatch-d.md) — agent-hub-web 以 docs/prototypes/ 单文件 HTML 分版本迭代；v7 含工作流管理、+ 输入菜单、模型/推理等级、智能体卡片、任务结果、流式返回与运行轨迹。 · `project` · importance 3 · 2026-11-05

@@ -3,14 +3,16 @@ import { RouterLink } from 'vue-router'
 
 import AccountMenu from './AccountMenu.vue'
 import type { Theme } from '@/composables/useTheme'
-import type { User } from '@/types'
+import type { SystemCapabilities, User } from '@/types'
 
-defineProps<{
+const props = defineProps<{
   collapsed: boolean
   mobile: boolean
   open: boolean
   user: User | null
   theme: Theme
+  /** 未加载时传 undefined，导航按可用处理；加载后由能力开关决定置灰。 */
+  capabilities?: SystemCapabilities
 }>()
 
 const emit = defineEmits<{
@@ -25,6 +27,8 @@ interface NavItem {
   name: string
   label: string
   icon: string
+  capability?: keyof SystemCapabilities
+  stage?: string
 }
 
 const items: NavItem[] = [
@@ -37,23 +41,41 @@ const items: NavItem[] = [
     name: 'workflows',
     label: '工作流',
     icon: 'M4 6h4M4 12h4M4 18h4M8 6h3a3 3 0 0 1 3 3v6a3 3 0 0 0 3 3h3M16 6h4M16 18h4',
+    capability: 'workflows',
+    stage: 'M5+',
   },
   {
     name: 'agents',
     label: '智能体',
     icon: 'M4 7h16v12H4zM12 3v4M8 12h.01M16 12h.01M9 16h6',
+    capability: 'agents',
+    stage: 'M2',
   },
   {
     name: 'tasks',
     label: '任务',
     icon: 'M4 7h16M4 12h16M4 17h10',
+    capability: 'tasks',
+    stage: 'M2',
   },
   {
     name: 'knowledge',
     label: '知识库',
     icon: 'M4 5c0-1 3.6-2 8-2s8 1 8 2v14c0 1-3.6 2-8 2s-8-1-8-2V5ZM4 5c0 1 3.6 2 8 2s8-1 8-2',
+    capability: 'knowledge',
+    stage: 'M4',
   },
 ]
+
+function isEnabled(item: NavItem): boolean {
+  if (!item.capability) return true
+  if (!props.capabilities) return true
+  return props.capabilities[item.capability] === true
+}
+
+function disabledHint(item: NavItem): string {
+  return `${item.label}将在 ${item.stage ?? '后续版本'} 接入，当前后端能力关闭`
+}
 </script>
 
 <template>
@@ -94,19 +116,33 @@ const items: NavItem[] = [
     </div>
 
     <nav class="sb-nav">
-      <RouterLink
-        v-for="item in items"
-        :key="item.name"
-        :to="{ name: item.name }"
-        class="sb-nav-item"
-        :title="item.label"
-        @click="emit('navigate')"
-      >
-        <svg class="ic" viewBox="0 0 24 24" aria-hidden="true">
-          <path :d="item.icon" />
-        </svg>
-        <span>{{ item.label }}</span>
-      </RouterLink>
+      <template v-for="item in items" :key="item.name">
+        <RouterLink
+          v-if="isEnabled(item)"
+          :to="{ name: item.name }"
+          class="sb-nav-item"
+          :title="item.label"
+          @click="emit('navigate')"
+        >
+          <svg class="ic" viewBox="0 0 24 24" aria-hidden="true">
+            <path :d="item.icon" />
+          </svg>
+          <span>{{ item.label }}</span>
+        </RouterLink>
+        <button
+          v-else
+          type="button"
+          class="sb-nav-item is-disabled"
+          :title="disabledHint(item)"
+          disabled
+        >
+          <svg class="ic" viewBox="0 0 24 24" aria-hidden="true">
+            <path :d="item.icon" />
+          </svg>
+          <span>{{ item.label }}</span>
+          <span class="stage mono">{{ item.stage }}</span>
+        </button>
+      </template>
     </nav>
 
     <div class="sb-foot">
@@ -247,6 +283,25 @@ html[data-theme='dark'] .sb-nav-item:hover {
   box-shadow: var(--shadow-sm);
 }
 
+.sb-nav-item.is-disabled {
+  cursor: not-allowed;
+  opacity: 0.52;
+}
+
+.sb-nav-item.is-disabled:hover {
+  background: transparent;
+  color: var(--ink-2);
+}
+
+.sb-nav-item .stage {
+  margin-left: auto;
+  padding: 1px 4px;
+  border: 1px solid var(--line-2);
+  border-radius: 3px;
+  color: var(--ink-3);
+  font-size: 8px;
+}
+
 .sb-nav-item.router-link-active .ic {
   color: var(--prussian);
 }
@@ -289,6 +344,10 @@ html[data-theme='dark'] .sb-nav-item:hover {
 }
 
 .sidebar.is-collapsed .sb-nav-item span {
+  display: none;
+}
+
+.sidebar.is-collapsed .sb-nav-item .stage {
   display: none;
 }
 

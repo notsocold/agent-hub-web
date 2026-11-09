@@ -4,9 +4,10 @@
 
 后端项目：[agent-hub](../../PythonProjects/agent-hub)（FastAPI + LangGraph + A2A + pgvector）。
 
-> **当前状态：M1 前端已实现，开发环境默认使用内置 mock。**
-> 已实现登录/注册、路由守卫、应用布局与主题、对话工作台（SSE 流式、过程卡片、审批、停止、历史会话）、运行详情，以及工作流/智能体/任务/知识库/设置页面骨架。
-> 默认 `.env.development` 开启 `VITE_USE_MOCK=true`，按 `docs/handoff/fixtures.md` 回放 REST 与 SSE；后端就绪后改为 `false`（或在 `.env.local` 覆盖）即走真实接口。
+> **当前状态：M1.5 与 M2 前端均已实现，并与真实后端完成联调（2026-11-10 凌晨）。**
+> 已实现登录/注册、路由守卫、应用布局与主题、对话工作台（SSE 流式、工具/技能/A2A/审批过程卡片、停止、历史会话）、运行详情、M1.5 个人能力（输入栏「+」上下文、附件上传/下载、指令/记忆/技能/MCP 设置页），以及 M2 智能体注册向导/Agent Card/健康检查/启停删除与任务列表/详情/取消/补充信息/授权/拒绝（真实 M2 后端 + 本地假 A2A Agent 已验证）。
+> 仓库默认 `.env.development` 仍开启 `VITE_USE_MOCK=true`，按 `docs/handoff/fixtures.md` 回放 REST 与 SSE；本机联调用 `.env.development.local` 覆盖为 `VITE_USE_MOCK=false` 即走真实接口。
+> 后端 M1 契约反馈见 `agent-hub/docs/feedback/2026-11-09-frontend-contract-feedback.md`，前端对接结论见 `agent-hub/docs/feedback/2026-11-09-frontend-integration-response.md`；M1.5 实现与偏差见 `agent-hub/docs/feedback/2026-11-09-m15-backend-report.md`。
 > 单文件 HTML 原型见 [docs/prototypes](docs/prototypes/README.md)；后端交接包见 [docs/handoff](docs/handoff/README.md)。
 
 ## 1. 规划定位
@@ -35,7 +36,7 @@
 | SSE | `@microsoft/fetch-event-source` | 已实现，支持 POST + Bearer |
 | Markdown | `marked` + DOMPurify + highlight.js | 已实现 |
 | 时间 | dayjs（zh-cn） | 已实现 |
-| 测试 | Vitest 5 + @vue/test-utils + jsdom | 已配置，46 个用例 |
+| 测试 | Vitest 5 + @vue/test-utils + jsdom | 已配置，75 个单测 + 4 个真实后端联调用例 + M1/M1.5 冒烟脚本 |
 | 代码质量 | ESLint + Oxlint + Prettier | 已配置 |
 | 包管理 | pnpm | 已使用（项目内 `.npmrc` 指定 store） |
 
@@ -76,7 +77,10 @@ pnpm install      # 安装依赖（项目内 store，首次会自动创建 .pnpm
 pnpm dev          # http://localhost:5173（默认 mock）
 pnpm build        # 类型检查 + 生产构建
 pnpm preview      # 预览构建产物
-pnpm test         # Vitest 单测
+pnpm test         # Vitest 单测（无需后端）
+pnpm test:real    # 真实后端 store/SSE 联调（需后端 + REAL_TEST_EMAIL；M2 用例另需 REAL_FAKE_AGENT_URL）
+pnpm smoke:real   # 真实后端 M1 协议冒烟（需后端，可走 Vite 代理）
+pnpm smoke:m15    # 真实后端 M1.5 能力层冒烟（附件/指令/记忆/技能/MCP/审批 + SSE）
 pnpm type-check   # 仅类型检查
 pnpm lint         # oxlint + eslint（自动修复）
 pnpm format       # Prettier 格式化 src/
@@ -92,13 +96,19 @@ VITE_API_BASE_URL=
 ```
 
 - **mock 模式**：`src/api/client.ts` 使用同构 axios adapter；`openChatStream` 走 `src/api/mock/stream.ts`，按 fixtures 回放事件，包含审批中断后同一流继续、取消、错误脚本。
-- **真实后端**：在 `.env.local` 写入 `VITE_USE_MOCK=false`，启动后端 `agent-hub`（默认 `http://127.0.0.1:8000`），Vite 已配置 `/api` 与 `/a2a` 代理。
-- **直连后端**：`VITE_API_BASE_URL=http://localhost:8000/api/v1`，需后端允许 CORS。
+- **真实后端**：新建 `.env.development.local` 写入 `VITE_USE_MOCK=false`，启动后端 `agent-hub`（默认 `http://127.0.0.1:8000`），Vite 已配置 `/api`、`/a2a`、`/healthz`、`/readyz` 代理。
+  - 注意 Vite 的环境文件优先级：`.env.development` 会覆盖 `.env.local`，因此开发模式必须用 `.env.development.local`。
+- **直连后端**：`VITE_API_BASE_URL=http://localhost:8000/api/v1`，需后端允许 CORS；后端已返回 `Access-Control-Expose-Headers: X-Request-ID, X-Run-ID`。
 - 生产构建 `.env.production` 强制 `VITE_USE_MOCK=false`。
+- **真实联调脚本**：
+  - `SMOKE_EMAIL=you@example.com SMOKE_PASSWORD=... pnpm smoke:real`：注册/登录 → 系统信息 → SSE → 幂等回放 → 并发 409 → 取消 → 历史/事件 → 能力错误 → 审批/恢复 → 登出。
+  - `REAL_TEST_EMAIL=you@example.com REAL_TEST_PASSWORD=... pnpm test:real`：直接用前端 store 与 `fetch-event-source` 连真实后端。
+  - 后端注册接口有频率限制，自动化请复用已有账号（两个脚本都支持环境变量登录）。
+  - M2 真实联调先启动假 Agent：`uv run python scripts/mock_a2a_agent.py`（在 agent-hub 仓库，默认 127.0.0.1:9100），再执行 `REAL_FAKE_AGENT_URL=http://127.0.0.1:9100 ... pnpm test:real`。
 
 mock 登录：任意邮箱 + 8 位以上密码；密码为 `wrong-password` 时返回 401。
 
-## 6. 当前状态（M1）
+## 6. 当前状态（M1.5 / M2 前端）
 
 已完成：
 
@@ -110,15 +120,17 @@ mock 登录：任意邮箱 + 8 位以上密码；密码为 `wrong-password` 时�
 - [x] 对话工作台：会话侧栏（搜索/分组/重命名/归档/删除）、消息时间线、Markdown、思考卡、技能/工具/A2A/审批/工作流/提示卡、引用与产物、停止、运行详情
 - [x] 会话历史加载与本地列表刷新
 - [x] 工作流/智能体/任务/知识库/设置页面骨架（真实 mock 数据、筛选、统计、任务详情抽屉、智能体健康检查）
-- [x] Vitest：契约、客户端、mock 路由、SSE 顺序、reducer、store、路由守卫、输入栏
-- [x] `pnpm type-check`、`pnpm test`、`pnpm build` 通过
+- [x] 真实后端 M1 联调：错误 `details`、幂等回放、409 运行恢复、能力开关置灰、历史倒序、运行事件回放
+- [x] Vitest：契约、客户端、mock 路由、SSE 顺序、reducer、store、路由守卫、输入栏；真实后端 store/SSE 联调
+- [x] **M1.5**：附件上传/去重/受控下载；输入栏「+」技能/MCP 选择与 chips、`@` 文件选择、发送后清空；技能/指令/记忆/MCP 设置页；`skill.activated`/`memory.saved`/`tool.*` 事件卡；真实后端 M1.5 冒烟 68 项断言通过
+- [x] **M2 前端**：智能体列表/筛选/统计、两段式注册（预览 Agent Card → 确认）、详情抽屉（原始 Card/技能/最近任务）、健康检查/刷新/启停/删除；任务列表/筛选/分页/轮询、详情抽屉（请求/结果/错误/时间线）、取消/补充信息/授权/拒绝；对话内 A2A 卡片跳转任务
+- [x] `pnpm type-check`、`pnpm test`（75）、`pnpm build`、`pnpm lint` 通过
+- [x] 真实后端联调：`smoke:real` 97 项、`smoke:m15` 68 项、`test:real` 4 个用例（含 M2 远程 Agent 调用与任务详情）
 
 明确未包含（后续里程碑）：
 
-- [ ] 真实 SSE 联调与断线续传（M1 末–M2）
-- [ ] 附件上传、技能/MCP/知识库上下文选择（M1.5）
-- [ ] 智能体注册向导、Agent Card 预览、启停/删除（M2）
-- [ ] 任务补充信息/授权/拒绝动作（M2）
+- [ ] 断线续传 / Last-Event-ID（M6；M1 断线后靠历史 + 运行事件恢复）
+- [ ] 审批独立列表页（M3；对话内审批卡已可用）
 - [ ] 知识库上传、重试、重建、检索调试（M4）
 - [ ] 工作流编辑器与执行（M5+）
 - [ ] v8 管理控制台（M5+）
@@ -137,6 +149,7 @@ mock 登录：任意邮箱 + 8 位以上密码；密码为 `wrong-password` 时�
 | [HTML 原型索引](docs/prototypes/README.md) | v7 工作台 / v7 页面样例 / v8 管理控制台 |
 | [原型自检报告](docs/prototypes/review-2026-11-08.md) | 前后端契约对照、可行性风险、已修复问题 |
 | [后端交接包](docs/handoff/README.md) | 契约增量、工作流/管理端方案、后端工作包与 fixtures |
+| [M1.5/M2 字段对齐](docs/handoff/2026-11-09-m15-m2-alignment.md) | 真实后端字段差异、前端归一化、假 A2A Agent 联调命令 |
 
 ## 8. 与后端的关系
 

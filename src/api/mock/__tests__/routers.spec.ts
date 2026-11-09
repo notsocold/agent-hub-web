@@ -91,6 +91,44 @@ describe('mock REST 路由', () => {
     expect((again.data as { error: { code: string } }).error.code).toBe('approval_already_decided')
   })
 
+  it('消息历史按新到旧返回，cursor 翻到更旧一页', async () => {
+    const conversationId = mockDb.conversations.find(
+      (conversation) => (mockDb.messages[conversation.id]?.length ?? 0) >= 2,
+    )?.id
+    expect(conversationId).toBeTruthy()
+
+    const first = await handleMockRequest(
+      request('GET', `/conversations/${conversationId}/messages`, { query: { limit: '1' } }),
+    )
+    const firstPage = first.data as {
+      items: Array<{ id: string; created_at: string }>
+      next_cursor: string | null
+      has_more: boolean
+    }
+    expect(firstPage.items).toHaveLength(1)
+    expect(firstPage.has_more).toBe(true)
+
+    const second = await handleMockRequest(
+      request('GET', `/conversations/${conversationId}/messages`, {
+        query: { limit: '1', cursor: firstPage.next_cursor! },
+      }),
+    )
+    const secondPage = second.data as { items: Array<{ id: string; created_at: string }> }
+    // fixture 里同一分钟的相邻消息可能时间相同，翻页至少应换一条更旧或同刻的记录。
+    expect(secondPage.items[0]!.id).not.toBe(firstPage.items[0]!.id)
+    expect(secondPage.items[0]!.created_at <= firstPage.items[0]!.created_at).toBe(true)
+  })
+
+  it('取消已结束运行返回 run_not_cancelable 且带 details.status', async () => {
+    const finished = Object.values(mockDb.runs).find((run) => run.status === 'succeeded')
+    expect(finished).toBeTruthy()
+    const result = await handleMockRequest(request('POST', `/runs/${finished!.id}/cancel`))
+    expect(result.status).toBe(409)
+    expect(result.data).toMatchObject({
+      error: { code: 'run_not_cancelable', details: { status: 'succeeded' } },
+    })
+  })
+
   it('未知路径返回 404 信封', async () => {
     const result = await handleMockRequest(request('GET', '/not-exists'))
     expect(result.status).toBe(404)

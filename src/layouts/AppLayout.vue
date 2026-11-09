@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { RouterView, useRoute, useRouter } from 'vue-router'
 import { ElMessageBox } from 'element-plus'
 
@@ -7,15 +7,22 @@ import SideNav from '@/components/layout/SideNav.vue'
 import { useMediaQuery } from '@/composables/useMediaQuery'
 import { useTheme } from '@/composables/useTheme'
 import { useAuthStore } from '@/stores/auth'
+import { useSystemStore } from '@/stores/system'
 
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
+const system = useSystemStore()
 const { theme, toggle } = useTheme()
 const isMobile = useMediaQuery('(max-width: 900px)')
 
 const collapsed = ref(false)
 const mobileOpen = ref(false)
+
+onMounted(() => {
+  // 登录后尽早拉取系统信息，导航按 capabilities 置灰。
+  if (auth.isAuthenticated) void system.load()
+})
 
 function openSettings(): void {
   mobileOpen.value = false
@@ -45,6 +52,7 @@ async function logout(): Promise<void> {
       :open="mobileOpen"
       :user="auth.user"
       :theme="theme"
+      :capabilities="system.info?.capabilities"
       @toggle="collapsed = !collapsed"
       @navigate="mobileOpen = false"
       @settings="openSettings"

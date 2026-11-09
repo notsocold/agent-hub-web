@@ -13,6 +13,8 @@ const EMPTY_CAPABILITIES: SystemCapabilities = {
   attachments: false,
   workflows: false,
   approvals: false,
+  agents: false,
+  tasks: false,
 }
 
 const EMPTY_LIMITS: SystemLimits = {
@@ -45,6 +47,10 @@ export const useSystemStore = defineStore('system', () => {
   )
   const a2a = computed(() => info.value?.a2a ?? null)
 
+  function enabled(capability: keyof SystemCapabilities): boolean {
+    return capabilities.value[capability] === true
+  }
+
   async function load(force = false): Promise<void> {
     if (loading.value) return
     if (loaded.value && !force) return
@@ -72,6 +78,7 @@ export const useSystemStore = defineStore('system', () => {
     defaultModel,
     defaultReasoningEffort,
     a2a,
+    enabled,
     load,
   }
 })

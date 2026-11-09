@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
-import { ElMessage } from 'element-plus'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { ElMessage, ElMessageBox } from 'element-plus'
 
 import EmptyState from '@/components/common/EmptyState.vue'
 import ErrorState from '@/components/common/ErrorState.vue'
@@ -9,41 +10,42 @@ import PageHeader from '@/components/common/PageHeader.vue'
 import PageShell from '@/components/common/PageShell.vue'
 import StatCard from '@/components/common/StatCard.vue'
 import StatusBadge from '@/components/common/StatusBadge.vue'
-import { tasksApi } from '@/api/tasks'
+import TaskDetailDrawer from '@/components/tasks/TaskDetailDrawer.vue'
+import { agentsApi } from '@/api/agents'
+import { tasksApi, type TaskListParams } from '@/api/tasks'
 import { formatDateTime, formatDuration } from '@/utils/format'
-import type { A2aTaskDetail, A2aTaskListItem, A2aTaskState } from '@/types'
+import { isRunningState, stateLabel, stateTone } from '@/components/tasks/taskMeta'
+import type { A2aTaskListItem, A2aTaskState, Agent, TaskAction } from '@/types'
+
+const route = useRoute()
+const router = useRouter()
+
+const PAGE_LIMIT = 20
+const POLL_INTERVAL_MS = 15_000
 
 const items = ref<A2aTaskListItem[]>([])
 const stats = ref<Record<string, number>>({})
 const loading = ref(false)
+const loadingMore = ref(false)
 const error = ref<string | null>(null)
+
 const stateFilter = ref<'all' | A2aTaskState>('all')
+const keyword = ref('')
+const agentFilter = ref('')
+const from = ref('')
+const to = ref('')
+
+const nextCursor = ref<string | null>(null)
+const hasMore = ref(false)
+
+const agents = ref<Agent[]>([])
+const agentsLoaded = ref(false)
 
 const detailOpen = ref(false)
-const detailLoading = ref(false)
-const detail = ref<A2aTaskDetail | null>(null)
+const detailTaskId = ref<string | null>(null)
 
-const STATE_LABELS: Record<A2aTaskState, string> = {
-  submitted: '已提交',
-  working: '运行中',
-  input_required: '等待输入',
-  auth_required: '需要授权',
-  completed: '已完成',
-  failed: '失败',
-  canceled: '已取消',
-  rejected: '已拒绝',
-}
-
-const STATE_TONES: Record<A2aTaskState, 'ok' | 'warn' | 'error' | 'muted' | 'live'> = {
-  submitted: 'live',
-  working: 'live',
-  input_required: 'warn',
-  auth_required: 'warn',
-  completed: 'ok',
-  failed: 'error',
-  canceled: 'muted',
-  rejected: 'muted',
-}
+let pollTimer: number | undefined
+let keywordTimer: number | undefined
 
 const STATE_OPTIONS: Array<{ value: 'all' | A2aTaskState; label: string }> = [
   { value: 'all', label: '全部状态' },
@@ -57,49 +59,278 @@ const STATE_OPTIONS: Array<{ value: 'all' | A2aTaskState; label: string }> = [
   { value: 'rejected', label: '已拒绝' },
 ]
 
-function stateLabel(state: string): string {
-  return STATE_LABELS[state as A2aTaskState] ?? state
+const agentOptions = computed<Array<{ value: string; label: string }>>(() => [
+  { value: '', label: '全部 Agent' },
+  ...agents.value.map((agent) => ({ value: agent.id, label: agent.name })),
+])
+
+const displayStats = computed(() => ({
+  total: stats.value.total ?? items.value.length,
+  input_required:
+    stats.value.input_required ??
+    items.value.filter((item) => item.state === 'input_required').length,
+  auth_required:
+    stats.value.auth_required ?? items.value.filter((item) => item.state === 'auth_required').length,
+  failed: stats.value.failed ?? items.value.filter((item) => item.state === 'failed').length,
+}))
+
+const hasRunning = computed(() => items.value.some((item) => isRunningState(item.state)))
+
+function buildParams(limit: number, cursor?: string): TaskListParams {
+  return {
+    state: stateFilter.value === 'all' ? undefined : stateFilter.value,
+    q: keyword.value.trim() || undefined,
+    agent_id: agentFilter.value || undefined,
+    from: from.value ? new Date(`${from.value}T00:00:00`).toISOString() : undefined,
+    to: to.value ? new Date(`${to.value}T23:59:59.999`).toISOString() : undefined,
+    limit,
+    cursor,
+  }
 }
 
-function stateTone(state: string): 'ok' | 'warn' | 'error' | 'muted' | 'live' {
-  return STATE_TONES[state as A2aTaskState] ?? 'muted'
+function errorMessage(cause: unknown, fallback: string): string {
+  return cause instanceof Error ? cause.message : fallback
 }
 
 async function load(): Promise<void> {
   loading.value = true
   error.value = null
+  nextCursor.value = null
+  hasMore.value = false
   try {
-    const page = await tasksApi.list({
-      state: stateFilter.value === 'all' ? undefined : stateFilter.value,
-      limit: 50,
-    })
+    const page = await tasksApi.list(buildParams(PAGE_LIMIT))
     items.value = page.items
     stats.value = page.stats ?? {}
+    nextCursor.value = page.next_cursor
+    hasMore.value = page.has_more
   } catch (cause) {
-    error.value = cause instanceof Error ? cause.message : '加载任务失败'
+    error.value = errorMessage(cause, '加载任务失败')
   } finally {
     loading.value = false
   }
 }
 
-async function openDetail(row: A2aTaskListItem): Promise<void> {
-  detailOpen.value = true
-  detailLoading.value = true
-  detail.value = null
+async function loadMore(): Promise<void> {
+  if (loadingMore.value || !nextCursor.value) return
+  loadingMore.value = true
   try {
-    detail.value = await tasksApi.get(row.id)
+    const page = await tasksApi.list(buildParams(PAGE_LIMIT, nextCursor.value))
+    items.value = [...items.value, ...page.items]
+    stats.value = page.stats ?? stats.value
+    nextCursor.value = page.next_cursor
+    hasMore.value = page.has_more
   } catch (cause) {
-    ElMessage.error(cause instanceof Error ? cause.message : '加载任务详情失败')
+    ElMessage.error(errorMessage(cause, '加载更多失败'))
   } finally {
-    detailLoading.value = false
+    loadingMore.value = false
   }
 }
 
-function notReady(label: string): void {
-  ElMessage.info(`${label}将在 M2 接入，当前仅展示任务列表与状态时间线。`)
+/** 静默刷新：不显示 loading，保持当前已加载数量（近似）以便列表不闪烁。 */
+async function silentRefresh(): Promise<void> {
+  if (loading.value || loadingMore.value) return
+  const limit = Math.min(100, Math.max(PAGE_LIMIT, items.value.length))
+  try {
+    const page = await tasksApi.list(buildParams(limit))
+    items.value = page.items
+    stats.value = page.stats ?? {}
+    nextCursor.value = page.next_cursor
+    hasMore.value = page.has_more
+  } catch {
+    // 轮询失败静默忽略，避免打扰用户
+  }
 }
 
-onMounted(load)
+async function loadAgents(): Promise<void> {
+  try {
+    const page = await agentsApi.list({ limit: 100 })
+    agents.value = page.items
+    agentsLoaded.value = true
+  } catch {
+    agents.value = []
+    agentsLoaded.value = false
+  }
+}
+
+function onKeywordInput(): void {
+  if (keywordTimer !== undefined) window.clearTimeout(keywordTimer)
+  keywordTimer = window.setTimeout(() => {
+    void load()
+  }, 400)
+}
+
+function resetFilters(): void {
+  stateFilter.value = 'all'
+  keyword.value = ''
+  agentFilter.value = ''
+  from.value = ''
+  to.value = ''
+  void load()
+}
+
+function openDetail(row: unknown): void {
+  const task = row as A2aTaskListItem
+  detailTaskId.value = task.id
+  detailOpen.value = true
+  if (route.query.task !== task.id) {
+    void router.replace({ query: { ...route.query, task: task.id } })
+  }
+}
+
+/** 允许从对话里的 A2A 卡片直接打开 `/tasks?task=<local-id>`。 */
+function openFromQuery(): void {
+  const taskId = route.query.task
+  if (typeof taskId !== 'string' || !taskId) return
+  detailTaskId.value = taskId
+  detailOpen.value = true
+}
+
+function onDetailClosed(): void {
+  if (typeof route.query.task !== 'string') return
+  const query = { ...route.query }
+  delete query.task
+  void router.replace({ query })
+}
+
+watch(detailOpen, (open) => {
+  if (!open) onDetailClosed()
+})
+
+function onDetailChanged(): void {
+  void load()
+}
+
+function hasAction(row: unknown, action: TaskAction): boolean {
+  return (row as A2aTaskListItem).available_actions.includes(action)
+}
+
+async function quickCancel(input: unknown): Promise<void> {
+  const row = input as A2aTaskListItem
+  try {
+    await ElMessageBox.confirm(`将取消任务 ${row.a2a_task_id}，远程运行会停止。`, '取消任务？', {
+      type: 'warning',
+      confirmButtonText: '取消任务',
+      cancelButtonText: '返回',
+    })
+  } catch {
+    return
+  }
+  try {
+    await tasksApi.cancel(row.id)
+    ElMessage.success('已取消')
+    void load()
+  } catch (cause) {
+    ElMessage.error(errorMessage(cause, '取消失败'))
+  }
+}
+
+async function quickResume(raw: unknown): Promise<void> {
+  const row = raw as A2aTaskListItem
+  let input = ''
+  try {
+    const result = await ElMessageBox.prompt('请输入补充信息（2000 字以内）。', '补充信息', {
+      inputPlaceholder: '例如：按创建时间统计',
+      confirmButtonText: '提交',
+      cancelButtonText: '取消',
+      inputValidator: (value) => (value && value.trim().length > 0) || '补充信息不能为空',
+    })
+    input = result.value.trim()
+  } catch {
+    return
+  }
+  try {
+    await tasksApi.resume(row.id, { input })
+    ElMessage.success('已提交补充信息')
+    void load()
+  } catch (cause) {
+    ElMessage.error(errorMessage(cause, '提交补充信息失败'))
+  }
+}
+
+async function quickAuthorize(raw: unknown): Promise<void> {
+  const row = raw as A2aTaskListItem
+  try {
+    await ElMessageBox.confirm('确认你已在外部完成授权？确认后任务将重试。', '确认已授权？', {
+      type: 'info',
+      confirmButtonText: '已授权',
+      cancelButtonText: '取消',
+    })
+  } catch {
+    return
+  }
+  try {
+    await tasksApi.authorize(row.id, {})
+    ElMessage.success('已授权')
+    void load()
+  } catch (cause) {
+    ElMessage.error(errorMessage(cause, '授权失败'))
+  }
+}
+
+async function quickReject(raw: unknown): Promise<void> {
+  const row = raw as A2aTaskListItem
+  let reason = ''
+  try {
+    const result = await ElMessageBox.prompt('请输入拒绝原因（可选）。拒绝后任务进入「已拒绝」，不会再重试。', '拒绝任务？', {
+      inputPlaceholder: '例如：暂不需要此授权',
+      confirmButtonText: '确认拒绝',
+      cancelButtonText: '取消',
+    })
+    reason = result.value.trim()
+  } catch {
+    return
+  }
+  try {
+    await tasksApi.reject(row.id, { reason })
+    ElMessage.success('已拒绝')
+    void load()
+  } catch (cause) {
+    ElMessage.error(errorMessage(cause, '拒绝失败'))
+  }
+}
+
+function pageVisible(): boolean {
+  return document.visibilityState === 'visible'
+}
+
+function stopPolling(): void {
+  if (pollTimer !== undefined) {
+    window.clearInterval(pollTimer)
+    pollTimer = undefined
+  }
+}
+
+function syncPolling(): void {
+  if (hasRunning.value && pageVisible()) {
+    if (pollTimer === undefined) {
+      pollTimer = window.setInterval(() => {
+        void silentRefresh()
+      }, POLL_INTERVAL_MS)
+    }
+  } else {
+    stopPolling()
+  }
+}
+
+function onVisibilityChange(): void {
+  if (pageVisible() && hasRunning.value) void silentRefresh()
+  syncPolling()
+}
+
+watch(hasRunning, syncPolling)
+
+onMounted(() => {
+  document.addEventListener('visibilitychange', onVisibilityChange)
+  void load()
+  void loadAgents()
+  openFromQuery()
+})
+
+onUnmounted(() => {
+  document.removeEventListener('visibilitychange', onVisibilityChange)
+  stopPolling()
+  if (keywordTimer !== undefined) window.clearTimeout(keywordTimer)
+})
 </script>
 
 <template>
@@ -110,15 +341,15 @@ onMounted(load)
       description="跟踪主智能体发起的远程 A2A 任务；等待输入、需要授权与终态都会反映在同一条状态时间线上。"
     >
       <template #actions>
-        <button type="button" class="btn" @click="notReady('任务筛选导出')">导出</button>
+        <button type="button" class="btn" :disabled="loading" @click="load">刷新</button>
       </template>
     </PageHeader>
 
     <div class="stat-row">
-      <StatCard label="全部任务" :value="stats.total ?? items.length" />
-      <StatCard label="等待输入" :value="stats.input_required ?? 0" tone="warn" />
-      <StatCard label="需要授权" :value="stats.auth_required ?? 0" tone="warn" />
-      <StatCard label="失败" :value="stats.failed ?? 0" tone="error" />
+      <StatCard label="全部任务" :value="displayStats.total" />
+      <StatCard label="等待输入" :value="displayStats.input_required" tone="warn" />
+      <StatCard label="需要授权" :value="displayStats.auth_required" tone="warn" />
+      <StatCard label="失败" :value="displayStats.failed" tone="error" />
     </div>
 
     <div class="toolbar">
@@ -127,6 +358,38 @@ onMounted(load)
           {{ option.label }}
         </option>
       </select>
+
+      <select
+        v-if="agentsLoaded"
+        v-model="agentFilter"
+        class="input"
+        aria-label="按 Agent 筛选"
+        @change="load"
+      >
+        <option v-for="option in agentOptions" :key="option.value" :value="option.value">
+          {{ option.label }}
+        </option>
+      </select>
+
+      <input
+        v-model="keyword"
+        class="input search"
+        type="search"
+        placeholder="搜索任务 ID / 摘要 / Agent"
+        aria-label="搜索任务"
+        @input="onKeywordInput"
+      />
+
+      <label class="date-range">
+        <span class="date-label">从</span>
+        <input v-model="from" class="input" type="date" aria-label="开始日期" @change="load" />
+      </label>
+      <label class="date-range">
+        <span class="date-label">至</span>
+        <input v-model="to" class="input" type="date" aria-label="结束日期" @change="load" />
+      </label>
+
+      <button type="button" class="btn" @click="resetFilters">重置筛选</button>
     </div>
 
     <ErrorState v-if="error" :message="error" @retry="load" />
@@ -134,7 +397,7 @@ onMounted(load)
 
     <div v-else class="table-card">
       <el-table :data="items" style="width: 100%" @row-click="openDetail">
-        <el-table-column label="任务 ID" width="130">
+        <el-table-column label="任务 ID" width="120">
           <template #default="{ row }">
             <span class="mono">{{ row.a2a_task_id }}</span>
           </template>
@@ -162,9 +425,55 @@ onMounted(load)
             <span class="muted ellipsis">{{ row.conversation?.title ?? '—' }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="创建时间" width="160">
+        <el-table-column label="创建时间" width="150">
           <template #default="{ row }">
             <span class="muted mono">{{ formatDateTime(row.created_at) }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="230">
+          <template #default="{ row }">
+            <div class="row-actions" @click.stop>
+              <button
+                v-if="hasAction(row, 'resume')"
+                type="button"
+                class="link"
+                @click="quickResume(row)"
+              >
+                补充
+              </button>
+              <button
+                v-if="hasAction(row, 'authorize')"
+                type="button"
+                class="link"
+                @click="quickAuthorize(row)"
+              >
+                授权
+              </button>
+              <button
+                v-if="hasAction(row, 'reject')"
+                type="button"
+                class="link danger"
+                @click="quickReject(row)"
+              >
+                拒绝
+              </button>
+              <button
+                v-if="hasAction(row, 'cancel')"
+                type="button"
+                class="link danger"
+                @click="quickCancel(row)"
+              >
+                取消
+              </button>
+              <button
+                v-if="!row.available_actions.length"
+                type="button"
+                class="link"
+                @click="openDetail(row)"
+              >
+                查看
+              </button>
+            </div>
           </template>
         </el-table-column>
         <template #empty>
@@ -174,81 +483,19 @@ onMounted(load)
           />
         </template>
       </el-table>
+
+      <div v-if="hasMore" class="load-more">
+        <button type="button" class="btn" :disabled="loadingMore" @click="loadMore">
+          {{ loadingMore ? '加载中…' : '加载更多' }}
+        </button>
+      </div>
     </div>
 
-    <el-drawer v-model="detailOpen" title="任务详情" size="440px" :append-to-body="true">
-      <LoadingBlock v-if="detailLoading" label="正在加载任务详情…" />
-
-      <div v-else-if="detail" class="detail">
-        <div class="detail-head">
-          <StatusBadge :tone="stateTone(detail.state)" :label="stateLabel(detail.state)" />
-          <span class="mono muted">{{ detail.a2a_task_id }}</span>
-        </div>
-
-        <dl class="facts">
-          <div>
-            <dt>智能体</dt>
-            <dd>{{ detail.agent.name }}</dd>
-          </div>
-          <div>
-            <dt>会话</dt>
-            <dd>{{ detail.conversation?.title ?? '—' }}</dd>
-          </div>
-          <div>
-            <dt>Run</dt>
-            <dd class="mono ellipsis">{{ detail.run_id }}</dd>
-          </div>
-          <div>
-            <dt>耗时</dt>
-            <dd class="mono">{{ formatDuration(detail.duration_ms) }}</dd>
-          </div>
-        </dl>
-
-        <section v-if="detail.request">
-          <h3>请求</h3>
-          <p>{{ detail.request.summary }}</p>
-        </section>
-
-        <section v-if="detail.result">
-          <h3>结果</h3>
-          <p>{{ detail.result.summary }}</p>
-        </section>
-
-        <section v-if="detail.input_request" class="callout">
-          <h3>等待补充信息</h3>
-          <p>{{ detail.input_request.question }}</p>
-        </section>
-
-        <section v-if="detail.auth_request" class="callout">
-          <h3>需要授权</h3>
-          <p>scopes：{{ detail.auth_request.scopes.join(', ') || '—' }}</p>
-        </section>
-
-        <section v-if="detail.error" class="callout is-error">
-          <h3>错误</h3>
-          <p>{{ detail.error.message }}</p>
-        </section>
-
-        <section>
-          <h3>状态时间线</h3>
-          <ol class="timeline">
-            <li v-for="entry in detail.timeline" :key="`${entry.state}-${entry.at}`">
-              <span class="dot" :class="`tone-${stateTone(entry.state)}`"></span>
-              <span class="timeline-state">{{ stateLabel(entry.state) }}</span>
-              <span class="muted mono">{{ formatDateTime(entry.at) }}</span>
-              <span v-if="entry.note" class="timeline-note">{{ entry.note }}</span>
-            </li>
-          </ol>
-        </section>
-
-        <div class="actions">
-          <button type="button" class="btn" @click="notReady('补充信息')">补充信息</button>
-          <button type="button" class="btn" @click="notReady('前往授权')">前往授权</button>
-          <button type="button" class="btn" @click="notReady('拒绝任务')">拒绝</button>
-          <button type="button" class="btn primary" @click="notReady('取消任务')">取消任务</button>
-        </div>
-      </div>
-    </el-drawer>
+    <TaskDetailDrawer
+      v-model="detailOpen"
+      :task-id="detailTaskId"
+      @changed="onDetailChanged"
+    />
   </PageShell>
 </template>
 
@@ -271,113 +518,48 @@ onMounted(load)
   vertical-align: bottom;
 }
 
-.detail {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  color: var(--ink-2);
-  font-size: 12px;
+.search {
+  min-width: 220px;
+  flex: 1;
+  max-width: 320px;
 }
 
-.detail-head {
+.date-range {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.date-label {
+  color: var(--ink-3);
+  font-size: 11px;
+}
+
+.row-actions {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 10px;
+  gap: 6px;
+  flex-wrap: wrap;
 }
 
-.facts {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px 14px;
-  margin: 0;
-  padding: 12px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--surface);
-}
-
-.facts dt {
-  color: var(--ink-3);
-  font-size: 10px;
-}
-
-.facts dd {
-  margin: 2px 0 0;
-  color: var(--ink);
+.link {
+  color: var(--prussian);
   font-size: 11.5px;
+  white-space: nowrap;
 }
 
-h3 {
-  margin: 0 0 5px;
-  color: var(--ink);
-  font-size: 11.5px;
-  font-weight: 600;
+.link:hover {
+  text-decoration: underline;
 }
 
-section p {
-  margin: 0;
-  line-height: 1.7;
-}
-
-.callout {
-  padding: 10px 12px;
-  border: 1px solid var(--amber-soft);
-  border-radius: 7px;
-  background: var(--amber-soft);
-}
-
-.callout.is-error {
-  border-color: var(--red-soft);
-  background: var(--red-soft);
+.link.danger {
   color: var(--red);
 }
 
-.timeline {
+.load-more {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.timeline li {
-  display: grid;
-  grid-template-columns: 8px auto auto 1fr;
-  gap: 8px;
-  align-items: center;
-}
-
-.timeline .dot {
-  width: 6px;
-  height: 6px;
-  background: var(--ink-3);
-}
-
-.timeline .tone-ok {
-  background: var(--green);
-}
-
-.timeline .tone-warn {
-  background: var(--amber);
-}
-
-.timeline .tone-error {
-  background: var(--red);
-}
-
-.timeline-state {
-  color: var(--ink);
-  font-size: 11.5px;
-}
-
-.timeline-note {
-  color: var(--ink-3);
-  font-size: 10.5px;
-}
-
-.actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  padding-top: 4px;
+  justify-content: center;
+  padding: 14px;
+  border-top: 1px solid var(--line-2);
 }
 </style>

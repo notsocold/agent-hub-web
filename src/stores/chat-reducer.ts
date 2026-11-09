@@ -17,6 +17,7 @@ import type {
   WorkflowStepProcess,
 } from '@/types'
 import { TASK_STATES } from '@/types'
+import type { RunStatus } from '@/types'
 
 function str(value: unknown): string {
   return typeof value === 'string' ? value : ''
@@ -71,13 +72,22 @@ export function createInitialChatState(): ChatState {
     process: [],
     streaming: false,
     runId: null,
+    runStatus: null,
     currentAssistantId: null,
     pendingApprovalId: null,
     usage: null,
     finishReason: null,
     error: null,
+    recovery: null,
     lastSeq: 0,
   }
+}
+
+function runStatusFromFinishReason(finishReason: string): RunStatus {
+  if (finishReason === 'stop') return 'succeeded'
+  if (finishReason === 'error') return 'failed'
+  if (finishReason === 'interrupted') return 'interrupted'
+  return 'canceled'
 }
 
 function assistantMessage(id: string, runId: string | null, createdAt?: string): ChatMessageView {
@@ -150,6 +160,10 @@ function addToolStart(state: ChatState, data: Record<string, unknown>): ChatStat
     tool: str(data.tool),
     displayName: str(data.display_name) || str(data.tool),
     source: str(data.source),
+    sourceId: str(data.source_id) || null,
+    server: str(data.server),
+    risk: str(data.risk) || null,
+    requiresApproval: data.requires_approval === true,
     argsPreview: str(data.args_preview),
     resultPreview: '',
     summary: '',
@@ -175,6 +189,10 @@ function addToolResult(state: ChatState, data: Record<string, unknown>): ChatSta
     tool: existing?.tool ?? '',
     displayName: existing?.displayName ?? str(data.tool_call_id),
     source: existing?.source ?? str(data.source),
+    sourceId: existing?.sourceId ?? null,
+    server: existing?.server ?? '',
+    risk: existing?.risk ?? null,
+    requiresApproval: existing?.requiresApproval ?? false,
     argsPreview: existing?.argsPreview ?? '',
     resultPreview: str(data.result_preview),
     summary: str(data.summary),
@@ -237,9 +255,11 @@ export function reduceChat(state: ChatState, event: ChatEventName, raw: unknown)
     case 'run.started': {
       next.conversationId = str(data.conversation_id) || state.conversationId
       next.runId = str(data.run_id) || state.runId
+      next.runStatus = 'running'
       next.streaming = true
       next.finishReason = null
       next.error = null
+      next.recovery = null
       next.usage = null
       next.pendingApprovalId = null
       next.currentAssistantId = null
@@ -436,6 +456,7 @@ export function reduceChat(state: ChatState, event: ChatEventName, raw: unknown)
       }
       next.process = upsertProcess(next.process, item)
       next.pendingApprovalId = approvalId
+      next.runStatus = 'interrupted'
       next.streaming = true
       return next
     }
@@ -500,6 +521,7 @@ export function reduceChat(state: ChatState, event: ChatEventName, raw: unknown)
       }
       next.error = error
       next.streaming = false
+      next.runStatus = 'failed'
       const item: ErrorProcess = {
         kind: 'error',
         id: `error:${next.lastSeq}`,
@@ -554,9 +576,11 @@ export function reduceChat(state: ChatState, event: ChatEventName, raw: unknown)
 
       next.streaming = false
       next.finishReason = finishReason
+      next.runStatus = runStatusFromFinishReason(finishReason)
       next.usage = usage
       next.pendingApprovalId = null
       next.currentAssistantId = null
+      next.recovery = null
       return next
     }
 

@@ -12,6 +12,20 @@ function delay(ms: number): Promise<void> {
 }
 
 function parseBody(data: unknown): unknown {
+  if (typeof FormData !== 'undefined' && data instanceof FormData) {
+    const fields: Record<string, string> = {}
+    let file: { name: string; type: string; size: number } | null = null
+    data.forEach((value, key) => {
+      if (typeof value === 'string') {
+        fields[key] = value
+        return
+      }
+      if (typeof File !== 'undefined' && value instanceof File) {
+        file = { name: value.name, type: value.type, size: value.size }
+      }
+    })
+    return { __mockForm: true, fields, file }
+  }
   if (typeof data !== 'string') return data
   try {
     return JSON.parse(data) as unknown

@@ -12,11 +12,14 @@ const props = defineProps<{
   streaming: boolean
   loading: boolean
   resolvingApproval: boolean
+  hasMore?: boolean
+  loadingOlder?: boolean
 }>()
 
 const emit = defineEmits<{
   approve: [id: string]
   reject: [id: string]
+  loadOlder: []
 }>()
 
 const container = ref<HTMLElement | null>(null)
@@ -40,6 +43,16 @@ const { showJump, onScroll, scrollToBottom } = useAutoScroll(container, () => [
   <div ref="container" class="message-scroll" @scroll="onScroll">
     <div class="message-inner">
       <p v-if="loading" class="loading">正在加载历史消息…</p>
+
+      <button
+        v-if="hasMore && !loading"
+        type="button"
+        class="load-older"
+        :disabled="loadingOlder"
+        @click="emit('loadOlder')"
+      >
+        {{ loadingOlder ? '正在加载更早消息…' : '加载更早消息' }}
+      </button>
 
       <div v-for="message in messages" :key="message.id" class="message-item">
         <ProcessTimeline
@@ -89,6 +102,27 @@ const { showJump, onScroll, scrollToBottom } = useAutoScroll(container, () => [
   color: var(--ink-3);
   font-size: 12px;
   text-align: center;
+}
+
+.load-older {
+  display: block;
+  margin: 0 auto 14px;
+  padding: 5px 12px;
+  border: 1px solid var(--line);
+  border-radius: 99px;
+  background: var(--surface);
+  color: var(--ink-3);
+  font-size: 11px;
+}
+
+.load-older:hover:not(:disabled) {
+  border-color: var(--ink-3);
+  color: var(--ink);
+}
+
+.load-older:disabled {
+  cursor: wait;
+  opacity: 0.7;
 }
 
 .jump {

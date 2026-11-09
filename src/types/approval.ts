@@ -40,5 +40,6 @@ export interface ApprovalDecisionResult {
   status: ApprovalStatus
   run_id: string
   resumed: boolean
+  /** 未自动恢复运行的原因；`resumed=true` 时为 null，该键始终存在。 */
   resume_error: string | null
 }

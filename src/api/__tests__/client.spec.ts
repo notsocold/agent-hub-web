@@ -74,6 +74,33 @@ describe('api client', () => {
     expect(apiError.status).toBe(422)
     expect(apiError.requestId).toBe('req-42')
     expect(apiError.message).toBe('参数不合法')
+    expect(apiError.details).toEqual({})
+  })
+
+  it('保留 409 错误信封里的 details.run_id', async () => {
+    const client = createHttpClient({ baseURL: '/api/v1' })
+    client.defaults.adapter = async (config) => {
+      throw new AxiosError('Conflict', 'ERR_BAD_REQUEST', config, undefined, {
+        data: {
+          error: {
+            code: 'run_in_progress',
+            message: '该会话已有运行中的请求',
+            request_id: 'req-409',
+            details: { run_id: 'run-abc' },
+          },
+        },
+        status: 409,
+        statusText: 'Conflict',
+        headers: {},
+        config,
+      })
+    }
+
+    await expect(client.get('/anything')).rejects.toMatchObject({
+      code: 'run_in_progress',
+      status: 409,
+      details: { run_id: 'run-abc' },
+    })
   })
 
   it('并发 401 只刷新一次，并用新 token 重放请求', async () => {

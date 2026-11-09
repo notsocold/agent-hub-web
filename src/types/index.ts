@@ -1,5 +1,7 @@
 export * from './api'
 export * from './auth'
+export * from './attachment'
+export * from './capability'
 export * from './conversation'
 export * from './chat'
 export * from './run'

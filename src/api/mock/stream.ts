@@ -76,13 +76,13 @@ function resolveConversation(payload: ChatStreamRequest): {
   return { id: conversation.id, title, created: true }
 }
 
-function baseCapabilities(categories: string[]): ChatMessage['capabilities'] {
+function baseCapabilities(payload: ChatStreamRequest): ChatMessage['capabilities'] {
   return {
-    skills: [],
-    mcp_servers: [],
-    mcp_tools: [],
-    knowledge_categories: categories,
-    workflow_id: null,
+    skills: payload.skills ?? [],
+    mcp_servers: payload.mcp_servers ?? [],
+    mcp_tools: payload.mcp_tools ?? [],
+    knowledge_categories: payload.knowledge_categories ?? [],
+    workflow_id: payload.workflow_id ?? null,
   }
 }
 
@@ -154,8 +154,8 @@ export async function mockChatStream(
       client_message_id: clientMessageId,
       status: 'completed',
       citations: [],
-      attachments: [],
-      capabilities: baseCapabilities(payload.knowledge_categories ?? []),
+      attachments: mockDb.attachToConversation(payload.attachments ?? [], conversation.id),
+      capabilities: baseCapabilities(payload),
       artifacts: [],
       usage: null,
       error: null,
@@ -176,7 +176,7 @@ export async function mockChatStream(
         finishReason === 'stop' ? 'completed' : finishReason === 'error' ? 'failed' : 'canceled',
       citations: isError ? [] : CITATIONS,
       attachments: [],
-      capabilities: baseCapabilities(payload.knowledge_categories ?? []),
+      capabilities: baseCapabilities(payload),
       artifacts: [],
       usage: { input_tokens: 1280, output_tokens: 320, reasoning_tokens: 96, total_tokens: 1600 },
       error: isError
@@ -259,6 +259,26 @@ export async function mockChatStream(
         delay: 60,
       },
     )
+
+    // 本轮显式选择的技能：首个 delta 前激活，并写入消息快照。
+    for (const skillId of payload.skills ?? []) {
+      const skill = mockDb.getSkill(skillId)
+      if (!skill) continue
+      prefix.push({
+        event: 'skill.activated',
+        data: {
+          skill_id: skill.id,
+          slug: skill.slug,
+          name: skill.name,
+          scope: skill.scope,
+          source: 'explicit',
+          description: skill.description,
+          estimated_tokens: skill.estimated_tokens,
+          duration_ms: 0,
+        },
+        delay: 40,
+      })
+    }
     await play(prefix)
     saveUserMessage()
 
@@ -286,6 +306,7 @@ export async function mockChatStream(
       ])
       emit('message.done', {
         run_id: runId,
+        conversation_id: conversation.id,
         message_id: assistantMessageId,
         usage: { input_tokens: 320, output_tokens: 0, reasoning_tokens: 0, total_tokens: 320 },
         finish_reason: 'error',
@@ -332,6 +353,102 @@ export async function mockChatStream(
     ])
 
     if (!isApproval) {
+      // 显式选择 MCP：模拟一次工具调用；写工具仍需要审批，这里只演示只读/显式工具。
+      const selectedServer = (payload.mcp_servers ?? [])
+        .map((id) => mockDb.getMcpServer(id))
+        .find((item) => item !== null)
+      const selectedTool = (payload.mcp_tools ?? [])
+        .map((id) => mockDb.listMcpTools(selectedServer?.id ?? '')?.find((tool) => tool.id === id))
+        .find((item) => item !== undefined)
+      if (selectedServer || selectedTool) {
+        const toolName = selectedTool?.exposed_name ?? `mcp__${selectedServer?.slug ?? 'mcp'}__conversations_info`
+        const displayName = selectedTool?.name ?? 'conversations.info'
+        await play([
+          {
+            event: 'tool.start',
+            data: {
+              tool_call_id: 'call_mcp_1',
+              tool: toolName,
+              display_name: displayName,
+              args: { channel: '#support-weekly' },
+              args_preview: 'channel=#support-weekly',
+              source: 'mcp',
+              source_id: selectedServer?.id ?? null,
+              server: selectedServer?.name ?? 'MCP',
+              risk: selectedTool?.risk ?? 'read',
+              requires_approval: selectedTool?.requires_approval ?? false,
+            },
+            delay: 120,
+          },
+          {
+            event: 'tool.result',
+            data: {
+              tool_call_id: 'call_mcp_1',
+              status: 'ok',
+              summary: `已通过 ${selectedServer?.name ?? 'MCP'} 读取频道信息`,
+              result_preview: 'members=12, topic=支持周报',
+              duration_ms: 320,
+              source: 'mcp',
+              metadata: { transport: selectedServer?.transport ?? 'streamable_http' },
+            },
+            delay: 220,
+          },
+        ])
+      }
+
+      // 远程 Agent 演示：提到核对/远程/智能体时插入一条已完成任务。
+      if (/核对|远程|智能体|data-analyst|代码审查/i.test(payload.message)) {
+        const agent = mockDb.agents[0]
+        const taskId = crypto.randomUUID()
+        await play([
+          {
+            event: 'a2a.task',
+            data: {
+              task_id: taskId,
+              a2a_task_id: 'task_mock_1',
+              agent: agent?.slug ?? 'data-analyst',
+              agent_detail: agent
+                ? { id: agent.id, slug: agent.slug, name: agent.name }
+                : null,
+              state: 'working',
+              progress: 0.4,
+              request_summary: payload.message.slice(0, 60),
+            },
+            delay: 160,
+          },
+          {
+            event: 'a2a.task',
+            data: {
+              task_id: taskId,
+              a2a_task_id: 'task_mock_1',
+              agent: agent?.slug ?? 'data-analyst',
+              agent_detail: agent
+                ? { id: agent.id, slug: agent.slug, name: agent.name }
+                : null,
+              state: 'completed',
+              progress: 1,
+              result_summary: '数字与来源核对通过',
+              duration_ms: 900,
+            },
+            delay: 220,
+          },
+        ])
+      }
+
+      if (/记住|记忆|以后都|偏好/i.test(payload.message)) {
+        const memory = mockDb.createMemory({
+          kind: 'preference',
+          title: '来自会话的记忆',
+          content: payload.message.slice(0, 200),
+        })
+        emit('memory.saved', {
+          memory_id: memory.id,
+          kind: memory.kind,
+          action: 'created',
+          preview: memory.content.slice(0, 60),
+        })
+      }
+
       await play([
         {
           event: 'message.delta',
@@ -357,6 +474,7 @@ export async function mockChatStream(
       ])
       emit('message.done', {
         run_id: runId,
+        conversation_id: conversation.id,
         message_id: assistantMessageId,
         usage: {
           input_tokens: 6842,
@@ -495,6 +613,7 @@ export async function mockChatStream(
       ])
       emit('message.done', {
         run_id: runId,
+        conversation_id: conversation.id,
         message_id: assistantMessageId,
         usage: {
           input_tokens: 6842,
@@ -533,6 +652,7 @@ export async function mockChatStream(
     ])
     emit('message.done', {
       run_id: runId,
+      conversation_id: conversation.id,
       message_id: assistantMessageId,
       usage: { input_tokens: 6842, output_tokens: 1210, reasoning_tokens: 620, total_tokens: 8052 },
       finish_reason: 'canceled',

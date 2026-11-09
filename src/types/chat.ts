@@ -1,4 +1,5 @@
 import type { ChatMessage, Citation, MessageArtifact, MessageError, Usage } from './conversation'
+import type { RunStatus } from './run'
 
 export type ReasoningEffortId = 'low' | 'medium' | 'high'
 
@@ -210,6 +211,8 @@ export interface NoticeData extends BaseEventData {
 
 export interface MessageDoneData extends BaseEventData {
   run_id: string
+  /** 后端 M1 实际会带上；老契约没有，按可选处理。 */
+  conversation_id?: string
   message_id: string
   usage: Usage
   finish_reason: 'stop' | 'length' | 'canceled' | 'interrupted' | 'error' | string
@@ -232,6 +235,7 @@ export interface StreamErrorData extends BaseEventData {
   request_id?: string
   run_id?: string
   retryable?: boolean
+  details?: Record<string, unknown>
 }
 
 export interface ChatEventDataMap {
@@ -301,6 +305,10 @@ export interface ToolProcess extends ProcessBase {
   tool: string
   displayName: string
   source: string
+  sourceId: string | null
+  server: string
+  risk: string | null
+  requiresApproval: boolean
   argsPreview: string
   resultPreview: string
   summary: string
@@ -382,6 +390,19 @@ export interface ChatMessageView extends ChatMessage {
   reasoning?: MessageReasoning
 }
 
+/**
+ * 发送/流失败后的恢复提示。M1 后端在 `409 run_in_progress` 时
+ * 会在 `error.details.run_id` 给出占锁的运行，前端据此恢复停止/刷新入口。
+ */
+export interface ChatRecovery {
+  kind: 'run_in_progress' | 'run_interrupted' | 'stream_failed' | 'approval_resume_failed'
+  code: string
+  message: string
+  runId: string | null
+  runStatus: RunStatus | null
+  retryable: boolean
+}
+
 export interface ChatState {
   conversationId: string | null
   conversationTitle: string
@@ -389,11 +410,13 @@ export interface ChatState {
   process: ProcessItem[]
   streaming: boolean
   runId: string | null
+  runStatus: RunStatus | null
   currentAssistantId: string | null
   pendingApprovalId: string | null
   usage: Usage | null
   finishReason: string | null
   error: MessageError | null
+  recovery: ChatRecovery | null
   lastSeq: number
 }
 

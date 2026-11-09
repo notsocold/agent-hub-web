@@ -6,27 +6,44 @@ import { ElMessage } from 'element-plus'
 import ChatComposer from '@/components/chat/ChatComposer.vue'
 import ConversationSidebar from '@/components/chat/ConversationSidebar.vue'
 import MessageList from '@/components/chat/MessageList.vue'
+import RunRecoveryBanner from '@/components/chat/RunRecoveryBanner.vue'
 import RunTraceDrawer from '@/components/chat/RunTraceDrawer.vue'
+import { approvalsApi } from '@/api/approvals'
+import { useCapabilitiesStore } from '@/stores/capabilities'
 import { useChatStore } from '@/stores/chat'
 import { useConversationsStore } from '@/stores/conversations'
 import { useSystemStore } from '@/stores/system'
-import type { ChatContextSelection, ReasoningEffortId } from '@/types'
+import type { Approval, ChatContextSelection, ReasoningEffortId } from '@/types'
 
 const route = useRoute()
 const router = useRouter()
 const chat = useChatStore()
 const conversations = useConversationsStore()
 const system = useSystemStore()
+const capabilityCatalog = useCapabilitiesStore()
 
 const traceOpen = ref(false)
 const model = ref('')
 const reasoningEffort = ref<ReasoningEffortId>('low')
+
+const approvalsOpen = ref(false)
+const approvalsLoading = ref(false)
+const approvalsError = ref<string | null>(null)
+const pendingApprovals = ref<Approval[]>([])
+const decidingApprovalId = ref<string | null>(null)
 
 const suggestions = [
   '整理本周客服工单，生成一份团队周报',
   '查一下退款政策变更会影响哪些话术',
   '把这段 release notes 翻成英文',
 ]
+
+const BLOCKED_LABELS: Record<string, string> = {
+  workflows: '工作流',
+  agents: '智能体',
+  tasks: '任务',
+  knowledge: '知识库',
+}
 
 const activeId = computed(() => (typeof route.query.c === 'string' ? route.query.c : undefined))
 const activeConversation = computed(
@@ -39,7 +56,9 @@ const isEmpty = computed(() => !activeId.value && chat.state.messages.length ===
 
 const status = computed(() => {
   if (chat.state.pendingApprovalId) return { label: '待审批', tone: 'warn' }
+  if (chat.state.recovery?.kind === 'run_interrupted') return { label: '待处理', tone: 'warn' }
   if (chat.state.streaming) return { label: '生成中', tone: 'live' }
+  if (chat.state.recovery?.kind === 'run_in_progress') return { label: '运行中', tone: 'live' }
   if (chat.state.error) return { label: '出错', tone: 'error' }
   return { label: '就绪', tone: 'ok' }
 })
@@ -62,8 +81,18 @@ async function loadConversation(id: string): Promise<void> {
 
 onMounted(async () => {
   void system.load()
+  void capabilityCatalog.load()
   model.value = system.defaultModel
   reasoningEffort.value = system.defaultReasoningEffort
+
+  const blocked = route.query.blocked
+  if (typeof blocked === 'string' && BLOCKED_LABELS[blocked]) {
+    ElMessage.info(`${BLOCKED_LABELS[blocked]}能力当前关闭，将在后续里程碑开放。`)
+    const nextQuery = { ...route.query }
+    delete nextQuery.blocked
+    void router.replace({ query: nextQuery })
+  }
+
   if (activeId.value) await loadConversation(activeId.value)
 })
 
@@ -138,6 +167,59 @@ async function handleApproval(approve: boolean): Promise<void> {
     ElMessage.error(error instanceof Error ? error.message : '审批失败，请稍后重试')
   }
 }
+
+async function openApprovals(): Promise<void> {
+  const conversationId = chat.state.conversationId
+  if (!conversationId) return
+  approvalsOpen.value = true
+  approvalsLoading.value = true
+  approvalsError.value = null
+  try {
+    const page = await approvalsApi.list({
+      status: 'pending',
+      conversation_id: conversationId,
+      limit: 50,
+    })
+    pendingApprovals.value = page.items
+  } catch (error) {
+    approvalsError.value = error instanceof Error ? error.message : '加载审批失败'
+  } finally {
+    approvalsLoading.value = false
+  }
+}
+
+async function decideApproval(approval: Approval, approve: boolean): Promise<void> {
+  decidingApprovalId.value = approval.id
+  try {
+    const result = await approvalsApi.decide(approval.id, {
+      decision: approve ? 'approve' : 'reject',
+    })
+    if (result.resumed) {
+      ElMessage.success(approve ? '已批准，运行将继续' : '已拒绝，运行将继续收尾')
+    } else {
+      ElMessage.warning(result.resume_error ?? '审批已记录，但运行未能自动恢复')
+    }
+    pendingApprovals.value = pendingApprovals.value.filter((item) => item.id !== approval.id)
+    await chat.refresh()
+    if (pendingApprovals.value.length === 0) approvalsOpen.value = false
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : '审批失败，请稍后重试')
+  } finally {
+    decidingApprovalId.value = null
+  }
+}
+
+function handleRecoveryStop(): void {
+  void chat.stop()
+}
+
+function handleRecoveryRetry(): void {
+  void chat.retry()
+}
+
+function handleRecoveryRefresh(): void {
+  void chat.refresh()
+}
 </script>
 
 <template>
@@ -171,6 +253,16 @@ async function handleApproval(approve: boolean): Promise<void> {
         </div>
       </header>
 
+      <RunRecoveryBanner
+        v-if="chat.recovery"
+        :recovery="chat.recovery"
+        :busy="chat.recoveryBusy"
+        @stop="handleRecoveryStop"
+        @retry="handleRecoveryRetry"
+        @refresh="handleRecoveryRefresh"
+        @approvals="openApprovals"
+      />
+
       <MessageList
         v-if="!isEmpty"
         :messages="chat.messages"
@@ -178,8 +270,11 @@ async function handleApproval(approve: boolean): Promise<void> {
         :streaming="chat.state.streaming"
         :loading="chat.loadingHistory"
         :resolving-approval="chat.resolvingApproval"
+        :has-more="chat.historyHasMore"
+        :loading-older="chat.loadingOlder"
         @approve="handleApproval(true)"
         @reject="handleApproval(false)"
+        @load-older="chat.loadOlder()"
       />
 
       <div v-else class="welcome">
@@ -208,7 +303,15 @@ async function handleApproval(approve: boolean): Promise<void> {
         :models="system.models"
         :reasoning-efforts="system.reasoningEfforts"
         :max-chars="system.limits.message_max_chars"
+        :skills="capabilityCatalog.enabledSkills"
+        :mcp-servers="capabilityCatalog.mcpServers"
+        :mcp-tools="capabilityCatalog.mcpTools"
+        :tools-loading="capabilityCatalog.loadingTools"
+        :limits="system.limits"
+        :capabilities="system.capabilities"
+        :conversation-id="chat.state.conversationId ?? activeId ?? null"
         @send="handleSend"
+        @load-mcp-tools="capabilityCatalog.loadTools"
         @stop="chat.stop()"
         @update:model="model = $event"
         @update:reasoning-effort="reasoningEffort = $event"
@@ -225,6 +328,50 @@ async function handleApproval(approve: boolean): Promise<void> {
       :conversation-title="title"
       @close="traceOpen = false"
     />
+
+    <el-dialog
+      v-model="approvalsOpen"
+      title="待处理审批"
+      width="560px"
+      append-to-body
+      :close-on-click-modal="false"
+    >
+      <p v-if="approvalsLoading" class="approval-state">正在加载审批…</p>
+      <p v-else-if="approvalsError" class="approval-state is-error">{{ approvalsError }}</p>
+      <p v-else-if="pendingApprovals.length === 0" class="approval-state">
+        当前会话没有待处理审批。M1 尚未接入会触发审批的工具，审批卡会在 M2 出现。
+      </p>
+      <ul v-else class="approval-list">
+        <li v-for="approval in pendingApprovals" :key="approval.id">
+          <div class="approval-head">
+            <span class="approval-name">{{ approval.tool_display_name || approval.tool_name }}</span>
+            <span class="approval-risk mono">{{ approval.risk }}</span>
+          </div>
+          <p class="approval-reason">{{ approval.reason }}</p>
+          <p class="approval-meta mono">
+            {{ approval.target }} · run {{ approval.run_id.slice(0, 8) }}
+          </p>
+          <div class="approval-actions">
+            <button
+              type="button"
+              class="btn"
+              :disabled="decidingApprovalId === approval.id"
+              @click="decideApproval(approval, false)"
+            >
+              拒绝
+            </button>
+            <button
+              type="button"
+              class="btn primary"
+              :disabled="decidingApprovalId === approval.id"
+              @click="decideApproval(approval, true)"
+            >
+              批准
+            </button>
+          </div>
+        </li>
+      </ul>
+    </el-dialog>
   </div>
 </template>
 
@@ -411,6 +558,93 @@ async function handleApproval(approve: boolean): Promise<void> {
 .suggestion:hover {
   border-color: var(--ink-3);
   color: var(--ink);
+}
+
+.approval-state {
+  padding: 8px 0;
+  color: var(--ink-3);
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.approval-state.is-error {
+  color: var(--red);
+}
+
+.approval-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.approval-list li {
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-2);
+}
+
+.approval-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.approval-name {
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.approval-risk {
+  color: var(--amber-text);
+  font-size: 10px;
+}
+
+.approval-reason {
+  margin-top: 4px;
+  color: var(--ink-2);
+  font-size: 11.5px;
+  line-height: 1.6;
+}
+
+.approval-meta {
+  margin-top: 4px;
+  color: var(--ink-3);
+  font-size: 9.5px;
+}
+
+.approval-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.btn {
+  height: 28px;
+  padding: 0 11px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--surface);
+  color: var(--ink-2);
+  font-size: 11.5px;
+}
+
+.btn:hover:not(:disabled) {
+  border-color: var(--ink-3);
+  color: var(--ink);
+}
+
+.btn.primary {
+  border-color: var(--prussian);
+  background: var(--prussian);
+  color: var(--surface);
+}
+
+.btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 @media (max-width: 900px) {

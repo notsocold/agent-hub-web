@@ -28,6 +28,10 @@ export interface SystemCapabilities {
   attachments: boolean
   workflows: boolean
   approvals: boolean
+  /** 后端 M1 起新增；老响应缺失时按 false 处理（2026-11-09 反馈 3.4）。 */
+  agents?: boolean
+  /** 后端 M1 起新增；老响应缺失时按 false 处理（2026-11-09 反馈 3.4）。 */
+  tasks?: boolean
 }
 
 export interface SystemLimits {
@@ -54,6 +58,10 @@ export interface SystemInfo {
   environment: string
   models: ModelInfo[]
   default_model: string
+  /**
+   * 可以为空数组：当前模型不支持推理等级时返回 `[]`，
+   * 前端必须隐藏推理等级选择器（2026-11-09 反馈 3.3）。
+   */
   reasoning_efforts: ReasoningEffortOption[]
   default_reasoning_effort: ReasoningEffortId
   embedding: {

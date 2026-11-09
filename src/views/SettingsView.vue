@@ -1,9 +1,13 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 
 import PageHeader from '@/components/common/PageHeader.vue'
 import PageShell from '@/components/common/PageShell.vue'
+import InstructionPanel from '@/components/settings/InstructionPanel.vue'
+import McpPanel from '@/components/settings/McpPanel.vue'
+import MemoryPanel from '@/components/settings/MemoryPanel.vue'
+import SkillPanel from '@/components/settings/SkillPanel.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useSystemStore } from '@/stores/system'
 import { formatDateTime } from '@/utils/format'
@@ -11,35 +15,17 @@ import { formatDateTime } from '@/utils/format'
 const auth = useAuthStore()
 const system = useSystemStore()
 
-const capabilityItems = computed(() => {
-  const capabilities = system.capabilities
-  return [
-    {
-      key: 'instructions',
-      title: '指令',
-      description: '生效指令与用户覆盖',
-      enabled: capabilities.instructions,
-    },
-    {
-      key: 'memories',
-      title: '长期记忆',
-      description: '按 kind / 来源管理记忆',
-      enabled: capabilities.memories,
-    },
-    {
-      key: 'skills',
-      title: '技能',
-      description: '系统与用户技能启停、导入',
-      enabled: capabilities.skills,
-    },
-    {
-      key: 'mcp',
-      title: 'MCP',
-      description: '服务器启停、凭据与工具发现',
-      enabled: capabilities.mcp,
-    },
-  ]
-})
+type SectionKey = 'account' | 'capabilities' | 'model' | 'a2a' | 'about'
+
+const sections: ReadonlyArray<{ key: SectionKey; label: string }> = [
+  { key: 'account', label: '账号' },
+  { key: 'capabilities', label: '个人能力' },
+  { key: 'model', label: '模型' },
+  { key: 'a2a', label: 'A2A' },
+  { key: 'about', label: '关于' },
+]
+
+const active = ref<SectionKey>('capabilities')
 
 const generation = computed(() => system.info?.generation ?? null)
 
@@ -53,7 +39,7 @@ async function copy(value: string): Promise<void> {
 }
 
 function notReady(label: string): void {
-  ElMessage.info(`${label}将在 M1.5 / M6 接入`)
+  ElMessage.info(`${label}将在后续接入`)
 }
 
 onMounted(() => {
@@ -66,164 +52,217 @@ onMounted(() => {
     <PageHeader
       eyebrow="SETTINGS"
       title="设置"
-      description="账号、模型与 A2A 端点；个人能力（指令 / 记忆 / 技能 / MCP）在 M1.5 接入。"
+      description="账号、模型、A2A 端点与个人能力（指令 / 长期记忆 / 技能 / MCP）。"
     />
 
-    <div class="settings-grid">
-      <section class="card">
-        <header class="card-head">
-          <h2>账号</h2>
-          <button type="button" class="link" @click="notReady('修改密码')">修改密码</button>
-        </header>
-        <dl class="kv">
-          <div>
-            <dt>展示名</dt>
-            <dd>{{ auth.user?.display_name ?? '—' }}</dd>
-          </div>
-          <div>
-            <dt>邮箱</dt>
-            <dd>{{ auth.user?.email ?? '—' }}</dd>
-          </div>
-          <div>
-            <dt>角色</dt>
-            <dd>{{ auth.user?.role === 'admin' ? '管理员' : '普通用户' }}</dd>
-          </div>
-          <div>
-            <dt>注册时间</dt>
-            <dd class="mono">{{ formatDateTime(auth.user?.created_at) }}</dd>
-          </div>
-          <div>
-            <dt>最近登录</dt>
-            <dd class="mono">{{ formatDateTime(auth.user?.last_login_at) }}</dd>
-          </div>
-        </dl>
-      </section>
+    <div class="settings-layout">
+      <nav class="settings-nav" aria-label="设置分区">
+        <button
+          v-for="section in sections"
+          :key="section.key"
+          type="button"
+          class="settings-nav-item"
+          :class="{ 'is-active': active === section.key }"
+          :aria-current="active === section.key ? 'page' : undefined"
+          @click="active = section.key"
+        >
+          {{ section.label }}
+        </button>
+      </nav>
 
-      <section class="card">
-        <header class="card-head">
-          <h2>模型</h2>
-          <span class="tag mono">{{ system.info?.environment ?? '—' }}</span>
-        </header>
-
-        <p v-if="system.loading" class="muted">正在加载系统信息…</p>
-        <p v-else-if="system.error" class="muted error">{{ system.error }}</p>
-        <template v-else>
-          <ul class="model-list">
-            <li v-for="model in system.models" :key="model.id">
-              <span class="model-name">{{ model.name }}</span>
-              <span class="model-id mono">{{ model.id }}</span>
-              <span class="model-desc">{{ model.description }}</span>
-            </li>
-          </ul>
-          <dl v-if="generation" class="kv">
-            <div>
-              <dt>温度</dt>
-              <dd class="mono">{{ generation.temperature }}</dd>
-            </div>
-            <div>
-              <dt>超时</dt>
-              <dd class="mono">{{ generation.timeout_seconds }}s</dd>
-            </div>
-            <div>
-              <dt>最大输出</dt>
-              <dd class="mono">{{ generation.max_output_tokens }} tokens</dd>
-            </div>
-            <div>
-              <dt>推理等级</dt>
-              <dd>{{ system.reasoningEfforts.map((item) => item.name).join(' / ') || '—' }}</dd>
-            </div>
-          </dl>
+      <div class="settings-content">
+        <template v-if="active === 'account'">
+          <section class="card">
+            <header class="card-head">
+              <h2>账号</h2>
+              <button type="button" class="link" @click="notReady('修改密码')">修改密码</button>
+            </header>
+            <dl class="kv">
+              <div>
+                <dt>展示名</dt>
+                <dd>{{ auth.user?.display_name ?? '—' }}</dd>
+              </div>
+              <div>
+                <dt>邮箱</dt>
+                <dd>{{ auth.user?.email ?? '—' }}</dd>
+              </div>
+              <div>
+                <dt>角色</dt>
+                <dd>{{ auth.user?.role === 'admin' ? '管理员' : '普通用户' }}</dd>
+              </div>
+              <div>
+                <dt>注册时间</dt>
+                <dd class="mono">{{ formatDateTime(auth.user?.created_at) }}</dd>
+              </div>
+              <div>
+                <dt>最近登录</dt>
+                <dd class="mono">{{ formatDateTime(auth.user?.last_login_at) }}</dd>
+              </div>
+            </dl>
+          </section>
         </template>
-      </section>
 
-      <section class="card">
-        <header class="card-head">
-          <h2>A2A 端点</h2>
-          <span class="tag mono">{{ system.a2a?.auth_type ?? '未配置' }}</span>
-        </header>
-        <dl class="kv">
-          <div>
-            <dt>Agent Card</dt>
-            <dd class="mono ellipsis">{{ system.a2a?.card_url ?? '—' }}</dd>
-          </div>
-          <div>
-            <dt>JSON-RPC</dt>
-            <dd class="mono ellipsis">{{ system.a2a?.jsonrpc_url ?? '—' }}</dd>
-          </div>
-        </dl>
-        <div class="card-actions">
-          <button
-            type="button"
-            class="btn"
-            :disabled="!system.a2a?.card_url"
-            @click="copy(system.a2a?.card_url ?? '')"
-          >
-            复制 Card 地址
-          </button>
-          <button
-            type="button"
-            class="btn"
-            :disabled="!system.a2a?.jsonrpc_url"
-            @click="copy(system.a2a?.jsonrpc_url ?? '')"
-          >
-            复制 JSON-RPC
-          </button>
+        <div v-else-if="active === 'capabilities'" class="capabilities-stack">
+          <InstructionPanel />
+          <MemoryPanel />
+          <SkillPanel />
+          <McpPanel />
         </div>
-      </section>
 
-      <section class="card">
-        <header class="card-head">
-          <h2>个人能力</h2>
-          <span class="tag mono">M1.5</span>
-        </header>
-        <ul class="capability-list">
-          <li v-for="item in capabilityItems" :key="item.key">
-            <div>
-              <p class="capability-name">{{ item.title }}</p>
-              <p class="capability-desc">{{ item.description }}</p>
+        <template v-else-if="active === 'model'">
+          <section class="card">
+            <header class="card-head">
+              <h2>模型</h2>
+              <span class="tag mono">{{ system.info?.environment ?? '—' }}</span>
+            </header>
+
+            <p v-if="system.loading" class="muted">正在加载系统信息…</p>
+            <p v-else-if="system.error" class="muted error">{{ system.error }}</p>
+            <template v-else>
+              <ul class="model-list">
+                <li v-for="model in system.models" :key="model.id">
+                  <span class="model-name">{{ model.name }}</span>
+                  <span class="model-id mono">{{ model.id }}</span>
+                  <span class="model-desc">{{ model.description }}</span>
+                </li>
+              </ul>
+              <dl v-if="generation" class="kv">
+                <div>
+                  <dt>温度</dt>
+                  <dd class="mono">{{ generation.temperature }}</dd>
+                </div>
+                <div>
+                  <dt>超时</dt>
+                  <dd class="mono">{{ generation.timeout_seconds }}s</dd>
+                </div>
+                <div>
+                  <dt>最大输出</dt>
+                  <dd class="mono">{{ generation.max_output_tokens }} tokens</dd>
+                </div>
+                <div>
+                  <dt>推理等级</dt>
+                  <dd>{{ system.reasoningEfforts.map((item) => item.name).join(' / ') || '—' }}</dd>
+                </div>
+              </dl>
+            </template>
+          </section>
+        </template>
+
+        <template v-else-if="active === 'a2a'">
+          <section class="card">
+            <header class="card-head">
+              <h2>A2A 端点</h2>
+              <span class="tag mono">{{ system.a2a?.auth_type ?? '未配置' }}</span>
+            </header>
+            <dl class="kv">
+              <div>
+                <dt>Agent Card</dt>
+                <dd class="mono ellipsis">{{ system.a2a?.card_url ?? '—' }}</dd>
+              </div>
+              <div>
+                <dt>JSON-RPC</dt>
+                <dd class="mono ellipsis">{{ system.a2a?.jsonrpc_url ?? '—' }}</dd>
+              </div>
+            </dl>
+            <div class="card-actions">
+              <button
+                type="button"
+                class="btn"
+                :disabled="!system.a2a?.card_url"
+                @click="copy(system.a2a?.card_url ?? '')"
+              >
+                复制 Card 地址
+              </button>
+              <button
+                type="button"
+                class="btn"
+                :disabled="!system.a2a?.jsonrpc_url"
+                @click="copy(system.a2a?.jsonrpc_url ?? '')"
+              >
+                复制 JSON-RPC
+              </button>
             </div>
-            <span class="capability-state" :class="{ 'is-on': item.enabled }">
-              {{ item.enabled ? '后端已支持' : '未启用' }}
-            </span>
-          </li>
-        </ul>
-        <p class="muted small">
-          指令、记忆、技能与 MCP 的编辑入口将在 M1.5 接入；系统项只读，用户只能启停或覆盖。
-        </p>
-      </section>
+          </section>
+        </template>
 
-      <section class="card">
-        <header class="card-head">
-          <h2>关于</h2>
-        </header>
-        <dl class="kv">
-          <div>
-            <dt>版本</dt>
-            <dd class="mono">{{ system.info?.version ?? '0.1.0' }}</dd>
-          </div>
-          <div>
-            <dt>构建</dt>
-            <dd class="mono">{{ system.info?.build ?? '—' }}</dd>
-          </div>
-          <div>
-            <dt>环境</dt>
-            <dd class="mono">{{ system.info?.environment ?? '—' }}</dd>
-          </div>
-          <div>
-            <dt>前端</dt>
-            <dd class="mono">Vue 3 · M1</dd>
-          </div>
-        </dl>
-      </section>
+        <template v-else>
+          <section class="card">
+            <header class="card-head">
+              <h2>关于</h2>
+            </header>
+            <dl class="kv">
+              <div>
+                <dt>版本</dt>
+                <dd class="mono">{{ system.info?.version ?? '0.1.0' }}</dd>
+              </div>
+              <div>
+                <dt>构建</dt>
+                <dd class="mono">{{ system.info?.build ?? '—' }}</dd>
+              </div>
+              <div>
+                <dt>环境</dt>
+                <dd class="mono">{{ system.info?.environment ?? '—' }}</dd>
+              </div>
+              <div>
+                <dt>前端</dt>
+                <dd class="mono">Vue 3 · M1.5</dd>
+              </div>
+            </dl>
+          </section>
+        </template>
+      </div>
     </div>
   </PageShell>
 </template>
 
 <style scoped>
-.settings-grid {
+.settings-layout {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  grid-template-columns: 168px minmax(0, 1fr);
+  gap: 20px;
   align-items: start;
+  min-height: 0;
+}
+
+.settings-nav {
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.settings-nav-item {
+  display: block;
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: 6px;
+  color: var(--ink-2);
+  font-size: 12.5px;
+  font-weight: 550;
+  text-align: left;
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+
+.settings-nav-item:hover {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+.settings-nav-item.is-active {
+  background: var(--prussian-soft);
+  color: var(--prussian);
+}
+
+.settings-content {
+  min-width: 0;
+}
+
+.capabilities-stack {
+  display: flex;
+  flex-direction: column;
   gap: 14px;
 }
 
@@ -319,47 +358,6 @@ h2 {
   gap: 8px;
 }
 
-.capability-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.capability-list li {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--line-2);
-}
-
-.capability-list li:last-child {
-  padding-bottom: 0;
-  border-bottom: 0;
-}
-
-.capability-name {
-  color: var(--ink);
-  font-size: 12px;
-  font-weight: 550;
-}
-
-.capability-desc {
-  color: var(--ink-3);
-  font-size: 10.5px;
-}
-
-.capability-state {
-  flex: none;
-  color: var(--ink-3);
-  font-size: 9.5px;
-}
-
-.capability-state.is-on {
-  color: var(--green);
-}
-
 .link {
   color: var(--prussian);
   font-size: 11.5px;
@@ -378,14 +376,29 @@ h2 {
   color: var(--red);
 }
 
-.small {
-  font-size: 10.5px;
-  line-height: 1.65;
-}
-
 .ellipsis {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+@media (max-width: 900px) {
+  .settings-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .settings-nav {
+    position: static;
+    flex-direction: row;
+    gap: 6px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+
+  .settings-nav-item {
+    flex: none;
+    width: auto;
+    white-space: nowrap;
+  }
 }
 </style>

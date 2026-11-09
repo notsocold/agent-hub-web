@@ -4,14 +4,40 @@ import { ElMessage } from 'element-plus'
 
 import MarkdownView from '@/components/common/MarkdownView.vue'
 import ThinkingCard from './cards/ThinkingCard.vue'
-import { formatTokens } from '@/utils/format'
-import type { ChatMessageView } from '@/types'
+import { attachmentsApi } from '@/api/attachments'
+import { formatBytes, formatTokens } from '@/utils/format'
+import type { ChatMessageView, MessageAttachment } from '@/types'
 
 const props = defineProps<{
   message: ChatMessageView
 }>()
 
 const isUser = computed(() => props.message.role === 'user')
+
+const capabilityLabel = computed(() => {
+  const parts: string[] = []
+  const skills = props.message.capabilities.skills.length
+  const servers = props.message.capabilities.mcp_servers.length
+  const tools = props.message.capabilities.mcp_tools.length
+  if (skills > 0) parts.push(`技能 ×${skills}`)
+  if (servers > 0) parts.push(`MCP ×${servers}`)
+  if (tools > 0) parts.push(`工具 ×${tools}`)
+  return parts.join(' · ')
+})
+
+async function downloadAttachment(attachment: MessageAttachment): Promise<void> {
+  try {
+    const blob = await attachmentsApi.download(attachment.id)
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = attachment.filename
+    link.click()
+    URL.revokeObjectURL(url)
+  } catch (cause) {
+    ElMessage.error(cause instanceof Error ? cause.message : '下载附件失败')
+  }
+}
 
 const tokenLabel = computed(() => {
   const usage = props.message.usage
@@ -33,6 +59,25 @@ async function copy(text: string): Promise<void> {
 <template>
   <article class="turn" :class="`role-${message.role}`">
     <div v-if="isUser" class="user-bubble">{{ message.content }}</div>
+
+    <div v-if="isUser && (message.attachments.length > 0 || capabilityLabel)" class="user-context">
+      <button
+        v-for="attachment in message.attachments"
+        :key="attachment.id"
+        type="button"
+        class="ctx-chip is-attachment"
+        :title="`下载 ${attachment.filename}`"
+        @click="downloadAttachment(attachment)"
+      >
+        <span class="ctx-chip-kind">附件</span>
+        <span class="ctx-chip-name">{{ attachment.filename }}</span>
+        <span class="ctx-chip-meta mono">{{ formatBytes(attachment.size_bytes) }}</span>
+      </button>
+      <span v-if="capabilityLabel" class="ctx-chip is-capability">
+        <span class="ctx-chip-kind">本轮</span>
+        <span class="ctx-chip-name">{{ capabilityLabel }}</span>
+      </span>
+    </div>
 
     <div v-else class="assistant">
       <ThinkingCard
@@ -77,6 +122,24 @@ async function copy(text: string): Promise<void> {
             >
               复制
             </button>
+            <a
+              v-if="artifact.download_url"
+              class="text-btn"
+              :href="artifact.download_url"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              下载
+            </a>
+            <button
+              v-else
+              type="button"
+              class="text-btn"
+              disabled
+              title="受控下载端点将在 M1.5 提供"
+            >
+              下载
+            </button>
           </div>
         </div>
 
@@ -98,6 +161,55 @@ async function copy(text: string): Promise<void> {
 
 .turn.role-user {
   align-items: flex-end;
+}
+
+.user-context {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 5px;
+  max-width: min(680px, 86%);
+  margin-top: 5px;
+}
+
+.ctx-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 260px;
+  padding: 2px 7px;
+  border: 1px solid var(--line-2);
+  border-radius: 5px;
+  background: var(--surface-2);
+  color: var(--ink-3);
+  font-size: 10px;
+}
+
+.ctx-chip.is-attachment {
+  border-color: var(--kind-vector);
+  background: var(--kind-vector-soft);
+  color: var(--kind-vector);
+  cursor: pointer;
+}
+
+.ctx-chip.is-attachment:hover {
+  filter: brightness(0.98);
+}
+
+.ctx-chip-kind {
+  font-size: 8.5px;
+  opacity: 0.8;
+}
+
+.ctx-chip-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ctx-chip-meta {
+  font-size: 8.5px;
+  opacity: 0.8;
 }
 
 .user-bubble {
@@ -228,8 +340,13 @@ async function copy(text: string): Promise<void> {
   font-size: 10.5px;
 }
 
-.text-btn:hover {
+.text-btn:hover:not(:disabled) {
   color: var(--ink);
   text-decoration: underline;
+}
+
+.text-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
 }
 </style>

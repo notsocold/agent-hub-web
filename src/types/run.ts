@@ -61,12 +61,15 @@ export interface Run {
   error: MessageError | null
 }
 
-export interface RunEventTokens {
-  input?: number
-  output?: number
-}
+/**
+ * 运行事件里的 token 统计。后端实际返回
+ * `{input_tokens, output_tokens, reasoning_tokens, total_tokens}`，
+ * 部分事件为 `null`；保留任意数字键以兼容后续扩展。
+ */
+export type RunEventTokens = Record<string, number | null>
 
 export interface RunEvent {
+  /** 不透明字符串，M1 实际为 `<run_id>:<seq>`，不是 UUID（反馈 3.5）。 */
   id: string
   seq: number
   ts: string
@@ -75,8 +78,10 @@ export interface RunEvent {
   title: string
   subtitle: string
   duration_ms: number | null
-  tokens?: RunEventTokens | null
+  /** 该事件的 token 用量；没有 token 的事件返回 null，该键始终存在。 */
+  tokens: RunEventTokens | null
   payload: Record<string, unknown>
+  /** 错误摘要字符串；无错误返回 null，该键始终存在。 */
   error: string | null
 }
 
@@ -84,4 +89,15 @@ export interface RunCancelResult {
   id: string
   status: RunStatus
   canceled_at: string
+}
+
+export interface RunResumeRequest {
+  /** M1 恢复端点要求 input 必填，但 M1 实际会返回 409。 */
+  input: string
+}
+
+export interface RunResumeResult {
+  run_id: string
+  status: RunStatus
+  resumed: boolean
 }

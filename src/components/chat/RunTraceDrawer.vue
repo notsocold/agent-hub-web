@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 
+import { runsApi } from '@/api/runs'
 import { formatDuration, formatTokens } from '@/utils/format'
-import type { ProcessItem, Usage } from '@/types'
+import type { ProcessItem, Run, RunEvent, Usage } from '@/types'
 
 const props = defineProps<{
   open: boolean
@@ -18,11 +19,51 @@ const emit = defineEmits<{
   close: []
 }>()
 
+const serverRun = ref<Run | null>(null)
+const serverEvents = ref<RunEvent[]>([])
+const eventsLoading = ref(false)
+const eventsError = ref<string | null>(null)
+
 const totalTokens = computed(() => {
   const usage = props.usage
   if (!usage) return null
   return usage.total_tokens ?? usage.input_tokens + usage.output_tokens
 })
+
+const serverTotalTokens = computed(() => {
+  const usage = serverRun.value?.usage
+  if (!usage) return null
+  return usage.total_tokens ?? usage.input_tokens + usage.output_tokens
+})
+
+watch(
+  () => [props.open, props.runId] as const,
+  async ([open, runId]) => {
+    if (!open || !runId) return
+    eventsLoading.value = true
+    eventsError.value = null
+    try {
+      const [run, page] = await Promise.all([
+        runsApi.get(runId),
+        runsApi.events(runId, { limit: 200 }),
+      ])
+      serverRun.value = run
+      serverEvents.value = page.items
+    } catch (error) {
+      eventsError.value = error instanceof Error ? error.message : '加载运行事件失败'
+    } finally {
+      eventsLoading.value = false
+    }
+  },
+  { immediate: true },
+)
+
+function eventTokens(event: RunEvent): string {
+  const input = event.tokens?.input_tokens
+  const output = event.tokens?.output_tokens
+  if (typeof input !== 'number' && typeof output !== 'number') return '—'
+  return `${formatTokens(input ?? 0)} / ${formatTokens(output ?? 0)}`
+}
 
 function kindLabel(kind: ProcessItem['kind']): string {
   return (
@@ -103,22 +144,51 @@ function durationOf(item: ProcessItem): string {
             <div>
               <dt>状态</dt>
               <dd>
-                {{ streaming ? '运行中' : finishReason === 'canceled' ? '已取消' : '已结束' }}
+                {{
+                  serverRun?.status ??
+                  (streaming ? '运行中' : finishReason === 'canceled' ? '已取消' : '已结束')
+                }}
               </dd>
             </div>
             <div>
               <dt>Run ID</dt>
-              <dd class="mono">{{ runId ?? '—' }}</dd>
+              <dd class="mono ellipsis">{{ runId ?? '—' }}</dd>
+            </div>
+            <div>
+              <dt>模型</dt>
+              <dd class="mono">{{ serverRun?.model ?? '—' }}</dd>
             </div>
             <div>
               <dt>总 tokens</dt>
-              <dd class="mono">{{ formatTokens(totalTokens) }}</dd>
+              <dd class="mono">{{ formatTokens(serverTotalTokens ?? totalTokens) }}</dd>
+            </div>
+            <div>
+              <dt>耗时</dt>
+              <dd class="mono">{{ formatDuration(serverRun?.duration_ms ?? null) }}</dd>
             </div>
             <div>
               <dt>结束原因</dt>
-              <dd class="mono">{{ finishReason ?? '—' }}</dd>
+              <dd class="mono">{{ finishReason ?? serverRun?.error?.code ?? '—' }}</dd>
             </div>
           </dl>
+        </section>
+
+        <section class="events">
+          <p class="block-label">服务端事件回放 · {{ serverEvents.length }}</p>
+          <p v-if="eventsLoading" class="empty">正在加载运行事件…</p>
+          <p v-else-if="eventsError" class="empty is-error">{{ eventsError }}</p>
+          <ol v-else-if="serverEvents.length > 0" class="server-events">
+            <li v-for="event in serverEvents" :key="event.id">
+              <span class="seq mono">#{{ event.seq }}</span>
+              <span class="kind" :class="`kind-${event.type}`">{{ event.type }}</span>
+              <span class="title">{{ event.title || event.subtitle || event.id }}</span>
+              <span class="status mono">{{ event.status }}</span>
+              <span class="duration mono">{{ formatDuration(event.duration_ms) }}</span>
+              <span class="tokens mono">{{ eventTokens(event) }}</span>
+              <span v-if="event.error" class="event-error">{{ event.error }}</span>
+            </li>
+          </ol>
+          <p v-else-if="runId" class="empty">该运行暂无可回放事件。</p>
         </section>
 
         <section class="events">
@@ -131,7 +201,7 @@ function durationOf(item: ProcessItem): string {
               <span class="duration mono">{{ durationOf(item) }}</span>
             </li>
           </ol>
-          <p v-else class="empty">本轮还没有可展示的事件。发送一条消息后再打开这里。</p>
+          <p v-else class="empty">本轮还没有可展示的实时过程。发送一条消息后再打开这里。</p>
         </section>
       </div>
     </aside>
@@ -267,6 +337,42 @@ h2 {
   padding: 7px 0;
   border-bottom: 1px solid var(--line-2);
   font-size: 11px;
+}
+
+.server-events li {
+  grid-template-columns: 30px 48px minmax(0, 1fr) auto auto auto;
+}
+
+.seq {
+  color: var(--ink-3);
+  font-size: 9px;
+}
+
+.tokens {
+  color: var(--ink-3);
+  font-size: 9px;
+}
+
+.event-error {
+  grid-column: 1 / -1;
+  padding: 4px 6px;
+  border-radius: 4px;
+  background: var(--red-soft);
+  color: var(--red);
+  font-size: 10px;
+}
+
+.empty.is-error {
+  color: var(--red);
+}
+
+.ellipsis {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
 }
 
 .kind {

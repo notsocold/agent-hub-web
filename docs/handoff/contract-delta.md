@@ -1386,3 +1386,53 @@ message.done
 | 后端 `docs/api.md` 系统信息 | 只有一句描述 | 本文件第 11 节给出完整 schema |
 | 后端 `docs/database.md` | 无 attachments/workflows/RBAC；messages/runs/approvals 字段不足 | 本文件第 12 节 + `workflows.md` + `admin-console.md` |
 | 前端 `docs/api.md` | 已列缺口但无字段级方案 | 本文件作为落地版；前端文档保留索引 |
+
+---
+
+## 17. 变更记录：后端 M1 落地对齐（2026-11-09）
+
+触发材料：`agent-hub/docs/feedback/2026-11-09-frontend-contract-feedback.md`、后端 `docs/openapi.json`、真实后端联调结果；前端结论同步在 `agent-hub/docs/feedback/2026-11-09-frontend-integration-response.md`。
+
+### 17.1 前端已按后端 M1 调整
+
+| # | 变更 | 前端落点 |
+|---|---|---|
+| 1 | 错误信封支持可选 `error.details`；`run_in_progress` 读取 `details.run_id` | `src/types/api.ts`、`src/api/client.ts`、`src/api/chat.ts`、`src/stores/chat.ts` |
+| 2 | 幂等重试复用 `client_message_id`；回放流重置 `seq` 基线，避免旧 `lastSeq` 丢弃回放事件 | `src/stores/chat.ts`（`lastAttempt`/`onOpen`） |
+| 3 | `reasoning_efforts=[]` 时隐藏推理等级菜单 | `src/components/chat/ChatComposer.vue`、`src/stores/system.ts` |
+| 4 | `capabilities.agents` / `capabilities.tasks` 可选，缺省 false；导航与路由按能力置灰/退回 | `src/types/system.ts`、`src/components/layout/SideNav.vue`、`src/router/*`、`src/layouts/AppLayout.vue` |
+| 5 | 运行事件 `id` 为不透明字符串；`tokens` 可空、`error` 为字符串/null；抽屉接入真实事件回放 | `src/types/run.ts`、`src/components/chat/RunTraceDrawer.vue` |
+| 6 | 历史消息按 `created_at DESC, id DESC` 返回，前端反转为时间线顺序；支持 `cursor` 加载更早 | `src/stores/chat.ts`、`src/components/chat/MessageList.vue`、mock `db.ts` |
+| 7 | 能力关闭错误码 `capability_disabled` / `workflow_disabled` / `model_not_allowed` 作为可展示错误处理，发送前按能力开关隐藏入口 | `src/api/chat.ts`、`src/stores/chat.ts`、`SideNav`/`router` |
+| 8 | 附件 `download_url` 为空时下载按钮置灰，等待 M1.5 受控下载端点 | `src/components/chat/MessageBubble.vue` |
+| 9 | 审批 M1 不会出现真实事件；审批弹窗走 `GET /approvals`，`resumed=false` + `resume_error` 不当失败 | `src/views/chat/ChatView.vue`、`src/stores/chat.ts`、`src/types/approval.ts` |
+| 10 | 同会话 `interrupted` 占锁：恢复提示条 + 停止/放弃 + 处理审批 + 轮询运行状态 | `src/components/chat/RunRecoveryBanner.vue`、`src/stores/chat.ts`、`ChatView.vue` |
+| 11 | 字段命名保持 `knowledge_categories`；M1 无知识库选择/chip 渲染，M4 接入时用分类名；`pages.md` 修正推理等级降级规则 | `src/types/chat.ts`、`docs/pages.md` |
+| 12 | 时间按 UTC ISO 解析展示；`stats` 使用全量计数；`next_cursor` 不解析、不拼接 | `src/stores/conversations.ts`、`src/stores/chat.ts`、`src/utils/format.ts` |
+
+### 17.2 后端实现与本文件旧约定的差异（以实测为准）
+
+- 幂等重试返回同一 run 的 SSE 事件回放（200），不是 409；重放可能再次发送 `conversation.created`，`seq` 从 1 开始。
+- `409 run_in_progress` 的 `details.run_id`、`409 run_not_cancelable` 的 `details.status` 是新增扩展，旧前端忽略 `details` 不会崩。
+- `system/info.capabilities` 新增 `agents`/`tasks`，后端 schema 中为可选、默认 false。
+- `reasoning_efforts` 可为空；当前本机实例因 `LLM_REASONING_EFFORT_SUPPORTED=true` 返回 3 个等级，默认模型为 `deepseek-flash`（与反馈文案的 `deepseek-chat` 不同），前端不硬编码。
+- `message.done` 额外携带 `conversation_id`；前端按可选字段处理。
+- 运行事件 `payload` 已去掉内部 `_event`；`seq` 允许跳号（delta 不落库）。
+- 历史消息 `created_at` 同一轮 user/assistant 相差 1 微秒；前端按 ISO 字符串稳定排序，不用 `Date.parse` 截断到毫秒后重排。
+- 附件下载计划新增 `GET /api/v1/attachments/{id}/download`，M1 前端保持按钮置灰。
+
+### 17.3 首轮联调缺陷与热修状态（2026-11-09 已复验）
+
+- **P0 分页 500（已修复）**：`has_more=true` 时 `encode_cursor({"id": UUID})` 直接 `json.dumps` 抛 `TypeError`；后端已在编码层做 JSON-safe 归一化（UUID/datetime/date），并补会话/消息/审批分页回归测试。前端真实 HTTP 复验：`limit=1` 两页 200、无重复、第二页更旧；`before`+`cursor` 同时传时 cursor 优先；非法 cursor → 422。
+- **P1 OpenAPI 缺口（已补齐）**：`POST /chat/stream` 已声明 `text/event-stream`、400/401/403/404/409/413/422/429/500、`X-Run-ID`/`X-Request-ID` 与事件说明；新增 `ErrorEnvelopeOut`/`ErrorBodyOut`；`RunEventOut.tokens/error`、`ApprovalDecisionResult.resume_error` 改为 required + nullable，前端类型已同步收紧。
+- **P1 文档差异（已修正）**：后端 `docs/api.md` 已补分页、运行事件、`message.done`、`resume` 错误码、推理等级开关；实时值以 `/system/info` 为准。
+- **P2 错误追踪（已修复）**：404/422 的 `request_id` 与 `X-Request-ID` 一致；500 注入测试通过。
+- **P2 注册限流（已处理）**：限流参数化，新增 `scripts/seed_dev_account.py`；本轮用 `dev@example.com` 复验，未再注册。
+
+### 17.4 验证记录
+
+- `pnpm type-check`、`pnpm test`（55 个单测）、`pnpm build`、`pnpm lint` 通过。
+- `pnpm smoke:real` 通过 **97 项断言**（Vite 5173 同源代理 → 后端 8000）：认证、系统信息、SSE 顺序、幂等回放、并发 409、取消、历史倒序、会话/消息 cursor 翻页、运行事件、能力错误、审批空态、resume 409、登出。
+- `pnpm test:real` 通过 2 个真实后端用例：前端 chat store 完成流式/历史收敛；`fetch-event-source` 正确解析 409 `details.run_id`。
+- 后端 `pytest -q` 通过 **27 个测试**（含分页、cursor 单元、500 request_id）。
+- 复验结论：首轮 P0/P1/P2 均已收口，未发现新增契约差异；可进入 M1.5。

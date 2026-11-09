@@ -1,6 +1,6 @@
 # 页面规划
 
-- 状态：M1 前端已实现（默认 mock）。对话页为完整实现；工作流/智能体/任务/知识库/设置为页面骨架，交互按 M2–M5 接入
+- 状态：M1/M1.5/M2 前端已实现（默认 mock；M1/M1.5/M2 均已与真实后端联调）。对话页、设置页个人能力、智能体页、任务页为完整交互；工作流/知识库按 M4–M5 接入
 - 布局：`AppLayout` 提供一级导航（侧边栏，可折叠/移动端抽屉）+ 账号菜单 + 内容区；路由表已注册全部页面
 - 实现文件：`src/views/`；对话页组件在 `src/components/chat/`；通用三态组件在 `src/components/common/`
 
@@ -113,27 +113,28 @@
 | 详情 | 点击展开运行记录（耗时、token、失败原因） |
 | 接口 | `GET/PATCH/DELETE /conversations[...]` |
 
-## 5. 智能体页 `/agents`
+## 5. 智能体页 `/agents`（M2 已实现）
 
 | 项 | 说明 |
 |---|---|
-| 列表 | 名称、URL、协议版本、技能数、健康状态、启用开关 |
-| 注册 | URL → 拉取 Agent Card → 预览（名称/描述/技能/鉴权）→ 确认 |
-| 详情抽屉 | 原始 Agent Card、技能列表、最近调用、鉴权配置（密钥只填引用） |
-| 操作 | 刷新 Card、健康检查、启用/禁用、删除 |
-| 状态 | 注册中/失败（展示校验错误）、unhealthy 标记 |
-| 接口 | `GET/POST/PATCH/DELETE /agents`、`/refresh`、`/health` |
+| 列表 | 名称、URL、协议版本、技能数、健康状态、启用开关；关键字/健康/启停筛选与统计卡 |
+| 注册 | 两段式：URL + slug + 鉴权引用 → `POST /agents/preview` 拉取 Agent Card → 预览（名称/描述/技能/能力/warnings）→ `POST /agents` 确认落库 |
+| 详情抽屉 | 原始 Agent Card、技能列表、最近任务、鉴权提示、最近检查/延迟/错误 |
+| 操作 | 刷新 Card、健康检查、启用/禁用、删除（二次确认） |
+| 状态 | 注册中/失败（展示校验错误）、unhealthy/disabled 标记 |
+| 接口 | `GET/POST/PATCH/DELETE /agents`、`/preview`、`/refresh`、`/health` |
 
-## 6. 任务页 `/tasks`
+## 6. 任务页 `/tasks`（M2 已实现）
 
 | 项 | 说明 |
 |---|---|
-| 列表 | 任务 ID（短）、远程 Agent、状态、耗时、所属会话 |
-| 筛选 | 状态、Agent、时间范围 |
-| 详情 | 请求摘要、Artifact、错误、状态时间线 |
-| 实时 | 对话进行中通过 SSE 更新；列表页可轮询（M6 评估 SSE） |
-| 操作 | 取消（仅 working/submitted）、跳转所属会话 |
-| 接口 | `GET /tasks`、`GET /tasks/{id}`、`POST /tasks/{id}/cancel` |
+| 列表 | 任务 ID、远程 Agent、状态、请求摘要、耗时、所属会话、创建时间；cursor 分页 |
+| 筛选 | 状态、Agent、关键字（400ms 防抖）、时间范围；统计卡 |
+| 详情 | 请求/参数、Artifact/结果数据、错误、补充信息、授权 scope、状态时间线、到期时间 |
+| 实时 | 有运行中任务时 15s 静默轮询；页面隐藏时暂停 |
+| 操作 | 取消（submitted/working/input_required/auth_required）、补充信息（resume）、前往授权（仅 https/本地）、已授权、拒绝、打开会话 |
+| 接口 | `GET /tasks`、`GET /tasks/{id}`、`POST /tasks/{id}/{cancel,resume,authorize,reject}` |
+| 深链 | 对话 A2A 卡片 → `/tasks?task=<local-id>` 直接打开详情 |
 
 ## 7. 知识库页 `/knowledge`
 
@@ -151,7 +152,7 @@
 | 区块 | 内容 |
 |---|---|
 | 账号 | 展示名、邮箱、修改密码、退出登录 |
-| 模型 | 当前模型、温度、超时（只读，来自 `/system/info`） |
+| 模型 | 当前模型、温度、超时（只读，来自 `/system/info`）；`reasoning_efforts=[]` 时不渲染推理等级选择器，仅显示默认等级 |
 | A2A | 本服务 Agent Card 地址、复制、入站鉴权状态 |
 | 界面 | 主题（浅色/深色，M6）、语言、消息密度 |
 | 关于 | 版本、构建时间、文档链接 |
@@ -181,7 +182,7 @@
 | 指令 | 设置 → 个人能力 | 编辑、字符计数、保存、恢复默认、来源标签（用户覆盖/平台默认） | `GET/PUT /instructions` |
 | 长期记忆 | 设置 → 个人能力 | 列表、搜索、新增/编辑/删除、导出、清空 | `/memories` |
 | 技能 | 设置 → 个人能力 + 输入栏「+」 | 启停、导入 zip、手写创建；本轮最多 3 个 | `/skills`、`/skills/catalog` |
-| MCP | 设置 → 个人能力 + 输入栏「+」 | 启停、检查连接、凭据提示；本轮最多 5 个服务器 | `/mcp/servers`、`/mcp/available` |
+| MCP | 设置 → 个人能力 + 输入栏「+」 | 启停、检查连接、凭据提示、工具抽屉；本轮最多 5 个服务器/10 个工具；工具在展开时按需加载 | `/mcp/servers`、`/mcp/available`、`/mcp/servers/{id}/tools` |
 
 约定：
 
@@ -198,5 +199,5 @@
 1. 工作流管理（后端无表/API，且架构明确不做通用 BPMN 编排器）；
 2. 管理端 RBAC / 菜单 / 字典 / 审计查询；
 3. `chat/stream` 的 `model` / `reasoning_effort` 与 reasoning SSE 事件；
-4. 附件上传端点；
+4. ~~附件上传端点~~（M1.5 已提供 `POST /attachments` 与受控下载）；
 5. 知识库选择字段与会话搜索 `q` / `message_count`。

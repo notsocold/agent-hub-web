@@ -16,6 +16,12 @@ export interface ApiErrorBody {
     code: string
     message: string
     request_id: string
+    /**
+     * 后端 M1 起的向后兼容扩展（2026-11-09 反馈 3.1）。
+     * 目前用于 `409 run_in_progress` 的 `details.run_id`、
+     * `409 run_not_cancelable` 的 `details.status`。
+     */
+    details?: Record<string, unknown> | null
   }
 }
 

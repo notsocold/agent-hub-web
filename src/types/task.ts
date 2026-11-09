@@ -63,6 +63,28 @@ export interface TaskResultArtifact {
   data: Record<string, unknown>
 }
 
+export interface TaskResumeRequest {
+  input: string
+}
+
+export interface TaskAuthorizeRequest {
+  scopes?: string[]
+  note?: string
+}
+
+export interface TaskRejectRequest {
+  reason?: string
+}
+
+/** resume 沿用同一 task，响应携带更新后的任务与 run（run 结构前端只展示 id/状态）。 */
+export interface TaskResumeResult {
+  task: A2aTaskDetail
+  run?: {
+    id: string
+    status: string
+  } | null
+}
+
 export interface A2aTaskDetail extends A2aTaskListItem {
   tool_call_id: string
   request: {

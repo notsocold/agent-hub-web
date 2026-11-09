@@ -12,6 +12,22 @@ const props = defineProps<{
 const metadataEntries = computed(() =>
   Object.entries(props.item.metadata).filter(([, value]) => typeof value !== 'object'),
 )
+
+const SOURCE_LABELS: Record<string, string> = {
+  knowledge: '知识检索',
+  native: '本地工具',
+  mcp: 'MCP',
+  a2a: '远程 Agent',
+}
+
+const sourceLabel = computed(() => SOURCE_LABELS[props.item.source] ?? props.item.source)
+
+const RISK_LABELS: Record<string, string> = {
+  read: '只读',
+  write: '写入',
+  destructive: '破坏性',
+  unknown: '未知',
+}
 </script>
 
 <template>
@@ -21,6 +37,14 @@ const metadataEntries = computed(() =>
     :status="item.status"
     :duration="formatDuration(item.durationMs)"
   >
+    <p class="line meta">
+      <span v-if="sourceLabel" class="tag">{{ sourceLabel }}</span>
+      <span v-if="item.server" class="tag">{{ item.server }}</span>
+      <span v-if="item.risk" class="tag is-risk">{{ RISK_LABELS[item.risk] ?? item.risk }}</span>
+      <span v-if="item.requiresApproval" class="tag is-approval">需审批</span>
+      <span class="mono tool-name">{{ item.tool }}</span>
+    </p>
+
     <p v-if="item.argsPreview" class="line mono">{{ item.argsPreview }}</p>
     <p v-if="item.summary" class="line summary">{{ item.summary }}</p>
 
@@ -42,6 +66,42 @@ const metadataEntries = computed(() =>
 .line {
   margin: 0;
   overflow-wrap: anywhere;
+}
+
+.line.meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 5px;
+}
+
+.tag {
+  padding: 0 5px;
+  border: 1px solid var(--line-2);
+  border-radius: 4px;
+  color: var(--ink-3);
+  font-size: 9px;
+}
+
+.tag.is-risk {
+  border-color: var(--amber-soft);
+  background: var(--amber-soft);
+  color: var(--amber-text);
+}
+
+.tag.is-approval {
+  border-color: var(--red-soft);
+  background: var(--red-soft);
+  color: var(--red);
+}
+
+.tool-name {
+  overflow: hidden;
+  color: var(--ink-3);
+  font-size: 9.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .line + .line {

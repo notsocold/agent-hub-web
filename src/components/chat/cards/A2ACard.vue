@@ -50,7 +50,16 @@ const progressPercent = computed(() =>
     <p v-if="item.resultSummary" class="line result">{{ item.resultSummary }}</p>
     <p v-if="item.artifactSummary" class="line artifact">产出：{{ item.artifactSummary }}</p>
     <p v-if="item.error" class="line error">{{ item.error }}</p>
-    <p class="line meta mono">{{ item.a2aTaskId || item.taskId }}</p>
+    <p class="line meta mono">
+      <span>{{ item.a2aTaskId || item.taskId }}</span>
+      <RouterLink
+        v-if="item.taskId"
+        class="task-link"
+        :to="{ name: 'tasks', query: { task: item.taskId } }"
+      >
+        查看任务
+      </RouterLink>
+    </p>
   </ProcessCardShell>
 </template>
 
@@ -75,7 +84,21 @@ const progressPercent = computed(() =>
   color: var(--red);
 }
 
+.task-link {
+  flex: none;
+  color: var(--prussian);
+  font-family: var(--font-sans);
+  font-size: 10.5px;
+}
+
+.task-link:hover {
+  text-decoration: underline;
+}
+
 .meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
   margin-top: 6px;
   color: var(--ink-3);
   font-size: 10px;
