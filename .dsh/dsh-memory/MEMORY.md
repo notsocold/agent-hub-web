@@ -5,8 +5,9 @@
 
 Project: `/home/zhaodan/work/NodeJsProjects/agent-hub-web`
 
-Active topics: 31
+Active topics: 32
 
+- [M4 知识库前端已完成并联调](m_297e13a9-m4-知识库前端已完成并联调.md) — 2026-11-10 前端 M4 知识库（页面/检索/分类/引用）完成，mock 131 测试、真实后端 smoke:m4 41/40 项与 real-m4 3 例通过。 · `project` · importance 4 · 2026-11-10
 - [A2A 能力边界收缩为仅出站，不做入站 Server](m_74289a06-a2a-能力边界收缩为仅出站-不做入站-server.md) — 2026-11-10 用户决策：agent-hub 只做出站 A2A Client，不发布 Agent Card、不提供 JSON-RPC 入站端点；M3 取消，设置页 A2A 分区移除。 · `decision` · importance 4 · 2026-11-10
 - [前端路线图编号与后端同名同义，F1/X1/X2 系列；M3 入站已取消](m_4eef4b73-前端路线图编号与后端同名同义-f1-x1-x2-系列-m3-入站已取消.md) — 前端 M 编号与后端 M0–M6 同名同义；M3「A2A 入站」已于 2026-11-10 因「仅出站」需求变更取消，F1/X1/X2 继续承载无后端归属的工作。 · `decision` · importance 4 · 2026-11-10
 - [事故善后：活动会话已脱敏，剩余 Key 轮换与其他工作区](m_b5975052-事故善后-活动会话已脱敏-剩余-key-轮换与其他工作区.md) — 活动会话已脱敏并推送；剩余：轮换 4 把 key、清理其他工作区会话、公开历史清理、钩子跨机安装。 · `todo` · importance 4 · 2026-11-09
