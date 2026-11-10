@@ -1,7 +1,7 @@
 # 前端架构
 
 - 项目：Agent Hub Web（`agent-hub-web`）
-- 状态：M1.5/M2 已实现并真实联调；M3 起的能力见路线图
+- 状态：M1.5/M2 已实现并真实联调；M3「A2A 入站」已取消（仅出站），M4 起见路线图
 - 更新时间：2026-11-10
 
 ## 1. 目标
@@ -137,7 +137,7 @@ sequenceDiagram
 | `/settings` | `SettingsView` | AppLayout |
 | `/login` | `LoginView`（M1） | 独立布局 |
 
-> 原型 v7 已增加工作流页与「个人能力」设置分区；`/workflows` 路由已存在但受 `capabilities.workflows` 门控（当前后端恒为 `false`），store 仍用 mock。工作流属 X1 待立项，不随 M3/M4 排期。
+> 原型 v7 已增加工作流页与「个人能力」设置分区；`/workflows` 路由已存在但受 `capabilities.workflows` 门控（当前后端恒为 `false`），store 仍用 mock。工作流属 X1 待立项，不随 M4 排期。
 
 - 路由级懒加载（`() => import(...)`），首屏只加载布局与当前页；
 - `meta.title` 驱动顶栏与 `document.title`；
@@ -224,7 +224,7 @@ pnpm preview     # 本地预览生产构建
 ```
 
 - 静态资源部署到 Nginx/CDN；
-- Nginx 需配置 `/api` 与 `/a2a` 反向代理，SSE 关闭缓冲：
+- Nginx 需配置 `/api` 反向代理，SSE 关闭缓冲（本服务只做出站 A2A Client，不需要代理 `/a2a` 入站端点）：
 
 ```nginx
 location /api/ {

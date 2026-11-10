@@ -990,13 +990,6 @@ export const mockSystemInfo: SystemInfo = {
   default_reasoning_effort: 'low',
   embedding: { model: 'text-embedding-3-small', dim: 1536 },
   generation: { temperature: 0.3, timeout_seconds: 60, max_output_tokens: 4096 },
-  a2a: {
-    enabled: true,
-    card_url: 'http://localhost:8000/a2a/.well-known/agent-card.json',
-    jsonrpc_url: 'http://localhost:8000/a2a',
-    auth_type: 'api_key',
-    card_security: 'bearer',
-  },
   capabilities: {
     instructions: true,
     memories: true,

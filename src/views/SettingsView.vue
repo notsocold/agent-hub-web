@@ -15,37 +15,18 @@ import { formatDateTime } from '@/utils/format'
 const auth = useAuthStore()
 const system = useSystemStore()
 
-type SectionKey = 'account' | 'capabilities' | 'model' | 'a2a' | 'about'
+type SectionKey = 'account' | 'capabilities' | 'model' | 'about'
 
 const sections: ReadonlyArray<{ key: SectionKey; label: string }> = [
   { key: 'account', label: '账号' },
   { key: 'capabilities', label: '个人能力' },
   { key: 'model', label: '模型' },
-  { key: 'a2a', label: 'A2A' },
   { key: 'about', label: '关于' },
 ]
 
 const active = ref<SectionKey>('capabilities')
 
 const generation = computed(() => system.info?.generation ?? null)
-
-// 入站 A2A 只有在后端显式开启时才展示可复制地址；未开启时显示占位与说明，
-// 避免把尚未挂载的端点当成可用能力。
-const a2aEnabled = computed(() => system.a2a?.enabled === true)
-const a2aCardUrl = computed(() => (a2aEnabled.value ? (system.a2a?.card_url ?? '') : ''))
-const a2aJsonrpcUrl = computed(() => (a2aEnabled.value ? (system.a2a?.jsonrpc_url ?? '') : ''))
-const a2aStatusLabel = computed(() =>
-  a2aEnabled.value ? (system.a2a?.auth_type ?? '未配置') : '入站未启用',
-)
-
-async function copy(value: string): Promise<void> {
-  try {
-    await navigator.clipboard.writeText(value)
-    ElMessage.success('已复制')
-  } catch {
-    ElMessage.error('复制失败，请手动选择内容')
-  }
-}
 
 function notReady(label: string): void {
   ElMessage.info(`${label}将在后续接入`)
@@ -61,7 +42,7 @@ onMounted(() => {
     <PageHeader
       eyebrow="SETTINGS"
       title="设置"
-      description="账号、模型、A2A 端点与个人能力（指令 / 长期记忆 / 技能 / MCP）。"
+      description="账号、模型与个人能力（指令 / 长期记忆 / 技能 / MCP）。"
     />
 
     <div class="settings-layout">
@@ -154,48 +135,6 @@ onMounted(() => {
                 </div>
               </dl>
             </template>
-          </section>
-        </template>
-
-        <template v-else-if="active === 'a2a'">
-          <section class="card">
-            <header class="card-head">
-              <h2>A2A 端点</h2>
-              <span class="tag mono" data-testid="a2a-status">{{ a2aStatusLabel }}</span>
-            </header>
-            <p v-if="!a2aEnabled" class="muted" data-testid="a2a-disabled-hint">
-              入站 A2A 尚未启用（后端 M3）。启用后可在此查看并复制 Agent Card 与 JSON-RPC 地址。
-            </p>
-            <dl class="kv">
-              <div>
-                <dt>Agent Card</dt>
-                <dd class="mono ellipsis">{{ a2aCardUrl || '—' }}</dd>
-              </div>
-              <div>
-                <dt>JSON-RPC</dt>
-                <dd class="mono ellipsis">{{ a2aJsonrpcUrl || '—' }}</dd>
-              </div>
-            </dl>
-            <div class="card-actions">
-              <button
-                type="button"
-                class="btn"
-                data-testid="copy-card-url"
-                :disabled="!a2aCardUrl"
-                @click="copy(a2aCardUrl)"
-              >
-                复制 Card 地址
-              </button>
-              <button
-                type="button"
-                class="btn"
-                data-testid="copy-jsonrpc-url"
-                :disabled="!a2aJsonrpcUrl"
-                @click="copy(a2aJsonrpcUrl)"
-              >
-                复制 JSON-RPC
-              </button>
-            </div>
           </section>
         </template>
 
@@ -366,12 +305,6 @@ h2 {
   font-size: 10.5px;
 }
 
-.card-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
 .link {
   color: var(--prussian);
   font-size: 11.5px;
@@ -388,12 +321,6 @@ h2 {
 
 .muted.error {
   color: var(--red);
-}
-
-.ellipsis {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 @media (max-width: 900px) {

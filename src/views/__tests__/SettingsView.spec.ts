@@ -6,7 +6,7 @@ import { useSystemStore } from '@/stores/system'
 import type { SystemInfo } from '@/types'
 import SettingsView from '@/views/SettingsView.vue'
 
-function systemInfo(a2aEnabled: boolean): SystemInfo {
+function systemInfo(): SystemInfo {
   return {
     version: '0.1.0',
     build: 'test',
@@ -17,13 +17,6 @@ function systemInfo(a2aEnabled: boolean): SystemInfo {
     default_reasoning_effort: 'low',
     embedding: { model: 'test-embedding', dim: 3 },
     generation: { temperature: 0.7, timeout_seconds: 30, max_output_tokens: 1000 },
-    a2a: {
-      enabled: a2aEnabled,
-      card_url: 'https://hub.example.com/a2a/.well-known/agent-card.json',
-      jsonrpc_url: 'https://hub.example.com/a2a',
-      auth_type: 'none',
-      card_security: 'none',
-    },
     capabilities: {
       instructions: true,
       memories: true,
@@ -48,13 +41,13 @@ function systemInfo(a2aEnabled: boolean): SystemInfo {
   }
 }
 
-async function mountA2aSection(a2aEnabled: boolean) {
+function mountSettings() {
   setActivePinia(createPinia())
   const system = useSystemStore()
-  system.info = systemInfo(a2aEnabled)
+  system.info = systemInfo()
   system.loaded = true
 
-  const wrapper = mount(SettingsView, {
+  return mount(SettingsView, {
     global: {
       stubs: {
         InstructionPanel: true,
@@ -64,29 +57,26 @@ async function mountA2aSection(a2aEnabled: boolean) {
       },
     },
   })
-
-  const nav = wrapper.findAll('button').find((button) => button.text() === 'A2A')
-  expect(nav).toBeDefined()
-  await nav!.trigger('click')
-  return wrapper
 }
 
-describe('SettingsView A2A 入站门控', () => {
-  it('未启用时显示提示、隐藏地址并禁用复制', async () => {
-    const wrapper = await mountA2aSection(false)
+describe('SettingsView 能力边界', () => {
+  it('不再提供入站 A2A 分区与端点复制入口', () => {
+    const wrapper = mountSettings()
+    const navLabels = wrapper.findAll('.settings-nav-item').map((item) => item.text())
 
-    expect(wrapper.text()).toContain('入站未启用')
-    expect(wrapper.text()).not.toContain('https://hub.example.com/a2a')
-    expect(wrapper.find('[data-testid="copy-card-url"]').attributes('disabled')).toBeDefined()
-    expect(wrapper.find('[data-testid="copy-jsonrpc-url"]').attributes('disabled')).toBeDefined()
+    expect(navLabels).toEqual(['账号', '个人能力', '模型', '关于'])
+    expect(wrapper.text()).not.toContain('A2A')
+    expect(wrapper.find('[data-testid="copy-card-url"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="copy-jsonrpc-url"]').exists()).toBe(false)
   })
 
-  it('启用后展示地址并允许复制', async () => {
-    const wrapper = await mountA2aSection(true)
+  it('移除 A2A 后其余分区仍可切换', async () => {
+    const wrapper = mountSettings()
+    const modelNav = wrapper.findAll('button').find((button) => button.text() === '模型')
 
-    expect(wrapper.text()).toContain('https://hub.example.com/a2a')
-    expect(wrapper.find('[data-testid="a2a-status"]').text()).toBe('none')
-    expect(wrapper.find('[data-testid="copy-card-url"]').attributes('disabled')).toBeUndefined()
-    expect(wrapper.find('[data-testid="copy-jsonrpc-url"]').attributes('disabled')).toBeUndefined()
+    expect(modelNav).toBeDefined()
+    await modelNav!.trigger('click')
+    expect(wrapper.text()).toContain('温度')
+    expect(wrapper.text()).toContain('0.7')
   })
 })

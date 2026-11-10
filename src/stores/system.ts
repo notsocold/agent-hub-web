@@ -45,7 +45,6 @@ export const useSystemStore = defineStore('system', () => {
   const defaultReasoningEffort = computed<ReasoningEffortId>(
     () => info.value?.default_reasoning_effort ?? 'low',
   )
-  const a2a = computed(() => info.value?.a2a ?? null)
 
   function enabled(capability: keyof SystemCapabilities): boolean {
     return capabilities.value[capability] === true
@@ -77,7 +76,6 @@ export const useSystemStore = defineStore('system', () => {
     limits,
     defaultModel,
     defaultReasoningEffort,
-    a2a,
     enabled,
     load,
   }

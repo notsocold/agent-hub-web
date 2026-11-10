@@ -187,7 +187,7 @@ curl -N -X POST http://localhost:8000/api/v1/chat/stream \
 
 | 归属 | 缺口 | 当前处理 |
 |---|---|---|
-| M3 | 入站任务的来源/可空 `agent`/调用方字段、会话来源（`metadata` 或新增 `source`，由 M3 定）、入站 API Key 管理端点 | 先冻结契约；未启用时只读展示 |
+| M3（已取消） | A2A 入站不实施：Agent Card 发布、JSON-RPC 入站端点、入站任务/会话、API Key 管理 | 服务仅出站；前端已移除设置页入站分区，`system/info.a2a` 不再读取（建议后端移除该字段） |
 | M4 | 知识库文档/检索端点、citations 形状、`knowledge_categories` | 页面保持 `knowledge=false` 门控 |
 | M5 | 审计查询 API、写操作 RBAC 的 403 | 审批中心可先做；审计/RBAC 等后端 |
 | X1 | 工作流管理（`workflows` / `workflow_runs`，或明确不落地） | 待立项，不做编辑器/执行 |

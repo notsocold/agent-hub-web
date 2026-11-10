@@ -8,7 +8,7 @@
 > 已实现登录/注册、路由守卫、应用布局与主题、对话工作台（SSE 流式、工具/技能/A2A/审批过程卡片、停止、历史会话）、运行详情、M1.5 个人能力（输入栏「+」上下文、附件上传/下载、指令/记忆/技能/MCP 设置页），以及 M2 智能体注册向导/Agent Card/健康检查/启停删除与任务列表/详情/取消/补充信息/授权/拒绝（真实 M2 后端 + 本地假 A2A Agent 已验证）。
 > 仓库默认 `.env.development` 仍开启 `VITE_USE_MOCK=true`，按 `docs/handoff/fixtures.md` 回放 REST 与 SSE；本机联调用 `.env.development.local` 覆盖为 `VITE_USE_MOCK=false` 即走真实接口。
 > 后端 M1 契约反馈见 `agent-hub/docs/feedback/2026-11-09-frontend-contract-feedback.md`，前端对接结论见 `agent-hub/docs/feedback/2026-11-09-frontend-integration-response.md`；M1.5/M2 实现与偏差见 `agent-hub/docs/feedback/2026-11-09-m15-backend-report.md`、`agent-hub/docs/feedback/2026-11-09-m2-backend-report.md`。
-> **路线对齐（2026-11-10）**：前端 M 编号与后端 M0–M6 同名同义；M3=A2A 入站、M5=审批与安全加固；体验项为 F1，工作流/完整管理台为 X1/X2 待立项。详见[路线图](docs/roadmap.md)。
+> **路线对齐（2026-11-10）**：前端 M 编号与后端 M0–M6 同名同义；**M3「A2A 入站」已取消（需求变更：本服务仅出站 A2A Client）**；M5=审批与安全加固；体验项为 F1，工作流/完整管理台为 X1/X2 待立项。详见[路线图](docs/roadmap.md)。
 > 单文件 HTML 原型见 [docs/prototypes](docs/prototypes/README.md)；后端交接包见 [docs/handoff](docs/handoff/README.md)。
 
 ## 1. 规划定位
@@ -130,7 +130,8 @@ mock 登录：任意邮箱 + 8 位以上密码；密码为 `wrong-password` 时�
 
 明确未包含（后续里程碑，编号与后端一致）：
 
-- [ ] A2A 入站前端配套（M3）：入站任务/会话来源标记、API Key 管理（若后端提供端点；A2A 地址门控已完成）
+> M3「A2A 入站」已于 2026-11-10 取消：服务只做出站 A2A Client，不发布 Agent Card、不提供入站端点；设置页入站分区已移除。
+
 - [ ] 知识库上传、重试、重建、检索调试与引用（M4）
 - [ ] 审批中心、审计查询与写操作 RBAC（M5；对话内审批卡已可用，审计需后端 admin 契约）
 - [ ] 断线续传 / Last-Event-ID（M6；当前靠历史 + `after_seq` 运行事件恢复）
@@ -163,4 +164,4 @@ mock 登录：任意邮箱 + 8 位以上密码；密码为 `wrong-password` 时�
   - D4 知识库选择：请求字段为 `knowledge_categories`；
   - D8 HITL：按“保持流 + 超时”处理，审批后同一流继续；
 - 后端状态以 `agent-hub/docs/feedback/` 的实现报告与 OpenAPI 为准；后端 `docs/roadmap.md` 的完成勾选可能滞后（M1/M2 尚未勾选），不要据此判断前端可联调范围；
-- 后端就绪后优先联调：**M3 入站（Agent Card → `message/send` → 入站任务/会话）** → **M4 知识库** → **M5 审批中心/审计**。
+- 后端就绪后优先联调：**M4 知识库** → **M5 审批中心/审计**（M3 入站已取消，不再排期）。

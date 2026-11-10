@@ -44,14 +44,6 @@ export interface SystemLimits {
   message_max_chars: number
 }
 
-export interface SystemA2aInfo {
-  enabled: boolean
-  card_url: string
-  jsonrpc_url: string
-  auth_type: string
-  card_security: string
-}
-
 export interface SystemInfo {
   version: string
   build: string
@@ -73,7 +65,6 @@ export interface SystemInfo {
     timeout_seconds: number
     max_output_tokens: number
   }
-  a2a: SystemA2aInfo
   capabilities: SystemCapabilities
   limits: SystemLimits
 }

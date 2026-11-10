@@ -1150,13 +1150,6 @@ message.done
   "default_reasoning_effort": "low",
   "embedding": {"model": "text-embedding-3-small", "dim": 1536},
   "generation": {"temperature": 0.3, "timeout_seconds": 60, "max_output_tokens": 4096},
-  "a2a": {
-    "enabled": true,
-    "card_url": "http://localhost:8000/a2a/.well-known/agent-card.json",
-    "jsonrpc_url": "http://localhost:8000/a2a",
-    "auth_type": "api_key",
-    "card_security": "bearer"
-  },
   "capabilities": {
     "instructions": true,
     "memories": true,
@@ -1179,7 +1172,7 @@ message.done
 }
 ```
 
-> `auth_type` 表示实际入站校验方式（API Key / OAuth2），`card_security` 表示 Agent Card 里声明的 security scheme（如 bearer）；两者不要混用。
+> **2026-11-10 需求变更**：服务只做出站 A2A Client，不提供入站 A2A Server，`system/info.a2a`（`enabled` / `card_url` / `jsonrpc_url` / `auth_type` / `card_security`）不再需要。前端已删除该字段的类型与读取；建议后端在 M3 清理由此产生的配置与占位响应。原 `auth_type` 与 `card_security` 的语义区分不再适用。
 
 前端用法：
 
