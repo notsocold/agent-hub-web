@@ -16,6 +16,8 @@ import type {
   ConversationDetail,
   InstructionState,
   KnowledgeDocument,
+  KnowledgeDocumentPage,
+  KnowledgeSearchHit,
   McpCheckResult,
   McpServer,
   McpServerCreateRequest,
@@ -74,6 +76,15 @@ function decodeCursor(cursor?: string): number {
   return match ? Number(match[1]) : 0
 }
 
+function knowledgeBasename(path: string): string {
+  return path.split('/').filter(Boolean).pop() ?? path
+}
+
+function knowledgeTitleFromFilename(filename: string): string {
+  const base = knowledgeBasename(filename)
+  return base.replace(/\.[^.]+$/, '') || base
+}
+
 interface PageQuery {
   limit?: number
   cursor?: string
@@ -102,6 +113,8 @@ class MockDb {
   tasks: A2aTaskListItem[] = []
   taskDetails: Record<string, A2aTaskDetail> = {}
   knowledgeDocuments: KnowledgeDocument[] = []
+  /** mock 用 `filename:size` 模拟 checksum 幂等键；真实后端用内容 checksum。 */
+  knowledgeChecksums: Record<string, string> = {}
   workflows: Workflow[] = []
   systemInfo: SystemInfo = clone(mockSystemInfo)
   runs: Record<string, Run> = {}
@@ -131,6 +144,7 @@ class MockDb {
     this.tasks = clone(mockTasks)
     this.taskDetails = clone(mockTaskDetails)
     this.knowledgeDocuments = clone(mockKnowledgeDocuments)
+    this.knowledgeChecksums = {}
     this.workflows = clone(mockWorkflows)
     this.systemInfo = clone(mockSystemInfo)
     this.runs = clone(mockRuns)
@@ -520,26 +534,171 @@ class MockDb {
     }
   }
 
+  /** 可见范围：`visible` = 系统文档 + 自己的私有文档；`all` 只给管理员用。 */
+  visibleKnowledgeDocuments(ownerScope: 'visible' | 'all' = 'visible'): KnowledgeDocument[] {
+    if (ownerScope === 'all') return this.knowledgeDocuments
+    return this.knowledgeDocuments.filter(
+      (document) => document.owner === null || document.owner.id === this.user.id,
+    )
+  }
+
   listKnowledgeDocuments(
-    query: { q?: string; category?: string; status?: string } & PageQuery,
-  ): PageResult<KnowledgeDocument> {
+    query: { q?: string; category?: string; status?: string; owner_scope?: 'visible' | 'all' } & PageQuery,
+  ): KnowledgeDocumentPage {
     const keyword = query.q?.trim().toLowerCase() ?? ''
-    const filtered = this.knowledgeDocuments
+    const visible = this.visibleKnowledgeDocuments(query.owner_scope)
+    const filtered = visible
       .filter((document) => (query.category ? document.category === query.category : true))
       .filter((document) => (query.status ? document.status === query.status : true))
-      .filter((document) => (keyword ? document.title.toLowerCase().includes(keyword) : true))
+      .filter((document) =>
+        keyword
+          ? `${document.title} ${document.source_uri}`.toLowerCase().includes(keyword)
+          : true,
+      )
       .sort((a, b) => Date.parse(b.updated_at) - Date.parse(a.updated_at))
 
+    const page = paginate(filtered, query)
     return {
-      ...paginate(filtered, query),
+      items: page.items,
+      next_cursor: page.next_cursor,
+      has_more: page.has_more,
+      // stats 是可见范围全量，不受 q/category/status 影响（后端口径）。
       stats: {
-        documents: this.knowledgeDocuments.length,
-        chunks: this.knowledgeDocuments.reduce((total, item) => total + item.chunk_count, 0),
-        ready: this.knowledgeDocuments.filter((item) => item.status === 'ready').length,
-        indexing: this.knowledgeDocuments.filter((item) => item.status === 'indexing').length,
-        pending: this.knowledgeDocuments.filter((item) => item.status === 'pending').length,
-        failed: this.knowledgeDocuments.filter((item) => item.status === 'failed').length,
+        documents: visible.length,
+        chunks: visible.reduce((total, item) => total + item.chunk_count, 0),
+        ready: visible.filter((item) => item.status === 'ready').length,
+        indexing: visible.filter((item) => item.status === 'indexing').length,
+        pending: visible.filter((item) => item.status === 'pending').length,
+        failed: visible.filter((item) => item.status === 'failed').length,
       },
+    }
+  }
+
+  getKnowledgeDocument(id: string): KnowledgeDocument | null {
+    return this.knowledgeDocuments.find((document) => document.id === id) ?? null
+  }
+
+  canReadKnowledgeDocument(document: KnowledgeDocument): boolean {
+    return this.user.role === 'admin' || document.owner === null || document.owner.id === this.user.id
+  }
+
+  /** 系统文档（`owner=null`）只有管理员可写；个人文档归所有者与管理员。 */
+  canWriteKnowledgeDocument(document: KnowledgeDocument): boolean {
+    return this.user.role === 'admin' || document.owner?.id === this.user.id
+  }
+
+  uploadKnowledgeDocument(input: {
+    filename: string
+    size_bytes: number
+    title?: string
+    category?: string
+    scope?: 'user' | 'system'
+  }): { document: KnowledgeDocument; created: boolean } {
+    const scope = input.scope ?? 'user'
+    const checksum = `${input.filename}:${input.size_bytes}`
+    const duplicate = this.knowledgeDocuments.find(
+      (document) =>
+        this.knowledgeChecksums[document.id] === checksum &&
+        (document.owner === null) === (scope === 'system'),
+    )
+    if (duplicate) return { document: duplicate, created: false }
+
+    const now = new Date().toISOString()
+    const document: KnowledgeDocument = {
+      id: `99999999-9999-4999-8999-${String(Date.now()).slice(-12).padStart(12, '0')}`,
+      title: input.title?.trim() || knowledgeTitleFromFilename(input.filename),
+      category: input.category?.trim() ?? '',
+      status: 'ready',
+      chunk_count: Math.max(1, Math.ceil(input.size_bytes / 1024)),
+      size_bytes: input.size_bytes,
+      source_uri: `uploads/${knowledgeBasename(input.filename)}`,
+      owner:
+        scope === 'system'
+          ? null
+          : { id: this.user.id, display_name: this.user.display_name },
+      error: null,
+      created_at: now,
+      updated_at: now,
+    }
+    this.knowledgeDocuments = [...this.knowledgeDocuments, document]
+    this.knowledgeChecksums[document.id] = checksum
+    return { document, created: true }
+  }
+
+  deleteKnowledgeDocument(id: string): boolean {
+    const index = this.knowledgeDocuments.findIndex((document) => document.id === id)
+    if (index < 0) return false
+    this.knowledgeDocuments.splice(index, 1)
+    delete this.knowledgeChecksums[id]
+    return true
+  }
+
+  /** 从原文重新入库；mock 直接把失败文档恢复为 ready，并保留原有大小。 */
+  retryKnowledgeDocument(id: string): KnowledgeDocument | null {
+    const document = this.getKnowledgeDocument(id)
+    if (!document) return null
+    document.status = 'ready'
+    document.chunk_count = Math.max(1, Math.ceil(document.size_bytes / 1024))
+    document.error = null
+    document.updated_at = new Date().toISOString()
+    return document
+  }
+
+  searchKnowledge(query: string, topK: number, category?: string): KnowledgeSearchHit[] {
+    const needle = query.trim()
+    const ranked = this.visibleKnowledgeDocuments()
+      .filter((document) => document.status === 'ready')
+      .filter((document) => (category ? document.category === category : true))
+      .map((document) => ({
+        document,
+        relevance: needle
+          ? Number(
+              `${document.title} ${document.category} ${document.source_uri}`
+                .toLowerCase()
+                .includes(needle.toLowerCase()),
+            )
+          : 0,
+      }))
+      .sort(
+        (a, b) =>
+          b.relevance - a.relevance ||
+          Date.parse(b.document.updated_at) - Date.parse(a.document.updated_at),
+      )
+      .slice(0, topK)
+
+    return ranked.map(({ document }, index) => ({
+      chunk_id: `${document.id}:${index + 1}`,
+      document_id: document.id,
+      title: document.title,
+      document_title: document.title,
+      document_filename: knowledgeBasename(document.source_uri),
+      category: document.category,
+      chunk_index: index,
+      content: `【mock 检索片段】${document.title}（${document.category || '未分类'}）：与「${needle}」相关的内容示例。`,
+      score: Math.round((0.9 - index * 0.06) * 10000) / 10000,
+      updated_at: document.updated_at,
+    }))
+  }
+
+  rebuildKnowledgeIndex(scope: 'all' | 'system' | 'own'): {
+    documents: number
+    chunks: number
+    failed: number
+    elapsed_ms: number
+  } {
+    const started = Date.now()
+    const scoped = this.knowledgeDocuments.filter((document) =>
+      scope === 'all' ? true : scope === 'system' ? document.owner === null : document.owner !== null,
+    )
+    const failed = scoped.filter((document) => document.status === 'failed').length
+    const chunks = scoped
+      .filter((document) => document.status === 'ready')
+      .reduce((total, document) => total + document.chunk_count, 0)
+    return {
+      documents: scoped.length,
+      chunks,
+      failed,
+      elapsed_ms: Math.max(0, Date.now() - started),
     }
   }
 

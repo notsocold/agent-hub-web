@@ -11,10 +11,10 @@ import StatCard from '@/components/common/StatCard.vue'
 import StatusBadge from '@/components/common/StatusBadge.vue'
 import { knowledgeApi } from '@/api/knowledge'
 import { formatBytes, formatDateTime } from '@/utils/format'
-import type { KnowledgeDocument, KnowledgeDocumentStatus } from '@/types'
+import type { KnowledgeDocument, KnowledgeDocumentStatus, KnowledgeStats } from '@/types'
 
 const items = ref<KnowledgeDocument[]>([])
-const stats = ref<Record<string, number>>({})
+const stats = ref<Partial<KnowledgeStats>>({})
 const loading = ref(false)
 const error = ref<string | null>(null)
 const keyword = ref('')

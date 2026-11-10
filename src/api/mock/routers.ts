@@ -15,6 +15,9 @@ export interface MockResult {
   data: unknown
 }
 
+const KNOWLEDGE_MAX_UPLOAD_BYTES = 10 * 1024 * 1024
+const KNOWLEDGE_ALLOWED_EXTENSIONS = ['md', 'markdown', 'txt', 'pdf', 'csv', 'json']
+
 function ok(data: unknown, status = 200): MockResult {
   return { status, data }
 }
@@ -763,15 +766,124 @@ export async function handleMockRequest(req: MockRequest): Promise<MockResult> {
   }
 
   // ---------- 知识库 ----------
-  if (method === 'GET' && path === '/knowledge/documents') {
-    return ok(
-      mockDb.listKnowledgeDocuments({
-        q: stringParam(req.query, 'q'),
-        category: stringParam(req.query, 'category'),
-        status: stringParam(req.query, 'status'),
-        ...pageQuery(req.query),
-      }),
-    )
+  if (path === '/knowledge/documents') {
+    const unauthorized = requireAuth(req)
+    if (unauthorized) return unauthorized
+
+    if (method === 'POST') {
+      const form = formOf(body)
+      if (!form?.file) return fail(422, 'validation_error', '请选择要上传的文件')
+      const filename = form.file.name
+      const size = form.file.size
+      if (size > KNOWLEDGE_MAX_UPLOAD_BYTES) {
+        return fail(413, 'payload_too_large', `上传文件超过大小上限（${KNOWLEDGE_MAX_UPLOAD_BYTES} 字节）`)
+      }
+      const extension = filename.includes('.') ? filename.split('.').pop()!.toLowerCase() : ''
+      if (!KNOWLEDGE_ALLOWED_EXTENSIONS.includes(extension)) {
+        return fail(422, 'validation_error', '仅支持 Markdown、TXT、PDF、CSV 与 JSON')
+      }
+      if (filename.length > 255) return fail(422, 'validation_error', '文件名不能超过 255 个字符')
+
+      const title = form.fields.title?.trim() ?? ''
+      const category = form.fields.category?.trim() ?? ''
+      const scope = form.fields.scope ?? 'user'
+      if (title.length > 200) return fail(422, 'validation_error', '标题不能超过 200 个字符')
+      if (category.length > 64) return fail(422, 'validation_error', '分类不能超过 64 个字符')
+      if (scope !== 'user' && scope !== 'system') {
+        return fail(422, 'validation_error', '无效的归属范围')
+      }
+      if (scope === 'system' && mockDb.user.role !== 'admin') {
+        return fail(403, 'forbidden', '系统文档仅管理员可上传')
+      }
+
+      const result = mockDb.uploadKnowledgeDocument({
+        filename,
+        size_bytes: size,
+        title,
+        category,
+        scope,
+      })
+      return ok(result.document, result.created ? 201 : 200)
+    }
+
+    if (method === 'GET') {
+      const ownerScope = stringParam(req.query, 'owner_scope') === 'all' ? 'all' : 'visible'
+      if (ownerScope === 'all' && mockDb.user.role !== 'admin') {
+        return fail(403, 'forbidden', '仅管理员可查看全部文档')
+      }
+      const status = stringParam(req.query, 'status')
+      if (status && !['pending', 'indexing', 'ready', 'failed'].includes(status)) {
+        return fail(422, 'validation_error', '无效的文档状态')
+      }
+      return ok(
+        mockDb.listKnowledgeDocuments({
+          q: stringParam(req.query, 'q'),
+          category: stringParam(req.query, 'category'),
+          status,
+          owner_scope: ownerScope,
+          ...pageQuery(req.query),
+        }),
+      )
+    }
+  }
+
+  if (method === 'POST' && path === '/knowledge/search') {
+    const unauthorized = requireAuth(req)
+    if (unauthorized) return unauthorized
+    const query = String(body.query ?? '').trim()
+    if (!query) return fail(422, 'validation_error', '检索内容不能为空')
+    if (query.length > 500) return fail(422, 'validation_error', '检索内容长度不能超过 500 个字符')
+    const rawTopK = Number(body.top_k)
+    const topK = Number.isFinite(rawTopK) ? Math.min(Math.max(rawTopK, 1), 20) : 6
+    const filters = (body.filters ?? {}) as { category?: unknown }
+    const category = typeof filters.category === 'string' ? filters.category.trim() : ''
+    const started = performance.now()
+    const hits = mockDb.searchKnowledge(query, topK, category || undefined)
+    return ok({ hits, elapsed_ms: Math.max(0, Math.round(performance.now() - started)) })
+  }
+
+  if (method === 'POST' && path === '/knowledge/rebuild') {
+    const unauthorized = requireAuth(req)
+    if (unauthorized) return unauthorized
+    if (mockDb.user.role !== 'admin') return fail(403, 'forbidden', '仅管理员可重建索引')
+    const scope = String(body.scope ?? '')
+    if (scope !== 'all' && scope !== 'system' && scope !== 'own') {
+      return fail(422, 'validation_error', '无效的重建范围')
+    }
+    return ok(mockDb.rebuildKnowledgeIndex(scope))
+  }
+
+  const knowledgeRetryMatch = /^\/knowledge\/documents\/([^/]+)\/retry$/.exec(path)
+  if (method === 'POST' && knowledgeRetryMatch) {
+    const unauthorized = requireAuth(req)
+    if (unauthorized) return unauthorized
+    const document = mockDb.getKnowledgeDocument(knowledgeRetryMatch[1]!)
+    if (!document || !mockDb.canReadKnowledgeDocument(document)) {
+      return fail(404, 'not_found', '知识库文档不存在')
+    }
+    if (!mockDb.canWriteKnowledgeDocument(document)) {
+      return fail(403, 'forbidden', '无权操作该文档')
+    }
+    return ok(mockDb.retryKnowledgeDocument(document.id))
+  }
+
+  const knowledgeDocumentMatch = /^\/knowledge\/documents\/([^/]+)$/.exec(path)
+  if (knowledgeDocumentMatch) {
+    const unauthorized = requireAuth(req)
+    if (unauthorized) return unauthorized
+    const document = mockDb.getKnowledgeDocument(knowledgeDocumentMatch[1]!)
+    if (!document || !mockDb.canReadKnowledgeDocument(document)) {
+      return fail(404, 'not_found', '知识库文档不存在')
+    }
+    if (method === 'GET') return ok(document)
+    if (method === 'DELETE') {
+      if (!mockDb.canWriteKnowledgeDocument(document)) {
+        return fail(403, 'forbidden', '无权操作该文档')
+      }
+      return mockDb.deleteKnowledgeDocument(document.id)
+        ? ok(null, 204)
+        : fail(404, 'not_found', '知识库文档不存在')
+    }
   }
 
   // ---------- 工作流 ----------
