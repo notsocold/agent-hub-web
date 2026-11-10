@@ -20,6 +20,7 @@ declare module 'vue' {
     ChatComposer: typeof import('./components/chat/ChatComposer.vue')['default']
     ConversationItem: typeof import('./components/chat/ConversationItem.vue')['default']
     ConversationSidebar: typeof import('./components/chat/ConversationSidebar.vue')['default']
+    DocumentDetailDrawer: typeof import('./components/knowledge/DocumentDetailDrawer.vue')['default']
     ElButton: typeof import('element-plus/es')['ElButton']
     ElConfigProvider: typeof import('element-plus/es')['ElConfigProvider']
     ElDialog: typeof import('element-plus/es')['ElDialog']
@@ -48,6 +49,7 @@ declare module 'vue' {
     RouterView: typeof import('vue-router')['RouterView']
     RunRecoveryBanner: typeof import('./components/chat/RunRecoveryBanner.vue')['default']
     RunTraceDrawer: typeof import('./components/chat/RunTraceDrawer.vue')['default']
+    SearchDebugPanel: typeof import('./components/knowledge/SearchDebugPanel.vue')['default']
     SideNav: typeof import('./components/layout/SideNav.vue')['default']
     SkillCard: typeof import('./components/chat/cards/SkillCard.vue')['default']
     SkillPanel: typeof import('./components/settings/SkillPanel.vue')['default']
@@ -56,6 +58,7 @@ declare module 'vue' {
     TaskDetailDrawer: typeof import('./components/tasks/TaskDetailDrawer.vue')['default']
     ThinkingCard: typeof import('./components/chat/cards/ThinkingCard.vue')['default']
     ToolCard: typeof import('./components/chat/cards/ToolCard.vue')['default']
+    UploadDialog: typeof import('./components/knowledge/UploadDialog.vue')['default']
     WorkflowStepCard: typeof import('./components/chat/cards/WorkflowStepCard.vue')['default']
   }
 }

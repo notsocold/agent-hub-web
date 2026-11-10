@@ -3,28 +3,43 @@ import type { AuthTokens } from '@/types'
 const ACCESS_TOKEN_KEY = 'agent-hub.access-token'
 const REFRESH_TOKEN_KEY = 'agent-hub.refresh-token'
 
+/**
+ * 内存兜底：真实联调测试跑在 node 环境（没有 `window.localStorage`），
+ * 隐私模式下 localStorage 也可能不可写；此时登录态只保留在进程内存里。
+ */
+const memory = new Map<string, string>()
+
 function read(key: string): string | null {
   try {
-    return window.localStorage.getItem(key)
+    if (typeof window !== 'undefined') return window.localStorage.getItem(key)
   } catch {
-    return null
+    // 隐私模式 / 无 window：回退到内存。
   }
+  return memory.get(key) ?? null
 }
 
 function write(key: string, value: string): void {
   try {
-    window.localStorage.setItem(key, value)
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(key, value)
+      return
+    }
   } catch {
-    // 隐私模式下 localStorage 不可写，登录态只保留在内存中。
+    // 同上。
   }
+  memory.set(key, value)
 }
 
 function remove(key: string): void {
   try {
-    window.localStorage.removeItem(key)
+    if (typeof window !== 'undefined') {
+      window.localStorage.removeItem(key)
+      return
+    }
   } catch {
     // 同上。
   }
+  memory.delete(key)
 }
 
 export const storage = {

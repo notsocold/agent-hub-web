@@ -17,7 +17,7 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     globals: true,
-    include: ['scripts/real-backend.spec.ts', 'scripts/real-m2.spec.ts'],
+    include: ['scripts/real-backend.spec.ts', 'scripts/real-m2.spec.ts', 'scripts/real-m4.spec.ts'],
     setupFiles: ['./src/test/setup.ts'],
     testTimeout: 30_000,
     hookTimeout: 30_000,

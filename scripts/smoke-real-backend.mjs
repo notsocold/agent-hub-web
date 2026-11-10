@@ -347,20 +347,7 @@ async function main() {
   assert(unknownSkill.response.status === 404, '未知 skill 返回 404')
   assert(unknownSkill.data.error?.code === 'not_found', '未知 skill 错误码 not_found')
 
-  const disabledKnowledge = await request('POST', '/chat/stream', {
-    token,
-    body: {
-      conversation_id: concurrentId,
-      message: 'hi',
-      client_message_id: `knowledge-${Date.now()}`,
-      knowledge_categories: ['客服'],
-    },
-  })
-  assert(disabledKnowledge.response.status === 403, 'knowledge_categories 返回 403')
-  assert(
-    disabledKnowledge.data.error?.code === 'capability_disabled',
-    'knowledge 错误码 capability_disabled',
-  )
+  // M4 起 knowledge_categories 已开放（不再 403），知识库链路由 pnpm smoke:m4 覆盖。
 
   const disabledWorkflow = await request('POST', '/chat/stream', {
     token,

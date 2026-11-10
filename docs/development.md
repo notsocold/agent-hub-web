@@ -1,7 +1,7 @@
 # 开发指南
 
-> **当前状态：M1.5/M2 前端已实现并与真实后端联调，开发环境默认使用内置 mock。**
-> 登录/注册、应用布局、对话工作台、个人能力设置、智能体与任务页已可用；知识库/工作流为后续里程碑或待立项。
+> **当前状态：M1.5/M2/M4 前端已实现并与真实后端联调，开发环境默认使用内置 mock。**
+> 登录/注册、应用布局、对话工作台、个人能力设置、智能体/任务/知识库页已可用；工作流为 X1 待后端立项。
 > 后端联调时在 `.env.development.local` 设置 `VITE_USE_MOCK=false`（`.env.local` 会被 `.env.development` 覆盖）。
 
 ## 1. 环境要求
@@ -20,12 +20,13 @@
 | `pnpm install` | 安装依赖 |
 | `pnpm dev` | 开发服务器（5173，热更新） |
 | `pnpm build` | 类型检查 + 生产构建 |
-| `pnpm test` | Vitest 单测（79 个用例，无需后端） |
+| `pnpm test` | Vitest 单测（113 个用例，无需后端） |
 | `pnpm test:watch` | Vitest 监听模式 |
 | `pnpm preview` | 预览构建产物 |
 | `pnpm type-check` | 仅类型检查 |
 | `pnpm lint` | oxlint + eslint（自动修复） |
 | `pnpm format` | Prettier 格式化 `src/` |
+| `pnpm smoke:m4` | 知识库真实冒烟（需后端 8000 与开发账号） |
 
 首次拉取后建议先跑 `pnpm install && pnpm build`，确认环境正常。
 

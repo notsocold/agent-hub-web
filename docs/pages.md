@@ -1,6 +1,6 @@
 # 页面规划
 
-- 状态：M1/M1.5/M2 前端已实现（默认 mock；M1/M1.5/M2 均已与真实后端联调）。对话页、设置页个人能力、智能体页、任务页为完整交互；知识库按 M4 接入，工作流为 X1 待后端立项
+- 状态：M1/M1.5/M2/M4 前端已实现（默认 mock；M1/M1.5/M2/M4 均已与真实后端联调）。对话页、设置页个人能力、智能体页、任务页、知识库页为完整交互；工作流为 X1 待后端立项
 - 布局：`AppLayout` 提供一级导航（侧边栏，可折叠/移动端抽屉）+ 账号菜单 + 内容区；路由表已注册全部页面
 - 实现文件：`src/views/`；对话页组件在 `src/components/chat/`；通用三态组件在 `src/components/common/`
 - 里程碑归属：以 [路线图](roadmap.md) 为准（M3「A2A 入站」已取消，服务仅出站；M5=审批与安全加固；体验项为 F1，工作流/完整管理台为 X1/X2）
@@ -138,16 +138,20 @@
 | 接口 | `GET /tasks`、`GET /tasks/{id}`、`POST /tasks/{id}/{cancel,resume,authorize,reject}` |
 | 深链 | 对话 A2A 卡片 → `/tasks?task=<local-id>` 直接打开详情 |
 
-## 7. 知识库页 `/knowledge`（M4）
+## 7. 知识库页 `/knowledge`（M4，已联调）
 
 | 项 | 说明 |
 |---|---|
-| 文档列表 | 标题、分类、状态、块数、更新时间 |
-| 上传 | 拖拽文件或粘贴文本；异步入库，轮询/SSE 展示进度 |
-| 检索调试 | 输入问题 → 命中片段、分数、来源；可复制 |
-| 操作 | 重建单个文档/全量、删除 |
-| 状态 | pending/indexing/ready/failed，失败可重试 |
-| 接口 | `POST/GET/DELETE /knowledge/documents`、`POST /knowledge/search`、`POST /knowledge/rebuild` |
+| 文档列表 | 标题、来源路径、分类、状态、块数、大小、归属、更新时间；服务端 `q/category/status/owner_scope` 筛选 + 游标「加载更多」；6 键统计 |
+| 上传 | 拖拽/选择文件，或粘贴文本转 `.md`；可选标题、分类；管理员可选「系统文档」；超限 413、类型 422、无权限 403 分开提示 |
+| 入库状态 | 后端同步入库返回终态；仅 `pending/indexing` 文档每 5s 轮询（页面隐藏暂停），不伪造进度 |
+| 检索调试 | 查询 + `top_k`(1–20) + 分类；展示章节标题、文档名/文件名、分数、日期、片段；可复制；空结果与 503 区分 |
+| 操作 | 详情抽屉、失败重试/重建此文档（`/retry`）、删除、管理员按 `all/system/own` 重建 |
+| 状态 | pending/indexing/ready/failed，失败可重试；`category` 空串显示「未分类」 |
+| 接口 | `POST/GET /knowledge/documents`、`GET/DELETE /knowledge/documents/{id}`、`POST /knowledge/documents/{id}/retry`、`POST /knowledge/search`、`POST /knowledge/rebuild` |
+| 深链 | 引用点击带 `?document_id=` 打开详情抽屉；文档已删除时回退 `?q=` 标题搜索 |
+
+> 与后端的落地差异：无「单文档重建」端点（用 `retry`）；无分类目录端点（输入栏候选取可见文档聚合 + 手输）；`rebuild(scope=own)` = 所有用户的私有文档。
 
 ## 8. 设置页 `/settings`
 
@@ -200,7 +204,7 @@
 | 归属 | 缺口 | 当前处理 |
 |---|---|---|
 | M3（已取消） | A2A 入站不实施（Agent Card 发布、JSON-RPC 端点、入站任务/会话、API Key 管理） | 服务仅出站；设置页入站分区已移除，出站能力由智能体页承载 |
-| M4 | 知识库文档/检索端点、citations 形状、`knowledge_categories` | 等后端 M4；页面保持 `knowledge=false` 门控 |
+| M4（已对齐） | 知识库端点、citations 形状、`knowledge_categories` | 后端已交付，前端已联调；差异仅剩「无单文档重建 / 无分类目录端点」，已用 retry 与文档聚合替代 |
 | M5 | 审计查询 API、写操作 RBAC 的 403；审批列表端点已有、前端页面未做 | 审批中心可先做；审计/RBAC 等后端契约 |
 | X1 | 工作流表/API、执行语义、步骤事件 | 待后端立项；不做编辑器与执行 |
 | X2 | 用户、角色权限、菜单、字典、审计管理端 | 待后端立项；`/api/v1/admin/*` 实测 404 |

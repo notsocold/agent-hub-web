@@ -23,7 +23,7 @@
 | M1.5 | 个人能力层 | 个人能力层前端 | 已完成 | 已联调 | `smoke:m15` 68 项 |
 | M2 | A2A 出站 | 智能体 + 任务 | 已完成 | 已联调 | 假 Agent + `test:real` |
 | M3 | A2A 入站 | —（已取消） | 取消（需求变更：仅出站） | 取消（设置页入站分区已移除） | 不适用 |
-| M4 | 知识库 RAG | 知识库页 + 引用 | 未开始（模块仅占位） | 未开始（页面骨架 + mock） | `knowledge=true` 后真实检索 |
+| M4 | 知识库 RAG | 知识库页 + 引用 | 已完成（2026-11-10） | 已联调（2026-11-10） | `smoke:m4` 39 项 + `test:real` M4 3 例 |
 | M5 | 审批与安全加固 | 审批中心 + 权限/安全 UX | 部分（审批最小切片已交付） | 部分提前交付（审批卡） | 审批列表、过期、审计、403 |
 | M6 | 生产化与可观测 | 生产化 + E2E + 断线续传 | 未开始（仅 `/readyz` 基础探针） | 未开始（部分基础已有） | Nginx SSE、E2E、续传 |
 | F1 | —（横切） | 体验与可访问性 | — | 部分 | M6 前收口 |
@@ -100,20 +100,24 @@
 >
 > 若未来恢复入站能力，需重新立项并重新冻结契约，不沿用原 M3 清单。原清单（Agent Card 发布、入站鉴权、入站任务/会话来源、`a2a-inspector` 验收）全部作废。
 
-### M4 知识库 RAG（未开始）
+### M4 知识库 RAG（已完成，真实联调）
 
 后端目标：文档入库（Markdown/TXT/PDF）、切分、Embedding、`search_knowledge` 工具、`POST /knowledge/search` 调试接口；回答带来源。
 
-- [ ] 知识库页：文档列表、上传（拖拽/粘贴）、异步入库状态轮询、失败重试、删除、全量/单文档重建。
-- [ ] 检索调试：命中片段、分数、来源、复制；空结果与错误态。
-- [ ] 对话：「+」菜单在 `capabilities.knowledge=true` 时开放知识库分类；请求字段沿用 `knowledge_categories`；发送后清空。
-- [ ] 引用展示：`message.done.citations`/工具结果渲染来源；点击定位到文档或检索详情。
-- [ ] 工具卡支持 `source=knowledge`；`capability_disabled` 403 明确提示。
-- [ ] 契约先行：知识库端点、citations 形状、分类语义、`knowledge` 能力开关；补 fixtures。
+- [x] 知识库页：文档列表（服务端 `q/category/status/owner_scope` + 游标分页 + 6 键统计）、上传（拖拽/选择/粘贴文本）、入库状态轮询、失败重试、删除、管理员全量/按范围重建。
+- [x] 检索调试：命中片段、分数、来源、复制；空结果、403 能力关闭与 503 Embedding 不可用分别提示。
+- [x] 对话：「+」菜单在 `capabilities.knowledge=true` 时开放知识库分类（候选来自可见文档 + 手输，≤5 个）；请求字段沿用 `knowledge_categories`；发送后清空。
+- [x] 引用展示：`message.done.citations`/`tool.result.citations` 渲染来源；点击按 `document_id` 打开详情抽屉，文档已删除时回退标题搜索。
+- [x] 工具卡支持 `source=knowledge` 并展示引用；用户消息展示本轮知识库分类。
+- [x] 契约先行：知识库端点、citations 形状、分类语义、`knowledge` 能力开关；mock 与 fixtures 同步。
 
-验收：上传文档后能检索到正确片段；助手回答的来源可点击；`knowledge=false` 时入口置灰/路由退回对话页（当前路由守卫已具备）。
+验收：上传文档后能检索到正确片段；助手回答的来源可点击；`knowledge=false` 时入口置灰/路由退回对话页。
 
-> 现状：页面骨架与 mock 已存在，但未接真实后端；后端 `app/modules/knowledge/` 仍为占位，`capabilities.knowledge=false`。
+> 2026-11-10 联调证据：`pnpm smoke:m4` 39 项断言通过（上传 201/幂等 200/413/422、列表统计、检索 10 字段、重试、管理员 rebuild、删除 404）；`scripts/real-m4.spec.ts` 3 例通过。
+>
+> 落地差异（以后端 M4 实际契约为准）：① 上传是**同步入库**并返回终态，没有异步进度，轮询只针对脚本导入/重建产生的 `pending/indexing`；② 后端没有「单文档重建」端点，页面用 `POST /knowledge/documents/{id}/retry` 承载；③ 后端没有分类目录端点，输入栏候选由可见文档聚合 + 手输；④ 管理员 `rebuild(scope=own)` 指**所有用户的私有文档**。
+>
+> 未取得证据：真实 LLM 驱动的「对话 → search_knowledge → citations」SSE 全链路。本机 `LLM API key` 为占位符（DeepSeek 401），后端 M4 报告用替换 `build_chat_model` 的测试接缝验证；前端侧已用 mock 流与真实检索接口分别覆盖。
 
 ### M5 审批与安全加固（部分提前交付，未完成）
 
@@ -187,7 +191,7 @@
 | 里程碑 | 开工前必须冻结的契约 | 当前事实 | 前端动作 |
 |---|---|---|---|
 | M3 | 不适用（已取消） | 2026-11-10 决策：仅出站 A2A Client，入站不实施 | 无；设置页入站分区已移除，智能体页继续承载出站能力 |
-| M4 | 知识库文档/检索端点；citations；`knowledge_categories`；能力开关 | 端点仅设计；模块占位；`knowledge=false` | 保持路由门控；先 mock，后真实联调 |
+| M4 | 知识库文档/检索端点；citations；`knowledge_categories`；能力开关 | 7 个端点已实现，`capabilities.knowledge=true`；前端已联调 | 按实际契约消费；单文档重建复用 retry；分类候选由文档聚合 |
 | M5 | 审批列表/详情/决定（已有）；审计查询（缺）；RBAC 403（缺）；429（已有） | 审批最小切片已交付 | 审批中心可先做；审计/RBAC 等契约 |
 | M6 | `after_seq` 事件回放（已有）；Last-Event-ID/多实例 SSE；metrics/trace | `after_seq` 已实现；其余未开始 | 先做 Nginx/E2E；续传等后端决策 |
 | X1/X2 | 无 | 未立项 | 保留原型/交接包，不进入排期 |
