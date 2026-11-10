@@ -16,9 +16,11 @@ import StatusBadge from '@/components/common/StatusBadge.vue'
 import { ApiRequestError } from '@/api/client'
 import { knowledgeApi, type KnowledgeListParams } from '@/api/knowledge'
 import { useAuthStore } from '@/stores/auth'
+import { useCapabilitiesStore } from '@/stores/capabilities'
 import { formatBytes, formatDateTime } from '@/utils/format'
 import {
   aggregateCategories,
+  applyPolledDocuments,
   isInterimStatus,
   statusLabel,
   statusTone,
@@ -27,6 +29,7 @@ import type { KnowledgeDocument, KnowledgeDocumentStatus, KnowledgeStats } from 
 
 const route = useRoute()
 const auth = useAuthStore()
+const capabilityCatalog = useCapabilitiesStore()
 
 const initialQuery = typeof route.query.q === 'string' ? route.query.q : ''
 const initialDocumentId =
@@ -54,6 +57,9 @@ const selected = ref<KnowledgeDocument | null>(null)
 const highlightId = ref<string | null>(null)
 const rebuildScope = ref<'all' | 'system' | 'own'>('all')
 const rebuilding = ref(false)
+const retryingId = ref<string | null>(null)
+const pollFailures = ref(0)
+let pollInFlight = false
 
 const debugPanel = ref<InstanceType<typeof SearchDebugPanel> | null>(null)
 let pollTimer: ReturnType<typeof setInterval> | null = null
@@ -120,6 +126,8 @@ async function load(options: { reset?: boolean; silent?: boolean } = {}): Promis
     cursor.value = page.next_cursor
     hasMore.value = page.has_more
     mergeCategories(page.items)
+    pollFailures.value = 0
+    syncPolling()
   } catch (cause) {
     if (!silent) handleFailure(cause)
   } finally {
@@ -128,15 +136,58 @@ async function load(options: { reset?: boolean; silent?: boolean } = {}): Promis
   }
 }
 
-/** 轮询只刷新已加载行的状态与统计，避免把「加载更多」的页重置掉。 */
+/**
+ * 轮询刷新已加载行的状态与统计，避免把「加载更多」的页重置掉。
+ *
+ * - 首屏响应覆盖第一页；不在第一页的过渡态文档按 id 单独拉取，分页行不会漏刷新；
+ * - 404（已删除/不可见）与状态筛选不再匹配的行会被移出列表，否则筛选下永远无法收敛；
+ * - 连续 3 次失败停止轮询；`capability_disabled` 立即停止并显示能力门控。
+ */
 async function refreshStatuses(): Promise<void> {
+  if (pollInFlight) return
+  pollInFlight = true
   try {
     const page = await knowledgeApi.documents({ ...listParams(true), limit: 20 })
-    const byId = new Map(page.items.map((document) => [document.id, document]))
-    items.value = items.value.map((document) => byId.get(document.id) ?? document)
+    const fresh = [...page.items]
+    const onFirstPage = new Set(page.items.map((document) => document.id))
+    const pending = items.value.filter(
+      (document) => isInterimStatus(document.status) && !onFirstPage.has(document.id),
+    )
+    const removed: string[] = []
+    await Promise.all(
+      pending.slice(0, 20).map(async (document) => {
+        try {
+          fresh.push(await knowledgeApi.get(document.id))
+        } catch (cause) {
+          if (cause instanceof ApiRequestError && cause.status === 404) {
+            removed.push(document.id)
+            return
+          }
+          throw cause
+        }
+      }),
+    )
+    items.value = applyPolledDocuments(items.value, fresh, removed, statusFilter.value)
     stats.value = page.stats
-  } catch {
-    // 轮询失败保持旧状态，避免闪烁错误；下一次可见性变化会重新启动。
+    const selectedId = selected.value?.id
+    if (selectedId) {
+      const freshSelected = fresh.find((document) => document.id === selectedId)
+      if (freshSelected) selected.value = freshSelected
+    }
+    pollFailures.value = 0
+  } catch (cause) {
+    if (cause instanceof ApiRequestError && cause.code === 'capability_disabled') {
+      capabilityDisabled.value = true
+      stopPolling()
+      return
+    }
+    pollFailures.value += 1
+    if (pollFailures.value >= 3) {
+      stopPolling()
+      ElMessage.warning('知识库状态刷新连续失败，已暂停自动轮询')
+    }
+  } finally {
+    pollInFlight = false
   }
 }
 
@@ -157,6 +208,7 @@ function syncPolling(): void {
 }
 
 function onVisibilityChange(): void {
+  if (document.visibilityState === 'visible') pollFailures.value = 0
   syncPolling()
 }
 
@@ -200,6 +252,8 @@ function openUpload(): void {
 async function onUploaded(document: KnowledgeDocument): Promise<void> {
   uploadOpen.value = false
   highlightId.value = document.id
+  // 新分类可能来自这次上传；让「+」菜单下次进入对话时重新聚合。
+  capabilityCatalog.invalidateKnowledgeCategories()
   await load({ reset: true })
 }
 
@@ -209,14 +263,18 @@ function openDetail(document: KnowledgeDocument): void {
 }
 
 async function retryDocument(document: KnowledgeDocument): Promise<void> {
+  if (retryingId.value) return
+  retryingId.value = document.id
   try {
     const updated = await knowledgeApi.retry(document.id)
-    items.value = items.value.map((item) => (item.id === updated.id ? updated : item))
-    selected.value = updated
     ElMessage.success(updated.status === 'ready' ? '已重新入库' : '已提交重试')
-    void refreshStatuses()
+    // 按当前筛选重载：失败筛选下变成 ready 的行应移出列表，而不是停在原地。
+    await load({ reset: true })
+    selected.value = items.value.find((item) => item.id === updated.id) ?? updated
   } catch (cause) {
     ElMessage.error(messageOf(cause))
+  } finally {
+    retryingId.value = null
   }
 }
 
@@ -416,6 +474,7 @@ onUnmounted(() => {
                   v-if="row.status === 'failed' && canWrite(row)"
                   type="button"
                   class="link"
+                  :disabled="retryingId === row.id"
                   @click="retryDocument(row)"
                 >
                   重试
@@ -452,6 +511,7 @@ onUnmounted(() => {
       v-model="drawerOpen"
       :document="selected"
       :writable="selected ? canWrite(selected) : false"
+      :busy="retryingId === selected?.id"
       @retry="retryDocument"
       @remove="removeDocument"
       @search="searchFromDocument"

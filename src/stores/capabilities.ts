@@ -6,6 +6,7 @@ import { mcpApi } from '@/api/mcp'
 import { skillsApi } from '@/api/skills'
 import { aggregateCategories } from '@/utils/knowledge'
 import type { McpAvailableServer, McpAvailableTool, SkillCatalogItem } from '@/types'
+import { useAuthStore } from './auth'
 
 /**
  * 输入栏「+」菜单与设置页共用的能力目录。
@@ -27,6 +28,9 @@ export const useCapabilitiesStore = defineStore('capabilities', () => {
   const knowledgeCategories = ref<string[]>([])
   const knowledgeCategoriesLoaded = ref(false)
   const loadingKnowledgeCategories = ref(false)
+  /** 分类候选的缓存归属用户；切换账号时必须重新拉取。 */
+  const knowledgeCategoriesOwner = ref<string | null>(null)
+  const auth = useAuthStore()
 
   const enabledSkills = computed(() => skills.value.filter((item) => item.enabled))
   const enabledMcpServers = computed(() => mcpServers.value.filter((item) => item.enabled))
@@ -57,13 +61,15 @@ export const useCapabilitiesStore = defineStore('capabilities', () => {
    * - 失败不阻断聊天主流程，也不写全局 error，避免影响技能/MCP 目录。
    */
   async function loadKnowledgeCategories(force = false): Promise<void> {
+    const userId = auth.user?.id ?? null
     if (loadingKnowledgeCategories.value) return
-    if (knowledgeCategoriesLoaded.value && !force) return
+    if (!force && knowledgeCategoriesLoaded.value && knowledgeCategoriesOwner.value === userId) return
     loadingKnowledgeCategories.value = true
     try {
       const page = await knowledgeApi.documents({ limit: 100 })
       knowledgeCategories.value = aggregateCategories(page.items)
       knowledgeCategoriesLoaded.value = true
+      knowledgeCategoriesOwner.value = userId
     } catch {
       knowledgeCategories.value = []
     } finally {
@@ -71,10 +77,17 @@ export const useCapabilitiesStore = defineStore('capabilities', () => {
     }
   }
 
+  /** 上传/删除文档或切换账号后让候选失效；旧分类不能跨用户残留。 */
+  function invalidateKnowledgeCategories(): void {
+    knowledgeCategories.value = []
+    knowledgeCategoriesLoaded.value = false
+    knowledgeCategoriesOwner.value = null
+  }
+
   /** 设置页改动后让下一次选择重新拉取。 */
   function invalidate(): void {
     loaded.value = false
-    knowledgeCategoriesLoaded.value = false
+    invalidateKnowledgeCategories()
   }
 
   function toolsOfServer(serverId: string): McpAvailableTool[] {
@@ -128,6 +141,7 @@ export const useCapabilitiesStore = defineStore('capabilities', () => {
     load,
     loadTools,
     loadKnowledgeCategories,
+    invalidateKnowledgeCategories,
     invalidate,
     toolsOfServer,
   }

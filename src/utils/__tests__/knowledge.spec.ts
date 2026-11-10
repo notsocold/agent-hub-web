@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   aggregateCategories,
+  applyPolledDocuments,
   formatScore,
   isInterimStatus,
   statusLabel,
@@ -56,5 +57,36 @@ describe('knowledge 工具函数', () => {
     expect(formatScore(0.2552)).toBe('0.26')
     expect(formatScore(0)).toBe('0.00')
     expect(formatScore(Number.NaN)).toBe('—')
+  })
+})
+
+describe('轮询合并 applyPolledDocuments', () => {
+  const indexing = { ...doc('b', '售后'), status: 'indexing' as const }
+  const pageTwo = doc('c', '客服')
+
+  it('用最新状态替换已拉到的行', () => {
+    const merged = applyPolledDocuments([indexing, pageTwo], [{ ...indexing, status: 'ready' }], [], 'all')
+    expect(merged.map((item) => `${item.id}:${item.status}`)).toEqual(['b:ready', 'c:ready'])
+  })
+
+  it('404 的行被移除', () => {
+    const merged = applyPolledDocuments([indexing, pageTwo], [], ['b'], 'all')
+    expect(merged.map((item) => item.id)).toEqual(['c'])
+  })
+
+  it('状态筛选下，状态不再匹配的行被移除', () => {
+    const merged = applyPolledDocuments(
+      [indexing, pageTwo],
+      [{ ...indexing, status: 'ready' }],
+      [],
+      'indexing',
+    )
+    expect(merged.map((item) => item.id)).toEqual(['c'])
+  })
+
+  it('未在首屏响应里的分页行保持原样', () => {
+    const merged = applyPolledDocuments([pageTwo], [], [], 'all')
+    expect(merged).toHaveLength(1)
+    expect(merged[0]?.id).toBe('c')
   })
 })

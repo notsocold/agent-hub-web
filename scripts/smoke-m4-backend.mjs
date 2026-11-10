@@ -108,6 +108,20 @@ async function main() {
   assert(me.response.status === 200, 'GET /auth/me 200')
   const isAdmin = me.data.role === 'admin'
 
+  log('聊天接受 knowledge_categories（不再 403）')
+  // 用非法 model 让请求在「启动运行」之前被校验拒绝，避免制造真实对话/运行记录。
+  const accepted = await request('POST', '/chat/stream', {
+    token,
+    body: {
+      message: 'hi',
+      client_message_id: `m4-knowledge-${STAMP}`,
+      knowledge_categories: ['联调'],
+      model: '__m4_smoke_invalid_model__',
+    },
+  })
+  assert(accepted.response.status !== 403, `knowledge_categories 不再 403（实际 ${accepted.response.status}）`)
+  assert(errorCode(accepted.data) !== 'capability_disabled', '错误码不是 capability_disabled')
+
   log('上传（201 新建 / 200 幂等）')
   const filename = `m4-smoke-${STAMP}.md`
   const content = `# M4 冒烟文档 ${STAMP}\n\n退货需要保留吊牌与包装，签收后 7 天内可申请退款。\n`
@@ -149,8 +163,9 @@ async function main() {
   assert(list.response.status === 200, 'GET /knowledge/documents 200')
   const stats = list.data.stats
   assert(
-    ['documents', 'chunks', 'ready', 'indexing', 'pending', 'failed'].every((key) => typeof stats?.[key] === 'number'),
-    'stats 恰好 6 键且都是数字',
+    Object.keys(stats ?? {}).sort().join(',') ===
+      ['chunks', 'documents', 'failed', 'indexing', 'pending', 'ready'].sort().join(','),
+    'stats 恰好 6 键（无多余字段）',
   )
   assert(list.data.items.some((item) => item.id === document.id), '列表包含刚上传的文档')
 
@@ -172,10 +187,9 @@ async function main() {
   assert(typeof search.data.elapsed_ms === 'number', 'elapsed_ms 是数字')
   const hit = search.data.hits[0]
   assert(
-    ['chunk_id', 'document_id', 'title', 'document_title', 'document_filename', 'category', 'chunk_index', 'content', 'score', 'updated_at'].every(
-      (key) => key in hit,
-    ),
-    '检索 hit 恰好 10 字段',
+    Object.keys(hit ?? {}).sort().join(',') ===
+      ['chunk_id', 'document_id', 'title', 'document_title', 'document_filename', 'category', 'chunk_index', 'content', 'score', 'updated_at'].sort().join(','),
+    '检索 hit 恰好 10 字段（无多余字段）',
   )
   assert(typeof hit.score === 'number', `score=${hit.score}`)
   assert(new Date(hit.updated_at).toString() !== 'Invalid Date', 'updated_at 可解析')

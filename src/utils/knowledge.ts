@@ -58,3 +58,33 @@ export function titleFromFilename(filename: string): string {
   const base = filename.split('/').filter(Boolean).pop() ?? filename
   return base.replace(/\.[^.]+$/, '') || base
 }
+
+/**
+ * 把轮询拿到的「最新文档」合并回当前列表。
+ *
+ * - `fresh` 是已知的最新状态：列表首屏响应 + 针对过渡态文档按 id 拉取的结果；
+ * - `removedIds` 是拉取时 404 的文档（被删除或不可见）；
+ * - 状态筛选下，状态不再匹配的行要移出列表，否则页面会一直显示过期的「索引中」；
+ * - 未出现在 `fresh` 里的分页行保持原样，避免轮询把「加载更多」的行丢掉。
+ */
+export function applyPolledDocuments(
+  current: KnowledgeDocument[],
+  fresh: KnowledgeDocument[],
+  removedIds: string[],
+  statusFilter: 'all' | KnowledgeDocumentStatus,
+): KnowledgeDocument[] {
+  const removed = new Set(removedIds)
+  const byId = new Map(fresh.map((document) => [document.id, document]))
+  const next: KnowledgeDocument[] = []
+  for (const item of current) {
+    if (removed.has(item.id)) continue
+    const update = byId.get(item.id)
+    if (!update) {
+      next.push(item)
+      continue
+    }
+    if (statusFilter !== 'all' && update.status !== statusFilter) continue
+    next.push(update)
+  }
+  return next
+}

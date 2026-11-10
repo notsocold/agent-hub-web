@@ -144,5 +144,5 @@
 - Task 1：`ec14227`（契约/API/mock，`pnpm test` 96）
 - Task 2：`8bd7f2e`（页面/组件/工具函数，`pnpm test` 106）
 - Task 3：`ecf103c`（分类菜单/工具卡引用/深链，`pnpm test` 113）
-- Task 4：`d422739`（smoke:m4 39/38 断言、real-m4 3/3、文档收口）
+- Task 4：`d422739`（smoke:m4 41/40 断言、real-m4 3/3、文档收口）
 - 环境限制：真实 LLM key 为占位符，M1 store 真实用例 401；知识库检索走 fake embedding，语义召回率未取得证据（与后端 M4 报告口径一致）。

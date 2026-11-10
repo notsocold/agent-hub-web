@@ -11,6 +11,8 @@ const props = defineProps<{
   document: KnowledgeDocument | null
   /** 当前用户是否可写（所有者或管理员）；系统文档普通用户只读。 */
   writable?: boolean
+  /** 重试/删除请求进行中，禁用操作避免重复提交。 */
+  busy?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -77,12 +79,18 @@ function close(): void {
           v-if="writable"
           type="button"
           class="btn"
-          :disabled="!document.chunk_count && document.status === 'pending'"
+          :disabled="busy"
           @click="emit('retry', document)"
         >
           {{ document.status === 'failed' ? '重试入库' : '重建此文档' }}
         </button>
-        <button v-if="writable" type="button" class="btn danger" @click="emit('remove', document)">
+        <button
+          v-if="writable"
+          type="button"
+          class="btn danger"
+          :disabled="busy"
+          @click="emit('remove', document)"
+        >
           删除文档
         </button>
       </div>

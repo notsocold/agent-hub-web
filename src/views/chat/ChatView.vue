@@ -81,7 +81,9 @@ async function loadConversation(id: string): Promise<void> {
 }
 
 onMounted(async () => {
-  void system.load()
+  void system.load().then(() => {
+    if (system.enabled('knowledge')) void capabilityCatalog.loadKnowledgeCategories()
+  })
   void capabilityCatalog.load()
   model.value = system.defaultModel
   reasoningEffort.value = system.defaultReasoningEffort
@@ -96,15 +98,6 @@ onMounted(async () => {
 
   if (activeId.value) await loadConversation(activeId.value)
 })
-
-// 能力开关加载完成后才拉知识库分类，避免对关闭能力的用户发无效请求。
-watch(
-  () => system.capabilities.knowledge,
-  (enabled) => {
-    if (enabled) void capabilityCatalog.loadKnowledgeCategories()
-  },
-  { immediate: true },
-)
 
 watch(
   () => system.defaultModel,

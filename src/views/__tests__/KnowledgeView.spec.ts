@@ -150,4 +150,72 @@ describe('KnowledgeView M4', () => {
     const wrapper = await mountView()
     expect(wrapper.find('[data-testid="knowledge-rebuild"]').exists()).toBe(false)
   })
+
+  it('轮询把过渡态更新为终态后停止', async () => {
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] })
+    try {
+      api.documents.mockReset()
+      api.documents.mockResolvedValue(page([doc('a', { status: 'indexing' })]))
+      const wrapper = await mountView()
+      expect(api.documents).toHaveBeenCalledTimes(1)
+
+      api.documents.mockResolvedValue(page([doc('a', { status: 'ready' })]))
+      await vi.advanceTimersByTimeAsync(5000)
+      await flushPromises()
+
+      expect(wrapper.find('[data-testid="doc-row"]').text()).toContain('就绪')
+      const callsAfterConverge = api.documents.mock.calls.length
+      await vi.advanceTimersByTimeAsync(10_000)
+      await flushPromises()
+      expect(api.documents).toHaveBeenCalledTimes(callsAfterConverge)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('轮询连续失败 3 次后停止，不再无限重试', async () => {
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] })
+    try {
+      api.documents.mockReset()
+      api.documents
+        .mockResolvedValueOnce(page([doc('a', { status: 'indexing' })]))
+        .mockRejectedValue(new Error('backend down'))
+      await mountView()
+
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        await vi.advanceTimersByTimeAsync(5000)
+        await flushPromises()
+      }
+      const callsAfterFailures = api.documents.mock.calls.length
+      expect(callsAfterFailures).toBe(4)
+
+      await vi.advanceTimersByTimeAsync(20_000)
+      await flushPromises()
+      expect(api.documents).toHaveBeenCalledTimes(callsAfterFailures)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('状态筛选下变为 ready 的行会移出列表并停止轮询', async () => {
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] })
+    try {
+      api.documents.mockReset()
+      api.documents.mockResolvedValue(page([doc('a', { status: 'indexing' })]))
+      const wrapper = await mountView()
+
+      await wrapper.find('[data-testid="status-filter"]').setValue('indexing')
+      await flushPromises()
+      expect(wrapper.findAll('[data-testid="doc-row"]')).toHaveLength(1)
+
+      api.documents.mockResolvedValue(page([]))
+      api.get.mockResolvedValue(doc('a', { status: 'ready' }))
+      await vi.advanceTimersByTimeAsync(5000)
+      await flushPromises()
+
+      expect(wrapper.findAll('[data-testid="doc-row"]')).toHaveLength(0)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
 })
