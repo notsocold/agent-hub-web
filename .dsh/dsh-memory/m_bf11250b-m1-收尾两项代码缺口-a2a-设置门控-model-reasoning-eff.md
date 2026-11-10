@@ -1,24 +1,23 @@
 ---
 id: "m_bf11250b"
-title: "M1 收尾：model/reasoning 透传生效；A2A 设置门控随 M3 取消移除"
-summary: "模型/推理选择已随 chat/stream 发送；原 A2A 设置门控因 2026-11-10 需求变更（仅出站）随分区一并移除，79 个用例通过。"
+title: "M1 收尾与 A2A 入站下线：前端已彻底移除 a2a 类型、mock 与设置分区"
+summary: "模型/推理选择已随 chat/stream 发送；A2A 入站相关内容在前端仓库整体删除（不只是隐藏门控），文档与架构同步为「仅出站」。"
 kind: "project"
 importance: 3
-tags: ["M1","A2A","参数透传","M3取消"]
+tags: ["a2a","m3","settings","types","docs"]
 pinned: false
 status: "active"
 created: "2026-11-10T02:44:05.907Z"
-modified: "2026-11-10T03:10:38.384Z"
-revision: 3
-origin: "tool"
+modified: "2026-11-10T03:11:51.641Z"
+revision: 4
+origin: "auto"
 sessionId: "session-fae653d8-3e19-46f8-bb07-de9204cab272"
-sessionTitle: "分析项目开发路线并匹配后端"
+sessionTitle: "M3 开发启动"
 model: "deepseek-official/deepseek-flash"
 ---
 
-# M1 收尾：A2A 设置门控、model/reasoning_effort 随请求发送
-
-- 2026-11-10 完成项 1（仍然有效）：`ChatContextSelection` 增加 `model` / `reasoning_effort`；`ChatView` 在 `chat.send` 前用 `withModelSelection` 合并当前选择；推理等级仅在 `/system/info.reasoning_efforts` 非空时下发；2 个单元测试。
-- 2026-11-10 完成项 2（已被同日需求变更覆盖）：`SettingsView.vue` 的 A2A 区块曾按 `system/info.a2a.enabled` 门控并有 2 个测试。因「服务仅出站、M3 入站取消」，设置页 A2A 端点分区已整块移除，`SystemInfo.a2a` 类型、store getter 与 mock 数据一并删除；SettingsView 测试改为验证入站分区与复制入口不存在。
-- 验证：`pnpm test` 79 个用例通过、`pnpm type-check`、`pnpm build`、`pnpm lint` 通过。
-- 仍待后端仓库同步：`agent-hub/docs/roadmap.md` 的 M1/M2 完成勾选滞后，以及 M3 入站设计清理（后端单独处理）。
+模型/推理等级选择已随 chat/stream 请求发送。原「A2A 设置门控」不是被隐藏而是随 2026-11-10「仅出站」需求变更整体下线：
+- 代码侧已删除 SettingsView 的整个 A2A 分区（Agent Card / JSON-RPC 地址、复制按钮、入站状态），导航只剩账号 / 个人能力 / 模型 / 关于；删除 SystemInfo.a2a 与 SystemA2aInfo 类型、system store 的 a2a getter、mock fixtures 里的 a2a 入站块；SettingsView 单测改为断言该分区与端点复制入口不存在。
+- 文档侧 roadmap/README/pages/api/architecture/contract-delta/handoff-README 均已同步「M3 已取消（仅出站）」；architecture 中 Nginx 只需代理 /api，不再代理 /a2a 入站端点；contract-delta 建议后端移除 system/info.a2a。
+- 保留不动（属出站链路）：智能体注册、Agent Card 拉取预览、健康检查、send_message、出站任务页、A2A 事件卡与任务时间线；原型 HTML（ui-v7* / ui-v8-admin.html）保留为历史资产、不再被规划文档引用。
+- 未做：后端 agent-hub 仓库的 M3 清理（见项目待办），以及推送（仓库惯例由用户自行 push）。
