@@ -39,6 +39,12 @@ export const routes: RouteRecordRaw[] = [
         meta: { title: '对话' },
       },
       {
+        path: 'approvals',
+        name: 'approvals',
+        component: () => import('@/views/ApprovalsView.vue'),
+        meta: { title: '审批', capability: 'approvals' },
+      },
+      {
         path: 'workflows',
         name: 'workflows',
         component: () => import('@/views/WorkflowsView.vue'),

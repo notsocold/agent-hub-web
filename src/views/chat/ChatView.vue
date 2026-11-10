@@ -8,12 +8,11 @@ import ConversationSidebar from '@/components/chat/ConversationSidebar.vue'
 import MessageList from '@/components/chat/MessageList.vue'
 import RunRecoveryBanner from '@/components/chat/RunRecoveryBanner.vue'
 import RunTraceDrawer from '@/components/chat/RunTraceDrawer.vue'
-import { approvalsApi } from '@/api/approvals'
 import { useCapabilitiesStore } from '@/stores/capabilities'
 import { useChatStore } from '@/stores/chat'
 import { useConversationsStore } from '@/stores/conversations'
 import { useSystemStore } from '@/stores/system'
-import type { Approval, ChatContextSelection, ReasoningEffortId } from '@/types'
+import type { ChatContextSelection, ReasoningEffortId } from '@/types'
 import { withModelSelection } from '@/utils/chatSelection'
 
 const route = useRoute()
@@ -26,12 +25,6 @@ const capabilityCatalog = useCapabilitiesStore()
 const traceOpen = ref(false)
 const model = ref('')
 const reasoningEffort = ref<ReasoningEffortId>('low')
-
-const approvalsOpen = ref(false)
-const approvalsLoading = ref(false)
-const approvalsError = ref<string | null>(null)
-const pendingApprovals = ref<Approval[]>([])
-const decidingApprovalId = ref<string | null>(null)
 
 const suggestions = [
   '整理本周客服工单，生成一份团队周报',
@@ -56,8 +49,9 @@ const title = computed(
 const isEmpty = computed(() => !activeId.value && chat.state.messages.length === 0)
 
 const status = computed(() => {
-  if (chat.state.pendingApprovalId) return { label: '待审批', tone: 'warn' }
+  if (chat.pendingApprovals.length > 0) return { label: '待审批', tone: 'warn' }
   if (chat.state.recovery?.kind === 'run_interrupted') return { label: '待处理', tone: 'warn' }
+  if (chat.state.recovery?.kind === 'approval_timeout') return { label: '已超时', tone: 'error' }
   if (chat.state.streaming) return { label: '生成中', tone: 'live' }
   if (chat.state.recovery?.kind === 'run_in_progress') return { label: '运行中', tone: 'live' }
   if (chat.state.error) return { label: '出错', tone: 'error' }
@@ -169,53 +163,32 @@ function useSuggestion(text: string): void {
   void chat.send(text, withModelSelection({}, modelSelection.value))
 }
 
-async function handleApproval(approve: boolean): Promise<void> {
-  try {
-    await chat.resolveApproval(approve)
-  } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : '审批失败，请稍后重试')
+async function handleApproval(id: string, approve: boolean): Promise<void> {
+  const outcome = await chat.resolveApprovalById(id, approve)
+  switch (outcome.kind) {
+    case 'resumed':
+      ElMessage.success(outcome.message)
+      break
+    case 'waiting_others':
+      ElMessage.info(outcome.message)
+      break
+    case 'run_ended':
+    case 'not_resumed':
+      ElMessage.warning(outcome.message)
+      break
+    case 'expired':
+    case 'already_decided':
+      ElMessage.info(outcome.message)
+      break
+    default:
+      ElMessage.error(outcome.message)
   }
 }
 
-async function openApprovals(): Promise<void> {
-  const conversationId = chat.state.conversationId
-  if (!conversationId) return
-  approvalsOpen.value = true
-  approvalsLoading.value = true
-  approvalsError.value = null
-  try {
-    const page = await approvalsApi.list({
-      status: 'pending',
-      conversation_id: conversationId,
-      limit: 50,
-    })
-    pendingApprovals.value = page.items
-  } catch (error) {
-    approvalsError.value = error instanceof Error ? error.message : '加载审批失败'
-  } finally {
-    approvalsLoading.value = false
-  }
-}
-
-async function decideApproval(approval: Approval, approve: boolean): Promise<void> {
-  decidingApprovalId.value = approval.id
-  try {
-    const result = await approvalsApi.decide(approval.id, {
-      decision: approve ? 'approve' : 'reject',
-    })
-    if (result.resumed) {
-      ElMessage.success(approve ? '已批准，运行将继续' : '已拒绝，运行将继续收尾')
-    } else {
-      ElMessage.warning(result.resume_error ?? '审批已记录，但运行未能自动恢复')
-    }
-    pendingApprovals.value = pendingApprovals.value.filter((item) => item.id !== approval.id)
-    await chat.refresh()
-    if (pendingApprovals.value.length === 0) approvalsOpen.value = false
-  } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : '审批失败，请稍后重试')
-  } finally {
-    decidingApprovalId.value = null
-  }
+function openApprovals(): void {
+  const query: Record<string, string> = {}
+  if (chat.state.conversationId) query.conversation_id = chat.state.conversationId
+  void router.push({ name: 'approvals', query })
 }
 
 function handleRecoveryStop(): void {
@@ -262,6 +235,17 @@ function handleRecoveryRefresh(): void {
         </div>
       </header>
 
+      <div v-if="chat.rateLimitActive" class="rate-limit" role="status" aria-live="polite">
+        发送过于频繁，请 <strong>{{ chat.rateLimitRemaining }}</strong> 秒后重试。
+      </div>
+
+      <div v-if="chat.pendingApprovals.length > 0" class="pending-approvals" role="status">
+        <span>
+          有 <strong>{{ chat.pendingApprovals.length }}</strong> 项操作等待审批，批准或拒绝后运行才会继续。
+        </span>
+        <button type="button" class="pending-link" @click="openApprovals">打开审批中心</button>
+      </div>
+
       <RunRecoveryBanner
         v-if="chat.recovery"
         :recovery="chat.recovery"
@@ -279,10 +263,11 @@ function handleRecoveryRefresh(): void {
         :streaming="chat.state.streaming"
         :loading="chat.loadingHistory"
         :resolving-approval="chat.resolvingApproval"
+        :resolving-approval-id="chat.resolvingApprovalId"
         :has-more="chat.historyHasMore"
         :loading-older="chat.loadingOlder"
-        @approve="handleApproval(true)"
-        @reject="handleApproval(false)"
+        @approve="handleApproval($event, true)"
+        @reject="handleApproval($event, false)"
         @load-older="chat.loadOlder()"
       />
 
@@ -307,6 +292,7 @@ function handleRecoveryRefresh(): void {
 
       <ChatComposer
         :streaming="chat.state.streaming"
+        :disabled="chat.rateLimitActive"
         :model="model"
         :reasoning-effort="reasoningEffort"
         :models="system.models"
@@ -339,49 +325,6 @@ function handleRecoveryRefresh(): void {
       @close="traceOpen = false"
     />
 
-    <el-dialog
-      v-model="approvalsOpen"
-      title="待处理审批"
-      width="560px"
-      append-to-body
-      :close-on-click-modal="false"
-    >
-      <p v-if="approvalsLoading" class="approval-state">正在加载审批…</p>
-      <p v-else-if="approvalsError" class="approval-state is-error">{{ approvalsError }}</p>
-      <p v-else-if="pendingApprovals.length === 0" class="approval-state">
-        当前会话没有待处理审批。M1 尚未接入会触发审批的工具，审批卡会在 M2 出现。
-      </p>
-      <ul v-else class="approval-list">
-        <li v-for="approval in pendingApprovals" :key="approval.id">
-          <div class="approval-head">
-            <span class="approval-name">{{ approval.tool_display_name || approval.tool_name }}</span>
-            <span class="approval-risk mono">{{ approval.risk }}</span>
-          </div>
-          <p class="approval-reason">{{ approval.reason }}</p>
-          <p class="approval-meta mono">
-            {{ approval.target }} · run {{ approval.run_id.slice(0, 8) }}
-          </p>
-          <div class="approval-actions">
-            <button
-              type="button"
-              class="btn"
-              :disabled="decidingApprovalId === approval.id"
-              @click="decideApproval(approval, false)"
-            >
-              拒绝
-            </button>
-            <button
-              type="button"
-              class="btn primary"
-              :disabled="decidingApprovalId === approval.id"
-              @click="decideApproval(approval, true)"
-            >
-              批准
-            </button>
-          </div>
-        </li>
-      </ul>
-    </el-dialog>
   </div>
 </template>
 
@@ -570,65 +513,53 @@ function handleRecoveryRefresh(): void {
   color: var(--ink);
 }
 
-.approval-state {
-  padding: 8px 0;
-  color: var(--ink-3);
+.rate-limit {
+  flex: none;
+  margin: 10px 32px 0;
+  padding: 9px 12px;
+  border: 1px solid var(--amber-soft);
+  border-radius: 8px;
+  background: var(--amber-soft);
+  color: var(--amber-text);
+  font-size: 11.5px;
+}
+
+.rate-limit strong {
+  font-family: var(--font-mono);
   font-size: 12px;
-  line-height: 1.7;
 }
 
-.approval-state.is-error {
-  color: var(--red);
-}
-
-.approval-list {
+.pending-approvals {
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 10px;
-}
-
-.approval-list li {
-  padding: 12px;
+  flex: none;
+  margin: 10px 32px 0;
+  padding: 9px 12px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--surface-2);
-}
-
-.approval-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.approval-name {
-  font-size: 12.5px;
-  font-weight: 600;
-}
-
-.approval-risk {
-  color: var(--amber-text);
-  font-size: 10px;
-}
-
-.approval-reason {
-  margin-top: 4px;
   color: var(--ink-2);
   font-size: 11.5px;
-  line-height: 1.6;
 }
 
-.approval-meta {
-  margin-top: 4px;
-  color: var(--ink-3);
-  font-size: 9.5px;
+.pending-approvals strong {
+  color: var(--amber-text);
+  font-family: var(--font-mono);
 }
 
-.approval-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  margin-top: 10px;
+.pending-link {
+  margin-left: auto;
+  color: var(--prussian);
+  font-size: 11.5px;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.pending-link:hover {
+  color: var(--ink);
 }
 
 .btn {

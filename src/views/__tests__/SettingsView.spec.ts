@@ -64,7 +64,7 @@ describe('SettingsView 能力边界', () => {
     const wrapper = mountSettings()
     const navLabels = wrapper.findAll('.settings-nav-item').map((item) => item.text())
 
-    expect(navLabels).toEqual(['账号', '个人能力', '模型', '关于'])
+    expect(navLabels).toEqual(['账号', '个人能力', '安全与审计', '模型', '关于'])
     expect(wrapper.text()).not.toContain('A2A')
     expect(wrapper.find('[data-testid="copy-card-url"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="copy-jsonrpc-url"]').exists()).toBe(false)

@@ -1,8 +1,15 @@
 import { apiClient } from './client'
-import type { Approval, ApprovalDecisionRequest, ApprovalDecisionResult, PageResult } from '@/types'
+import type {
+  Approval,
+  ApprovalDecisionRequest,
+  ApprovalDecisionResult,
+  ApprovalStatus,
+  PageResult,
+} from '@/types'
 
 export interface ApprovalListParams {
-  status?: string
+  /** 后端默认 `pending`；历史 tab 用 `all`，也可按单一状态筛选。 */
+  status?: ApprovalStatus | 'all'
   conversation_id?: string
   run_id?: string
   limit?: number
@@ -12,6 +19,11 @@ export interface ApprovalListParams {
 export const approvalsApi = {
   async list(params: ApprovalListParams = {}): Promise<PageResult<Approval>> {
     const { data } = await apiClient.get<PageResult<Approval>>('/approvals', { params })
+    return data
+  },
+
+  async detail(id: string): Promise<Approval> {
+    const { data } = await apiClient.get<Approval>(`/approvals/${id}`)
     return data
   },
 

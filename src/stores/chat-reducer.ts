@@ -1,5 +1,6 @@
 import type {
   A2aTaskData,
+  Approval,
   ApprovalProcess,
   A2aProcess,
   ChatEventName,
@@ -75,6 +76,7 @@ export function createInitialChatState(): ChatState {
     runStatus: null,
     currentAssistantId: null,
     pendingApprovalId: null,
+    pendingApprovalIds: [],
     usage: null,
     finishReason: null,
     error: null,
@@ -182,7 +184,12 @@ function addToolResult(state: ChatState, data: Record<string, unknown>): ChatSta
   const item: ToolProcess = {
     kind: 'tool',
     id: existing?.id ?? `tool:${toolCallId}`,
-    status: data.status === 'error' ? 'error' : 'ok',
+    status:
+      data.status === 'error'
+        ? 'error'
+        : data.status === 'rejected'
+          ? 'canceled'
+          : 'ok',
     startedAt: existing?.startedAt,
     durationMs: numOrNull(data.duration_ms),
     toolCallId,
@@ -233,6 +240,138 @@ function addA2aTask(state: ChatState, data: Record<string, unknown>): ChatState 
   return { ...state, process: upsertProcess(state.process, item) }
 }
 
+/** 审批实体 → 对话过程卡片；M5 多审批与补卡共用。 */
+export function approvalToProcess(approval: Approval): ApprovalProcess {
+  const decided = approval.status === 'approved' || approval.status === 'rejected'
+  const waiting = approval.status === 'pending'
+  return {
+    kind: 'approval',
+    id: `approval:${approval.id}`,
+    status: waiting ? 'waiting' : decided ? 'ok' : 'canceled',
+    startedAt: approval.created_at,
+    approvalId: approval.id,
+    toolCallId: undefined,
+    tool: approval.tool_name,
+    toolDisplayName: approval.tool_display_name || approval.tool_name,
+    source: approval.source,
+    executor: approval.executor,
+    target: approval.target,
+    sideEffect: approval.side_effect,
+    risk: approval.risk,
+    reason: approval.reason,
+    payload: approval.payload,
+    payloadPreview: approval.payload_preview,
+    expiresAt: approval.expires_at,
+    decision:
+      approval.status === 'approved' ? 'approve' : approval.status === 'rejected' ? 'reject' : null,
+  }
+}
+
+/**
+ * 用服务端审批列表补齐/刷新过程卡片（断线恢复、从审批中心返回时使用）。
+ * 不改变 run 状态，由调用方决定。
+ */
+export function hydrateApprovals(
+  state: ChatState,
+  approvals: Approval[],
+  options: { replacePending?: boolean } = {},
+): ChatState {
+  if (approvals.length === 0) {
+    return options.replacePending
+      ? { ...state, pendingApprovalIds: [], pendingApprovalId: null }
+      : state
+  }
+  let process = [...state.process]
+  for (const approval of approvals) {
+    process = upsertProcess(process, approvalToProcess(approval))
+  }
+  const pendingIds = approvals.filter((item) => item.status === 'pending').map((item) => item.id)
+  const existingPending = state.pendingApprovalIds.filter((id) =>
+    process.some((item) => item.kind === 'approval' && item.approvalId === id),
+  )
+  // 断线对账以服务端为准；事件流路径保留本地尚未落库的审批。
+  const merged = options.replacePending
+    ? pendingIds
+    : [...new Set([...existingPending, ...pendingIds])]
+  return {
+    ...state,
+    process,
+    pendingApprovalIds: merged,
+    pendingApprovalId: merged[0] ?? null,
+  }
+}
+
+/** 终态：清空待审指针并把仍等待的卡片标为不可操作。 */
+export function clearPendingApprovalIds(state: ChatState): ChatState {
+  const process = state.process.map((item) =>
+    item.kind === 'approval' && item.status === 'waiting'
+      ? ({ ...item, status: 'canceled' } satisfies ApprovalProcess)
+      : item,
+  )
+  return {
+    ...state,
+    process,
+    pendingApprovalIds: [],
+    pendingApprovalId: null,
+  }
+}
+
+/** 关闭审批卡但不知道服务端结论：标为不可操作并移除指针。 */
+export function markApprovalClosed(state: ChatState, approvalId: string): ChatState {
+  const process = state.process.map((item) =>
+    item.kind === 'approval' && item.approvalId === approvalId
+      ? ({ ...item, status: 'canceled' } satisfies ApprovalProcess)
+      : item,
+  )
+  const pending = state.pendingApprovalIds.filter((id) => id !== approvalId)
+  return {
+    ...state,
+    process,
+    pendingApprovalIds: pending,
+    pendingApprovalId: pending[0] ?? null,
+  }
+}
+
+/** 只移除指针，不改写卡片结论（用于「已在别处处理」的 409）。 */
+export function clearPendingApproval(state: ChatState, approvalId: string): ChatState {
+  const pending = state.pendingApprovalIds.filter((id) => id !== approvalId)
+  return {
+    ...state,
+    pendingApprovalIds: pending,
+    pendingApprovalId: pending[0] ?? null,
+  }
+}
+
+/** 过期审批：卡片标记不可操作，并从待审列表移除。 */
+export function markApprovalExpired(state: ChatState, approvalId: string): ChatState {
+  const items = state.process.map((item) => {
+    if (item.kind !== 'approval' || item.approvalId !== approvalId) return item
+    return { ...item, status: 'canceled' } satisfies ApprovalProcess
+  })
+  const pending = state.pendingApprovalIds.filter((id) => id !== approvalId)
+  return {
+    ...state,
+    process: items,
+    pendingApprovalIds: pending,
+    pendingApprovalId: pending[0] ?? null,
+  }
+}
+
+/** 恢复执行意味着该 run 的所有 pending 审批都已处理，清理不可再操作的卡片。 */
+export function markAllApprovalsResolved(state: ChatState): ChatState {
+  const items = state.process.map((item) =>
+    item.kind === 'approval' && item.status === 'waiting'
+      ? ({ ...item, status: 'ok' } satisfies ApprovalProcess)
+      : item,
+  )
+  return {
+    ...state,
+    process: items,
+    pendingApprovalIds: [],
+    pendingApprovalId: null,
+  }
+}
+
 export function reduceChat(state: ChatState, event: ChatEventName, raw: unknown): ChatState {
   const data = asRecord(raw)
   const seq = typeof data.seq === 'number' ? data.seq : null
@@ -265,6 +404,7 @@ export function reduceChat(state: ChatState, event: ChatEventName, raw: unknown)
       next.recovery = null
       next.usage = null
       next.pendingApprovalId = null
+      next.pendingApprovalIds = []
       next.currentAssistantId = null
       next.process = []
       return next
@@ -446,6 +586,7 @@ export function reduceChat(state: ChatState, event: ChatEventName, raw: unknown)
         status: 'waiting',
         startedAt: str(data.ts),
         approvalId,
+        toolCallId: str(data.tool_call_id) || undefined,
         tool: str(data.tool),
         toolDisplayName: str(data.tool_display_name) || str(data.tool),
         source: str(data.source),
@@ -454,13 +595,57 @@ export function reduceChat(state: ChatState, event: ChatEventName, raw: unknown)
         sideEffect: str(data.side_effect),
         risk: str(data.risk),
         reason: str(data.reason),
+        payload: data.payload && typeof data.payload === 'object' ? asRecord(data.payload) : undefined,
+        payloadPreview: str(data.payload_preview) || undefined,
         expiresAt: str(data.expires_at) || null,
         decision: null,
       }
       next.process = upsertProcess(next.process, item)
-      next.pendingApprovalId = approvalId
+      // 一轮可能有多个审批；run 状态等后端 `run.interrupted` 再收敛。
+      next.pendingApprovalIds = next.pendingApprovalIds.includes(approvalId)
+        ? next.pendingApprovalIds
+        : [...next.pendingApprovalIds, approvalId]
+      next.pendingApprovalId = next.pendingApprovalIds[0] ?? null
+      return next
+    }
+
+    case 'run.interrupted': {
+      next.runId = str(data.run_id) || next.runId
       next.runStatus = 'interrupted'
+      // SSE 保持连接（等待审批）；输入栏仍按执行中处理。
       next.streaming = true
+      next.recovery = null
+      const approvals = Array.isArray(data.approvals)
+        ? data.approvals.filter((value): value is string => typeof value === 'string')
+        : []
+      next.pendingApprovalIds = approvals
+      next.pendingApprovalId = approvals[0] ?? null
+      const usage = asUsage(data.usage)
+      if (usage) next.usage = usage
+      if (Array.isArray(data.citations) && next.currentAssistantId) {
+        const citations = data.citations as Citation[]
+        next.messages = updateMessage(next.messages, next.currentAssistantId, (message) => ({
+          ...message,
+          citations,
+        }))
+      }
+      return next
+    }
+
+    case 'run.resumed': {
+      next.runId = str(data.run_id) || next.runId
+      next.runStatus = 'running'
+      next.streaming = true
+      next.finishReason = null
+      next.error = null
+      next.recovery = null
+      next.process = next.process.map((item) =>
+        item.kind === 'approval' && item.status === 'waiting'
+          ? ({ ...item, status: 'ok' } satisfies ApprovalProcess)
+          : item,
+      )
+      next.pendingApprovalIds = []
+      next.pendingApprovalId = null
       return next
     }
 
@@ -525,6 +710,8 @@ export function reduceChat(state: ChatState, event: ChatEventName, raw: unknown)
       next.error = error
       next.streaming = false
       next.runStatus = 'failed'
+      next.pendingApprovalIds = []
+      next.pendingApprovalId = null
       const item: ErrorProcess = {
         kind: 'error',
         id: `error:${next.lastSeq}`,
@@ -548,6 +735,7 @@ export function reduceChat(state: ChatState, event: ChatEventName, raw: unknown)
     case 'message.done': {
       const messageId = str(data.message_id)
       const finishReason = str(data.finish_reason) || 'stop'
+      const reason = str(data.reason)
       const usage = asUsage(data.usage)
       const citations = Array.isArray(data.citations) ? (data.citations as Citation[]) : []
       const artifacts = Array.isArray(data.artifacts) ? (data.artifacts as MessageArtifact[]) : []
@@ -581,9 +769,47 @@ export function reduceChat(state: ChatState, event: ChatEventName, raw: unknown)
       next.finishReason = finishReason
       next.runStatus = runStatusFromFinishReason(finishReason)
       next.usage = usage
-      next.pendingApprovalId = null
       next.currentAssistantId = null
-      next.recovery = null
+
+      const timedOut = finishReason === 'canceled' && reason === 'approval_timeout'
+      const legacyInterrupted = finishReason === 'interrupted'
+      if (timedOut) {
+        // M5：审批超时后 run 终态 canceled；过期审批不可再操作。
+        next.process = next.process.map((item) =>
+          item.kind === 'approval' && item.status === 'waiting'
+            ? ({ ...item, status: 'canceled' } satisfies ApprovalProcess)
+            : item,
+        )
+        next.pendingApprovalIds = []
+        next.pendingApprovalId = null
+        next.recovery = {
+          kind: 'approval_timeout',
+          code: 'approval_timeout',
+          message: '审批超时，本轮运行已取消；该操作没有执行。如仍需要，请重新发送。',
+          runId: next.runId,
+          runStatus: 'canceled',
+          retryable: false,
+        }
+      } else if (legacyInterrupted) {
+        // 兼容 M4 契约（M5 已改为 run.interrupted + 后续 run.resumed）。
+        next.recovery = {
+          kind: 'run_interrupted',
+          code: 'run_interrupted',
+          message: '本轮运行正在等待审批；处理后才会继续。',
+          runId: next.runId,
+          runStatus: 'interrupted',
+          retryable: false,
+        }
+      } else {
+        next.process = next.process.map((item) =>
+          item.kind === 'approval' && item.status === 'waiting'
+            ? ({ ...item, status: 'canceled' } satisfies ApprovalProcess)
+            : item,
+        )
+        next.pendingApprovalIds = []
+        next.pendingApprovalId = null
+        next.recovery = null
+      }
       return next
     }
 
@@ -606,9 +832,11 @@ export function markApprovalResolved(
       status: decision === 'approve' ? 'ok' : 'canceled',
     } satisfies ApprovalProcess
   })
+  const pending = (state.pendingApprovalIds ?? []).filter((id) => id !== approvalId)
   return {
     ...state,
     process: items,
-    pendingApprovalId: state.pendingApprovalId === approvalId ? null : state.pendingApprovalId,
+    pendingApprovalIds: pending,
+    pendingApprovalId: pending[0] ?? null,
   }
 }

@@ -4,6 +4,7 @@ export type RunStatus = 'queued' | 'running' | 'succeeded' | 'failed' | 'cancele
 export type RunPendingKind = 'approval' | 'input_required' | 'auth_required'
 export type RunEventType =
   | 'request'
+  | 'run'
   | 'message'
   | 'skill'
   | 'tool'

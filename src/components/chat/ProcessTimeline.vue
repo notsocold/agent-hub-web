@@ -12,6 +12,8 @@ import type { ProcessItem } from '@/types'
 defineProps<{
   items: ProcessItem[]
   busy?: boolean
+  /** M5：正在处理的审批 id；多审批时只禁用对应卡片。 */
+  resolvingApprovalId?: string | null
 }>()
 
 const emit = defineEmits<{
@@ -45,7 +47,7 @@ const open = ref(true)
         <ApprovalCard
           v-else-if="item.kind === 'approval'"
           :item="item"
-          :busy="busy"
+          :busy="busy || resolvingApprovalId === item.approvalId"
           @approve="emit('approve', item.approvalId)"
           @reject="emit('reject', item.approvalId)"
         />

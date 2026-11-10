@@ -34,14 +34,15 @@ function mountNav(capabilities?: SystemCapabilities): ReturnType<typeof mount> {
 }
 
 describe('SideNav', () => {
-  it('渲染五个一级导航与目标路由', () => {
+  it('渲染六个一级导航与目标路由', () => {
     const wrapper = mountNav()
     const links = wrapper.findAllComponents(RouterLinkStub)
 
-    expect(links).toHaveLength(5)
-    expect(links.map((link) => link.text())).toEqual(['对话', '工作流', '智能体', '任务', '知识库'])
+    expect(links).toHaveLength(6)
+    expect(links.map((link) => link.text())).toEqual(['对话', '审批', '工作流', '智能体', '任务', '知识库'])
     expect(links.map((link) => link.props('to'))).toEqual([
       { name: 'chat' },
+      { name: 'approvals' },
       { name: 'workflows' },
       { name: 'agents' },
       { name: 'tasks' },
@@ -53,7 +54,7 @@ describe('SideNav', () => {
     const wrapper = mountNav()
     const links = wrapper.findAllComponents(RouterLinkStub)
     expect(links[0]?.attributes('title')).toBe('对话')
-    expect(links[4]?.attributes('title')).toBe('知识库')
+    expect(links[5]?.attributes('title')).toBe('知识库')
   })
 
   it('后端能力关闭时对应导航置灰且不可点击', () => {
@@ -70,8 +71,9 @@ describe('SideNav', () => {
       tasks: false,
     })
     const links = wrapper.findAllComponents(RouterLinkStub)
-    expect(links).toHaveLength(1)
+    expect(links).toHaveLength(2)
     expect(links[0]?.text()).toBe('对话')
+    expect(links[1]?.text()).toBe('审批')
 
     const disabled = wrapper.findAll('button.sb-nav-item.is-disabled')
     expect(disabled).toHaveLength(4)

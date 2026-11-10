@@ -89,9 +89,23 @@ sequenceDiagram
 
 - `message.delta` 追加到当前 assistant 消息，按帧合并（`requestAnimationFrame`）避免高频重渲染；
 - `tool.*` / `a2a.*` 作为消息时间线中的「过程卡片」，不混入正文；
-- `approval.required` 弹出确认卡片，用户决定后调用审批接口并继续接收同一流；
+- `approval.required` 插入审批卡（一轮可多张），随后 `run.interrupted` 把 run 置为 `interrupted`（**非终态**，SSE 保持连接）；用户决定后后端调度 `Command(resume)`，前端收到 `run.resumed` 再继续消费同一流；中间决定返回 `resumed=false` + `本轮还有其他审批待处理` 属正常；
+- 审批超时：`message.done(finish_reason="canceled", reason="approval_timeout")`，审批卡置为不可操作并提示本轮取消；
 - `message.done` 结束本轮，刷新会话列表的 `last_message_at`；
+- 断线：轮询 `GET /runs/{id}` 状态；进入会话时用 `GET /approvals?run_id=&status=pending` 补审批卡；终态后重拉历史。`GET /runs/{id}/events` 不含事件名，暂不能逐事件重放（M6 缺口）；
 - 未知事件忽略并记录 debug 日志，不中断流。
+
+### 4.1.1 M5 审批与安全页面结构
+
+| 页面/组件 | 职责 | 数据源 |
+|---|---|---|
+| `ApprovalsView` | 审批中心：统计、Tab、筛选、倒计时、决策、游标分页 | `/approvals`、`/approvals/{id}`、`/approvals/{id}/decision` |
+| `ApprovalCard` | 对话内多审批卡、实时倒计时、payload 遮罩预览 | SSE `approval.required` / `run.interrupted` |
+| `AuditPanel` | 设置页审计：用户自查 + 管理员全局、动作/资源/时间筛选、详情 | `/audit-logs`、`/admin/audit-logs` |
+| `SecretPanel` | 设置页平台密钥：列表/创建/轮换/启停/删除（仅管理员） | `/admin/secrets` |
+| `RedactedJson` | 审批 payload、审计 detail 的敏感字段默认遮罩 | 本地展示层 |
+
+安全边界：前端遮罩只是展示层，不替代后端脱敏；密钥接口与审计永不回显明文/密文；写操作 RBAC 仍待后端实现，前端不伪造角色禁用。
 
 ### 4.2 认证（M1）
 

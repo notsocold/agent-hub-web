@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 
 import ProcessCardShell from './ProcessCardShell.vue'
 import { formatDateTime } from '@/utils/format'
+import { containsSensitiveKey, redactValue } from '@/utils/redact'
 import type { ApprovalProcess } from '@/types'
 
 const props = defineProps<{
@@ -15,6 +16,39 @@ const emit = defineEmits<{
   reject: []
 }>()
 
+const now = ref(Date.now())
+let timer: ReturnType<typeof setInterval> | null = null
+
+onMounted(() => {
+  timer = setInterval(() => {
+    now.value = Date.now()
+  }, 1000)
+})
+
+onUnmounted(() => {
+  if (timer !== null) clearInterval(timer)
+})
+
+const expiresAtMs = computed(() => {
+  const value = props.item.expiresAt
+  if (!value) return null
+  const ms = Date.parse(value)
+  return Number.isNaN(ms) ? null : ms
+})
+
+const expired = computed(() => expiresAtMs.value !== null && now.value >= expiresAtMs.value)
+
+const remainingLabel = computed(() => {
+  if (expiresAtMs.value === null) return ''
+  const remain = Math.max(0, expiresAtMs.value - now.value)
+  const totalSeconds = Math.ceil(remain / 1000)
+  const hours = Math.floor(totalSeconds / 3600)
+  const minutes = Math.floor((totalSeconds % 3600) / 60)
+  const seconds = totalSeconds % 60
+  if (hours > 0) return `${hours} 小时 ${minutes} 分`
+  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+})
+
 const riskLabel = computed(
   () =>
     ({
@@ -25,17 +59,32 @@ const riskLabel = computed(
     })[props.item.risk] ?? props.item.risk,
 )
 
-const expired = computed(
-  () => Boolean(props.item.expiresAt) && Date.now() > Date.parse(props.item.expiresAt ?? ''),
-)
-
 const decidedLabel = computed(() => {
   if (props.item.decision === 'approve') return '已批准'
   if (props.item.decision === 'reject') return '已拒绝'
-  return expired.value ? '已过期' : '等待决定'
+  if (expired.value) return '已过期'
+  if (props.item.status === 'canceled') return '已取消'
+  if (props.item.status === 'ok') return '已处理'
+  return '等待决定'
 })
 
-const canDecide = computed(() => !props.item.decision && !expired.value && !props.busy)
+const canDecide = computed(
+  () =>
+    !props.item.decision &&
+    !expired.value &&
+    !props.busy &&
+    props.item.status === 'waiting',
+)
+
+const payload = computed(() => props.item.payload ?? null)
+const hasSensitive = computed(() => containsSensitiveKey(payload.value))
+const payloadJson = computed(() => {
+  try {
+    return JSON.stringify(redactValue(payload.value), null, 2)
+  } catch {
+    return String(payload.value)
+  }
+})
 </script>
 
 <template>
@@ -65,10 +114,20 @@ const canDecide = computed(() => !props.item.decision && !expired.value && !prop
         <dd :class="`risk risk-${item.risk}`">{{ riskLabel }}</dd>
       </div>
       <div v-if="item.expiresAt">
-        <dt>过期时间</dt>
-        <dd class="mono">{{ formatDateTime(item.expiresAt) }}</dd>
+        <dt>{{ expired ? '过期时间' : '剩余时间' }}</dt>
+        <dd class="mono" :class="{ 'is-expired': expired }">
+          {{ expired ? formatDateTime(item.expiresAt) : remainingLabel }}
+        </dd>
       </div>
     </dl>
+
+    <details v-if="payload" class="payload">
+      <summary>
+        查看参数
+        <span v-if="hasSensitive" class="mask-note">敏感字段已遮罩</span>
+      </summary>
+      <pre class="payload-body mono">{{ payloadJson }}</pre>
+    </details>
 
     <div v-if="canDecide" class="actions">
       <button type="button" class="btn ghost" :disabled="busy" @click="emit('reject')">拒绝</button>
@@ -79,7 +138,9 @@ const canDecide = computed(() => !props.item.decision && !expired.value && !prop
     <p v-else-if="item.decision" class="resolved">
       {{ item.decision === 'approve' ? '已批准，运行将继续。' : '已拒绝，本次操作不会执行。' }}
     </p>
-    <p v-else class="resolved">审批已过期，无法继续执行。</p>
+    <p v-else-if="expired" class="resolved is-expired">审批已过期，无法继续执行。</p>
+    <p v-else-if="item.status === 'canceled'" class="resolved">审批已取消。</p>
+    <p v-else class="resolved">审批已处理，运行将继续。</p>
   </ProcessCardShell>
 </template>
 
@@ -122,6 +183,43 @@ const canDecide = computed(() => !props.item.decision && !expired.value && !prop
 
 .risk-destructive {
   color: var(--red);
+}
+
+.is-expired {
+  color: var(--red);
+}
+
+.payload {
+  margin-top: 9px;
+  border-top: 1px dashed var(--line);
+  padding-top: 8px;
+}
+
+.payload summary {
+  cursor: pointer;
+  color: var(--ink-3);
+  font-size: 10.5px;
+  user-select: none;
+}
+
+.mask-note {
+  margin-left: 6px;
+  color: var(--amber-text);
+}
+
+.payload-body {
+  max-height: 200px;
+  margin: 7px 0 0;
+  padding: 8px 9px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--surface-2);
+  color: var(--ink-2);
+  font-size: 10.5px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .actions {

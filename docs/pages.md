@@ -1,6 +1,6 @@
 # 页面规划
 
-- 状态：M1/M1.5/M2/M4 前端已实现（默认 mock；M1/M1.5/M2/M4 均已与真实后端联调）。对话页、设置页个人能力、智能体页、任务页、知识库页为完整交互；工作流为 X1 待后端立项
+- 状态：M1/M1.5/M2/M4/M5 前端已实现（默认 mock；均与真实后端联调）。对话页、审批中心、设置页（个人能力 + 安全与审计）、智能体页、任务页、知识库页为完整交互；工作流为 X1 待后端立项
 - 布局：`AppLayout` 提供一级导航（侧边栏，可折叠/移动端抽屉）+ 账号菜单 + 内容区；路由表已注册全部页面
 - 实现文件：`src/views/`；对话页组件在 `src/components/chat/`；通用三态组件在 `src/components/common/`
 - 里程碑归属：以 [路线图](roadmap.md) 为准（M3「A2A 入站」已取消，服务仅出站；M5=审批与安全加固；体验项为 F1，工作流/完整管理台为 X1/X2）
@@ -24,7 +24,8 @@
 │ Agent Hub  │ 页面标题                        状态/操作     │
 │            ├──────────────────────────────────────────────┤
 │ ▸ 对话     │                                              │
-│ ▸ 工作流   │              页面内容                        │
+│ ▸ 审批     │              页面内容                        │
+│ ▸ 工作流   │                                              │
 │ ▸ 智能体   │                                              │
 │ ▸ 任务     │                                              │
 │ ▸ 知识库   │                                              │
@@ -76,7 +77,7 @@
 | `MessageBubble` | 用户/助手气泡；Markdown 渲染、复制、重新生成 |
 | `ToolCallCard` | 工具名、参数摘要、状态、耗时、可展开结果 |
 | `A2ATaskCard` | 远程 Agent、任务状态、进度、产出、取消 |
-| `ApprovalCard` | 待确认动作、风险说明、批准/拒绝 |
+| `ApprovalCard` | 多审批卡片、风险/来源/目标/副作用、实时过期倒计时、payload 遮罩预览、逐卡批准/拒绝 |
 | `ChatComposer` | 输入、附件、发送/停止、快捷键 |
 
 ### 状态
@@ -87,8 +88,8 @@
 | 流式中 | 助手气泡显示光标；发送按钮变为「停止」 |
 | 工具执行 | 时间线插入工具卡片，状态 running → ok/error |
 | A2A 任务 | 卡片显示状态机与进度；失败可展开错误 |
-| 审批 | 输入区上方弹出审批卡片，阻止继续发送 |
-| 断线 | 顶部提示 + 自动重连；重连后同步 run 状态 |
+| 审批 | 时间线内插入审批卡（一轮可多张）；`run.interrupted` 后等待决定，倒计时归零不可操作；超时后明确提示「本轮已取消」 |
+| 断线 | 顶部提示 + 轮询 run 状态；进入会话时补拉 pending 审批卡；终态后刷新历史（逐字续流待后端 M6） |
 | 错误 | 气泡内错误卡片 + 重试按钮 |
 
 ### 交互细节
@@ -103,7 +104,9 @@
 
 ### 接口
 
-`POST /chat/stream`（SSE）、`GET /conversations`、`GET /conversations/{id}/messages`、`POST /runs/{run_id}/cancel`、`POST /approvals/{id}/decision`。
+`POST /chat/stream`（SSE）、`GET /conversations`、`GET /conversations/{id}/messages`、`POST /runs/{run_id}/cancel`、`GET /approvals`、`GET /approvals/{id}`、`POST /approvals/{id}/decision`。
+
+M5 事件顺序：`approval.required` → `run.interrupted`（非终态，SSE 保持）→ 决定 → `run.resumed` → `message.delta…` → `message.done`；超时终态为 `message.done(canceled, reason=approval_timeout)`。
 
 ## 4. 会话页 `/conversations`
 
@@ -153,11 +156,27 @@
 
 > 与后端的落地差异：无「单文档重建」端点（用 `retry`）；无分类目录端点（输入栏候选取可见文档聚合 + 手输）；`rebuild(scope=own)` = 所有用户的私有文档。
 
+## 7.1 审批中心 `/approvals`（M5 已联调）
+
+| 区块 | 说明 |
+|---|---|
+| 入口 | 侧边栏「审批」，路由能力门控 `capabilities.approvals`；对话页「处理审批」跳转时带 `conversation_id` |
+| 统计 | 待处理 / 已批准 / 已拒绝 / 已过期 / 已取消，直接消费列表响应 5 键 `stats` |
+| Tab | 待处理（`status=pending`，默认） / 历史（`status=all` + 终态筛选） |
+| 列表 | 工具、风险、状态、来源、会话、目标、创建时间、过期倒计时、操作；游标分页「加载更多」 |
+| 详情 | `GET /approvals/{id}`：工具/来源/执行方/目标/副作用/风险/原因/payload（`RedactedJson` 敏感遮罩）/决策人/时间/备注 |
+| 决策 | 批准/拒绝 + 备注（≤500）；破坏性操作额外提示；按 `resumed`/`resume_error` 语义提示；409 `approval_expired`/`approval_already_decided` 刷新并提示 |
+| 过期 | 每秒倒计时；归零禁用操作并静默刷新一次；后端巡检会把 approval 置 expired、run 置 canceled |
+| 空态 | 区分「当前没有待处理审批」与「历史为空」 |
+
+数据范围：后端审批列表只返回当前用户会话内的审批（无管理员全量变体）。
+
 ## 8. 设置页 `/settings`
 
 | 区块 | 内容 |
 |---|---|
 | 账号 | 展示名、邮箱、修改密码、退出登录 |
+| 安全与审计 | 审计日志（普通用户自查；管理员可切全局并额外按 actor/resource_id 筛选）、平台密钥（仅管理员 CRUD/轮换/启停）；详见 M5 |
 | 模型 | 当前模型、温度、超时（只读，来自 `/system/info`）；`reasoning_efforts=[]` 时不渲染推理等级选择器，仅显示默认等级 |
 | 界面 | 主题（浅色/深色，已实现并持久化）；语言、消息密度与偏好同步归 F1 |
 | 关于 | 版本、构建时间、文档链接 |
@@ -205,8 +224,8 @@
 |---|---|---|
 | M3（已取消） | A2A 入站不实施（Agent Card 发布、JSON-RPC 端点、入站任务/会话、API Key 管理） | 服务仅出站；设置页入站分区已移除，出站能力由智能体页承载 |
 | M4（已对齐） | 知识库端点、citations 形状、`knowledge_categories` | 后端已交付，前端已联调；差异仅剩「无单文档重建 / 无分类目录端点」，已用 retry 与文档聚合替代 |
-| M5 | 审计查询 API、写操作 RBAC 的 403；审批列表端点已有、前端页面未做 | 审批中心可先做；审计/RBAC 等后端契约 |
+| M5 | 写操作 RBAC 的 403；运行事件回放的事件名 | 审批中心/审计/密钥/限流已联调；RBAC 后端未实现，前端不伪造；断线只做状态轮询 + 历史补齐 |
 | X1 | 工作流表/API、执行语义、步骤事件 | 待后端立项；不做编辑器与执行 |
 | X2 | 用户、角色权限、菜单、字典、审计管理端 | 待后端立项；`/api/v1/admin/*` 实测 404 |
 
-已由后端补齐、不再列为缺口：附件上传/受控下载（M1.5）、审批列表/详情/决定端点（M1.5）、会话搜索 `q` 与 `message_count`（M1 热修后）、`model`/`reasoning_effort` 与 reasoning SSE 事件（已接入）。
+已由后端补齐、不再列为缺口：附件上传/受控下载（M1.5）、审批列表/详情/决定端点（M1.5）、审计用户/管理员查询、平台密钥 CRUD、聊天 429、会话搜索 `q` 与 `message_count`（M1 热修后）、`model`/`reasoning_effort` 与 reasoning SSE 事件（已接入）。

@@ -36,6 +36,9 @@ const RISK_LABELS: Record<string, string> = {
     kind="tool"
     :title="item.displayName || item.tool"
     :status="item.status"
+    :status-label="
+      item.status === 'canceled' && item.requiresApproval ? '已拒绝' : undefined
+    "
     :duration="formatDuration(item.durationMs)"
   >
     <p class="line meta">

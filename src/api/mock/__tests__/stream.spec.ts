@@ -86,6 +86,13 @@ describe('mock SSE 回放', () => {
 
     const names = events.map((item) => item.event)
     expect(names).toContain('approval.required')
+    // M5：挂起是非终态，决定后恢复；顺序必须为 required → interrupted → resumed。
+    const requiredIndex = names.indexOf('approval.required')
+    const interruptedIndex = names.indexOf('run.interrupted')
+    const resumedIndex = names.indexOf('run.resumed')
+    expect(requiredIndex).toBeGreaterThanOrEqual(0)
+    expect(interruptedIndex).toBeGreaterThan(requiredIndex)
+    expect(resumedIndex).toBeGreaterThan(interruptedIndex)
     expect(names.filter((name) => name === 'message.delta').length).toBeGreaterThan(0)
     expect(names.at(-1)).toBe('message.done')
     const done = events.at(-1)?.data as { finish_reason?: string } | undefined
@@ -118,7 +125,13 @@ describe('mock SSE 回放', () => {
         item.event === 'tool.result' &&
         (item.data as { tool_call_id?: string }).tool_call_id === 'call_slack_1',
     )
-    expect(slackCalls).toHaveLength(0)
+    // 拒绝后后端发 tool.result(status=rejected)，而不是成功结果。
+    expect(slackCalls).toHaveLength(1)
+    const slackResult = slackCalls[0]
+    if (!slackResult) throw new Error('缺少 rejected 工具结果')
+    expect((slackResult.data as { status?: string }).status).toBe('rejected')
+    expect(names).toContain('run.interrupted')
+    expect(names).toContain('run.resumed')
     expect(names).toContain('message.done')
   })
 

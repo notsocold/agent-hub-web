@@ -6,7 +6,17 @@ import { openChatStream } from '@/api/chat'
 import { ApiRequestError, notifyUnauthorized } from '@/api/client'
 import { conversationsApi } from '@/api/conversations'
 import { runsApi } from '@/api/runs'
-import { createInitialChatState, markApprovalResolved, reduceChat } from './chat-reducer'
+import {
+  clearPendingApproval,
+  clearPendingApprovalIds,
+  createInitialChatState,
+  hydrateApprovals,
+  markAllApprovalsResolved,
+  markApprovalClosed,
+  markApprovalExpired,
+  markApprovalResolved,
+  reduceChat,
+} from './chat-reducer'
 import type {
   ChatContextSelection,
   ChatEventName,
@@ -16,6 +26,24 @@ import type {
   ChatState,
   RunStatus,
 } from '@/types'
+
+/** 对话内审批决定的语义分类，供 UI 选择提示文案。 */
+export type ApprovalOutcomeKind =
+  | 'resumed'
+  | 'waiting_others'
+  | 'run_ended'
+  | 'not_resumed'
+  | 'expired'
+  | 'already_decided'
+  | 'failed'
+
+export interface ApprovalOutcome {
+  approvalId: string
+  decision: 'approve' | 'reject'
+  kind: ApprovalOutcomeKind
+  message: string
+  resumed: boolean
+}
 
 const HISTORY_PAGE_SIZE = 100
 const RUN_POLL_INTERVAL_MS = 2500
@@ -93,7 +121,10 @@ export const useChatStore = defineStore('chat', () => {
   const loadingHistory = ref(false)
   const loadingOlder = ref(false)
   const resolvingApproval = ref(false)
+  const resolvingApprovalId = ref<string | null>(null)
   const recoveryBusy = ref(false)
+  const rateLimitRemaining = ref(0)
+  let rateLimitTimer: ReturnType<typeof setInterval> | null = null
   const historyHasMore = ref(false)
   const historyCursor = ref<string | null>(null)
   const lastAttempt = ref<ChatAttempt | null>(null)
@@ -102,6 +133,7 @@ export const useChatStore = defineStore('chat', () => {
   let rafId: number | null = null
   let pollTimer: ReturnType<typeof setInterval> | null = null
   let pollRunId: string | null = null
+  let approvalsSyncSeq = 0
   const pendingDeltas = new Map<string, { text: string; seq: number }>()
 
   const messages = computed(() => state.value.messages)
@@ -112,6 +144,7 @@ export const useChatStore = defineStore('chat', () => {
     () =>
       Boolean(lastAttempt.value) &&
       !state.value.streaming &&
+      rateLimitRemaining.value === 0 &&
       state.value.recovery?.kind !== 'run_in_progress' &&
       state.value.recovery?.kind !== 'run_interrupted',
   )
@@ -122,6 +155,19 @@ export const useChatStore = defineStore('chat', () => {
       state.value.process.find((item) => item.kind === 'approval' && item.approvalId === id) ?? null
     )
   })
+  /** M5：按 `run.interrupted.approvals` 顺序返回待审批卡（一轮可能多张）。 */
+  const pendingApprovals = computed(() => {
+    const ids = state.value.pendingApprovalIds
+    return ids
+      .map(
+        (id) =>
+          state.value.process.find(
+            (item) => item.kind === 'approval' && item.approvalId === id,
+          ) ?? null,
+      )
+      .filter((item): item is NonNullable<typeof item> => item !== null)
+  })
+  const rateLimitActive = computed(() => rateLimitRemaining.value > 0)
 
   function cancelRaf(): void {
     if (rafId !== null) {
@@ -136,6 +182,76 @@ export const useChatStore = defineStore('chat', () => {
       pollTimer = null
     }
     pollRunId = null
+  }
+
+  function clearRateLimit(): void {
+    if (rateLimitTimer !== null) {
+      clearInterval(rateLimitTimer)
+      rateLimitTimer = null
+    }
+    rateLimitRemaining.value = 0
+  }
+
+  /** 聊天 429：按后端 `details.retry_after_seconds` 倒计时，期间禁止发送。 */
+  function startRateLimit(seconds: number): void {
+    clearRateLimit()
+    const total = Math.max(1, Math.ceil(seconds))
+    rateLimitRemaining.value = total
+    rateLimitTimer = setInterval(() => {
+      rateLimitRemaining.value = Math.max(0, rateLimitRemaining.value - 1)
+      if (rateLimitRemaining.value === 0) clearRateLimit()
+    }, 1000)
+  }
+
+  /**
+   * 断线/进入会话/审批事件到达时，用服务端审批列表对账过程卡片。
+   *
+   * - 以服务端 pending 列表为准，清理已不存在的旧指针（I7）；
+   * - 请求代次 + runId 校验，避免 A 会话的迟到响应写进 B 会话；
+   * - `status: all` 用完整 Approval 字段补全 `approval.required` 事件缺失的
+   *   executor/target/side_effect 等展示字段（真实后端事件字段较少）。
+   */
+  async function syncPendingApprovals(runId: string): Promise<void> {
+    const seq = ++approvalsSyncSeq
+    try {
+      const page = await approvalsApi.list({ run_id: runId, status: 'all', limit: 50 })
+      if (seq !== approvalsSyncSeq || state.value.runId !== runId) return
+      state.value = hydrateApprovals(state.value, page.items, { replacePending: true })
+    } catch {
+      // 补卡失败不改变主状态；审批中心仍可操作。
+    }
+  }
+
+  /** 终态后对账审批卡：补全已决定/过期的卡片并清空待审指针。 */
+  async function reconcileRunApprovals(
+    runId: string,
+    terminalStatus: RunStatus,
+  ): Promise<void> {
+    const seq = ++approvalsSyncSeq
+    try {
+      const page = await approvalsApi.list({ run_id: runId, status: 'all', limit: 50 })
+      if (seq !== approvalsSyncSeq || state.value.runId !== runId) return
+      const expired = page.items.some((item) => item.status === 'expired')
+      state.value = hydrateApprovals(state.value, page.items, { replacePending: true })
+      state.value = clearPendingApprovalIds(state.value)
+      if (terminalStatus === 'canceled' && expired) {
+        state.value = {
+          ...state.value,
+          streaming: false,
+          recovery: {
+            kind: 'approval_timeout',
+            code: 'approval_timeout',
+            message: '审批超时，本轮运行已取消；该操作没有执行。如仍需要，请重新发送。',
+            runId,
+            runStatus: 'canceled',
+            retryable: false,
+          },
+        }
+      }
+    } catch {
+      // 对账失败时至少清掉不可操作的待审指针。
+      state.value = clearPendingApprovalIds(state.value)
+    }
   }
 
   function flushDeltas(): void {
@@ -188,6 +304,14 @@ export const useChatStore = defineStore('chat', () => {
 
     flushDeltas()
     state.value = reduceChat(state.value, event, data)
+    if (event === 'run.interrupted') {
+      const record = data as { run_id?: unknown }
+      const runId = typeof record.run_id === 'string' ? record.run_id : ''
+      if (runId) void syncPendingApprovals(runId)
+    } else if (event === 'run.resumed') {
+      // 恢复后旧审批列表响应不得把已处理卡片复活。
+      approvalsSyncSeq += 1
+    }
   }
 
   function onError(error: Error): void {
@@ -228,6 +352,7 @@ export const useChatStore = defineStore('chat', () => {
       if (isTerminal(run.status)) {
         state.value = { ...state.value, streaming: false }
         setRecovery(null)
+        void reconcileRunApprovals(run.id, run.status)
         await refreshHistory()
         return
       }
@@ -239,13 +364,14 @@ export const useChatStore = defineStore('chat', () => {
           kind: interrupted ? 'run_interrupted' : 'run_in_progress',
           code: interrupted ? 'run_interrupted' : 'run_in_progress',
           message: interrupted
-            ? '该运行正在等待审批或人工输入，处理后才能继续发送。'
+            ? '该运行正在等待审批；批准或拒绝后会自动继续。'
             : '该会话已有运行中的请求，可等待完成或先停止当前运行。',
           runId: run.id,
           runStatus: run.status,
           retryable: false,
         },
       }
+      if (interrupted) await syncPendingApprovals(run.id)
       schedulePolling(run.id)
     } catch (error) {
       state.value = {
@@ -280,6 +406,7 @@ export const useChatStore = defineStore('chat', () => {
         clearPolling()
         state.value = { ...state.value, streaming: false }
         setRecovery(null)
+        void reconcileRunApprovals(run.id, run.status)
         await refreshHistory()
         return
       }
@@ -291,12 +418,15 @@ export const useChatStore = defineStore('chat', () => {
           kind: interrupted ? 'run_interrupted' : 'run_in_progress',
           code: interrupted ? 'run_interrupted' : 'run_in_progress',
           message: interrupted
-            ? '该运行正在等待审批或人工输入，处理后才能继续发送。'
+            ? '该运行正在等待审批；批准或拒绝后会自动继续。'
             : '该会话已有运行中的请求，可等待完成或先停止当前运行。',
           runId: run.id,
           runStatus: run.status,
           retryable: false,
         },
+      }
+      if (interrupted) {
+        await syncPendingApprovals(run.id)
       }
     } catch {
       // 轮询失败不打断当前状态，下次继续。
@@ -323,14 +453,39 @@ export const useChatStore = defineStore('chat', () => {
       return !oldestFetched || message.created_at < oldestFetched
     })
 
+    const lastRunStatus =
+      normalizeRunStatus(conversation.last_run?.status) ?? state.value.runStatus
     state.value = {
       ...state.value,
       conversationId,
       conversationTitle: conversation.title,
       messages: sortMessages([...preserved, ...fetched]),
       runId: conversation.last_run?.id ?? state.value.runId,
-      runStatus:
-        normalizeRunStatus(conversation.last_run?.status) ?? state.value.runStatus,
+      runStatus: lastRunStatus,
+    }
+    // 流因 HITL 空闲超时关闭时，run 仍是 interrupted；给出恢复入口而不是静默。
+    if (lastRunStatus === 'interrupted' && state.value.recovery?.kind !== 'run_interrupted') {
+      state.value = {
+        ...state.value,
+        streaming: false,
+        recovery: {
+          kind: 'run_interrupted',
+          code: 'run_interrupted',
+          message: '该运行正在等待审批；批准或拒绝后会自动继续。',
+          runId: conversation.last_run?.id ?? null,
+          runStatus: 'interrupted',
+          retryable: false,
+        },
+      }
+      if (conversation.last_run?.id) {
+        void syncPendingApprovals(conversation.last_run.id)
+        // 没有活动 SSE 时，用轮询跟进审批决定后的恢复。
+        schedulePolling(conversation.last_run.id)
+      }
+    } else if (lastRunStatus && isTerminal(lastRunStatus) && state.value.pendingApprovalIds.length > 0) {
+      if (conversation.last_run?.id) {
+        void reconcileRunApprovals(conversation.last_run.id, lastRunStatus)
+      }
     }
     historyHasMore.value = page.has_more
     historyCursor.value = page.next_cursor
@@ -343,6 +498,21 @@ export const useChatStore = defineStore('chat', () => {
         ...state.value,
         streaming: false,
         error: { code: 'unauthorized', message: '登录已过期，请重新登录' },
+      }
+      return
+    }
+
+    if (error.code === 'rate_limited') {
+      removeMessage(attempt.clientMessageId)
+      const raw = error.details.retry_after_seconds
+      const seconds = typeof raw === 'number' && raw > 0 ? raw : 60
+      startRateLimit(seconds)
+      state.value = {
+        ...state.value,
+        streaming: false,
+        finishReason: null,
+        error: null,
+        recovery: null,
       }
       return
     }
@@ -409,7 +579,7 @@ export const useChatStore = defineStore('chat', () => {
   }
 
   async function startStream(attempt: ChatAttempt): Promise<void> {
-    if (state.value.streaming) return
+    if (state.value.streaming || rateLimitActive.value) return
     controller?.abort()
     const currentController = new AbortController()
     controller = currentController
@@ -423,17 +593,21 @@ export const useChatStore = defineStore('chat', () => {
         ? state.value.messages
         : [...state.value.messages, createUserMessage(attempt.text, attempt.clientMessageId)],
       streaming: true,
+      runId: null,
       runStatus: 'queued',
+      pendingApprovalIds: [],
+      pendingApprovalId: null,
       finishReason: null,
       error: null,
       recovery: null,
       usage: null,
-      pendingApprovalId: null,
       currentAssistantId: null,
       process: [],
       lastSeq: 0,
     }
 
+    // 新 run 开始后，旧 run 的审批同步响应不得写回。
+    approvalsSyncSeq += 1
     let failed = false
     try {
       await openChatStream(
@@ -488,7 +662,7 @@ export const useChatStore = defineStore('chat', () => {
 
   async function send(text: string, context: ChatContextSelection = {}): Promise<void> {
     const trimmed = text.trim()
-    if (!trimmed || state.value.streaming) return
+    if (!trimmed || state.value.streaming || rateLimitActive.value) return
     const attempt: ChatAttempt = {
       text: trimmed,
       context: { ...context },
@@ -500,7 +674,7 @@ export const useChatStore = defineStore('chat', () => {
 
   async function retry(): Promise<void> {
     const attempt = lastAttempt.value
-    if (!attempt || state.value.streaming) return
+    if (!attempt || state.value.streaming || rateLimitActive.value) return
     if (
       state.value.recovery?.kind === 'run_in_progress' ||
       state.value.recovery?.kind === 'run_interrupted'
@@ -524,6 +698,13 @@ export const useChatStore = defineStore('chat', () => {
       finishReason: 'canceled',
       runStatus: 'canceled',
       recovery: null,
+      pendingApprovalIds: [],
+      pendingApprovalId: null,
+      process: state.value.process.map((item) =>
+        item.kind === 'approval' && item.status === 'waiting'
+          ? { ...item, status: 'canceled' as const }
+          : item,
+      ),
       messages: state.value.messages.map((message) =>
         message.streaming ? { ...message, streaming: false, status: 'canceled' } : message,
       ),
@@ -568,20 +749,99 @@ export const useChatStore = defineStore('chat', () => {
     await refreshHistory()
   }
 
-  async function resolveApproval(approve: boolean): Promise<void> {
-    const approvalId = state.value.pendingApprovalId
-    if (!approvalId || resolvingApproval.value) return
+  /**
+   * M5：按审批 id 处理，一轮多审批时每张卡片独立决定。
+   *
+   * `resumed=false` 不一定是失败：`本轮还有其他审批待处理` 与 `运行已结束`
+   * 都是正常语义，只有其他原因才展示恢复失败横幅。
+   */
+  async function resolveApprovalById(
+    approvalId: string,
+    approve: boolean,
+    note = '',
+  ): Promise<ApprovalOutcome> {
+    const decision = approve ? 'approve' : 'reject'
+    if (resolvingApproval.value) {
+      return {
+        approvalId,
+        decision,
+        kind: 'failed',
+        message: '正在处理其他审批，请稍候',
+        resumed: false,
+      }
+    }
 
     resolvingApproval.value = true
+    resolvingApprovalId.value = approvalId
+    // 决定开始后，之前在途的审批列表响应不能再覆盖本次决定结果。
+    approvalsSyncSeq += 1
     try {
       const result = await approvalsApi.decide(approvalId, {
-        decision: approve ? 'approve' : 'reject',
+        decision,
+        ...(note ? { note } : {}),
       })
-      state.value = markApprovalResolved(state.value, approvalId, approve ? 'approve' : 'reject')
+      state.value = markApprovalResolved(state.value, approvalId, decision)
+
       if (result.resumed) {
-        state.value = { ...state.value, streaming: true, recovery: null }
-        return
+        // 流可能已经先发出 message.done（尤其是 mock/快速路径）；终态优先，
+        // 不要让迟到的决定响应把 finishReason 覆盖回 null。
+        const terminal =
+          state.value.runStatus === 'succeeded' ||
+          state.value.runStatus === 'failed' ||
+          state.value.runStatus === 'canceled'
+        if (!terminal) {
+          state.value = {
+            ...state.value,
+            streaming: true,
+            runStatus: 'running',
+            finishReason: null,
+            error: null,
+            recovery: null,
+          }
+        }
+        // 流已因 HITL 空闲超时关闭时没有活动的 SSE，改用轮询跟进恢复。
+        if (!controller) void adoptRun(result.run_id)
+        return {
+          approvalId,
+          decision,
+          kind: 'resumed',
+          message: approve ? '已批准，运行将继续' : '已拒绝，运行将继续收尾',
+          resumed: true,
+        }
       }
+
+      if (result.resume_error === '本轮还有其他审批待处理') {
+        state.value = {
+          ...state.value,
+          streaming: true,
+          runStatus: 'interrupted',
+          recovery: null,
+        }
+        return {
+          approvalId,
+          decision,
+          kind: 'waiting_others',
+          message: '审批已记录，本轮还有其他审批待处理',
+          resumed: false,
+        }
+      }
+
+      if (result.resume_error === '运行已结束' || result.resume_error === '运行不存在') {
+        state.value = markAllApprovalsResolved({
+          ...state.value,
+          streaming: false,
+          recovery: null,
+        })
+        await refreshHistory().catch(() => undefined)
+        return {
+          approvalId,
+          decision,
+          kind: 'run_ended',
+          message: '审批已记录，运行已结束',
+          resumed: false,
+        }
+      }
+
       state.value = {
         ...state.value,
         streaming: false,
@@ -597,9 +857,72 @@ export const useChatStore = defineStore('chat', () => {
         },
       }
       await refreshHistory().catch(() => undefined)
+      return {
+        approvalId,
+        decision,
+        kind: 'not_resumed',
+        message: result.resume_error ?? '审批已记录，但运行未自动恢复',
+        resumed: false,
+      }
+    } catch (error) {
+      if (error instanceof ApiRequestError && error.code === 'approval_expired') {
+        state.value = markApprovalExpired(state.value, approvalId)
+        state.value = { ...state.value, streaming: false, recovery: null }
+        await refreshHistory().catch(() => undefined)
+        return {
+          approvalId,
+          decision,
+          kind: 'expired',
+          message: '审批已过期，无法继续执行',
+          resumed: false,
+        }
+      }
+      if (error instanceof ApiRequestError && error.code === 'approval_already_decided') {
+        // 用服务端真实状态覆盖卡片，避免把本次尝试的 approve/reject 写成结论。
+        try {
+          const approval = await approvalsApi.detail(approvalId)
+          state.value = hydrateApprovals(state.value, [approval])
+          if (approval.status !== 'pending') {
+            state.value = clearPendingApproval(state.value, approvalId)
+          }
+        } catch {
+          state.value = markApprovalClosed(state.value, approvalId)
+        }
+        await refreshHistory().catch(() => undefined)
+        return {
+          approvalId,
+          decision,
+          kind: 'already_decided',
+          message: '审批已在别处处理，请刷新查看结果',
+          resumed: false,
+        }
+      }
+      return {
+        approvalId,
+        decision,
+        kind: 'failed',
+        message: errorMessage(error, '审批失败，请稍后重试'),
+        resumed: false,
+      }
     } finally {
       resolvingApproval.value = false
+      resolvingApprovalId.value = null
     }
+  }
+
+  /** 兼容单审批调用方：处理当前第一个待审审批。 */
+  async function resolveApproval(approve: boolean): Promise<ApprovalOutcome> {
+    const approvalId = state.value.pendingApprovalId ?? state.value.pendingApprovalIds[0] ?? null
+    if (!approvalId) {
+      return {
+        approvalId: '',
+        decision: approve ? 'approve' : 'reject',
+        kind: 'failed',
+        message: '当前没有待处理审批',
+        resumed: false,
+      }
+    }
+    return resolveApprovalById(approvalId, approve)
   }
 
   async function loadOlder(): Promise<void> {
@@ -672,6 +995,7 @@ export const useChatStore = defineStore('chat', () => {
             retryable: false,
           },
         }
+        if (interrupted) void syncPendingApprovals(lastRun.id)
         schedulePolling(lastRun.id)
       }
     } finally {
@@ -684,6 +1008,7 @@ export const useChatStore = defineStore('chat', () => {
     controller = null
     cancelRaf()
     clearPolling()
+    clearRateLimit()
     pendingDeltas.clear()
     lastAttempt.value = null
     historyHasMore.value = false
@@ -708,10 +1033,14 @@ export const useChatStore = defineStore('chat', () => {
     streaming,
     recovery,
     pendingApproval,
+    pendingApprovals,
     loadingHistory,
     loadingOlder,
     resolvingApproval,
+    resolvingApprovalId,
     recoveryBusy,
+    rateLimitRemaining,
+    rateLimitActive,
     historyHasMore,
     canRetry,
     send,
@@ -720,6 +1049,7 @@ export const useChatStore = defineStore('chat', () => {
     refresh,
     adoptRun,
     resolveApproval,
+    resolveApprovalById,
     loadOlder,
     loadConversation,
     reset,

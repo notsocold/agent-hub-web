@@ -103,7 +103,8 @@ export interface ToolStartData extends BaseEventData {
 
 export interface ToolResultData extends BaseEventData {
   tool_call_id: string
-  status: 'ok' | 'error'
+  /** M5：审批被拒绝时后端发 `rejected`，工具实际未执行。 */
+  status: 'ok' | 'error' | 'rejected'
   summary?: string
   result_preview?: string
   duration_ms?: number | null
@@ -173,16 +174,42 @@ export interface A2aAuthRequiredData extends BaseEventData {
 
 export interface ApprovalRequiredData extends BaseEventData {
   approval_id: string
+  /** M5 幂等键：同一 run 内工具调用唯一。 */
+  tool_call_id?: string
   tool: string
   tool_display_name?: string
   reason?: string
   payload?: Record<string, unknown>
+  payload_preview?: string
   source?: string
   executor?: string
   target?: string
   side_effect?: string
   risk?: string
   expires_at?: string | null
+}
+
+/**
+ * M5：图停在审批 gate 时发出，run=`interrupted`，**不是**终态。
+ * SSE 保持连接（后端空闲 `HITL_STREAM_TIMEOUT_SECONDS` 后关闭），审批决定后
+ * 继续收到 `run.resumed` 与后续 delta。
+ */
+export interface RunInterruptedData extends BaseEventData {
+  run_id: string
+  conversation_id: string
+  message_id: string
+  status: 'interrupted'
+  /** 本轮所有 pending 审批 id；一轮多审批只挂起一次。 */
+  approvals: string[]
+  usage?: Usage
+  citations?: Citation[]
+}
+
+/** M5：审批决定后恢复执行（非终态）。 */
+export interface RunResumedData extends BaseEventData {
+  run_id: string
+  conversation_id: string
+  status: 'running'
 }
 
 export interface WorkflowStepData extends BaseEventData {
@@ -216,6 +243,11 @@ export interface MessageDoneData extends BaseEventData {
   message_id: string
   usage: Usage
   finish_reason: 'stop' | 'length' | 'canceled' | 'interrupted' | 'error' | string
+  /**
+   * M5：终态原因。审批超时为 `approval_timeout`，用户主动停止为 `user_canceled`；
+   * 只有后端显式给出时出现。
+   */
+  reason?: string
   model: string
   first_token_ms: number | null
   duration_ms: number
@@ -254,6 +286,8 @@ export interface ChatEventDataMap {
   'a2a.input_required': A2aInputRequiredData
   'a2a.auth_required': A2aAuthRequiredData
   'approval.required': ApprovalRequiredData
+  'run.interrupted': RunInterruptedData
+  'run.resumed': RunResumedData
   'workflow.step': WorkflowStepData
   'memory.saved': MemorySavedData
   notice: NoticeData
@@ -335,6 +369,8 @@ export interface A2aProcess extends ProcessBase {
 export interface ApprovalProcess extends ProcessBase {
   kind: 'approval'
   approvalId: string
+  /** M5 幂等键，便于日志/追踪关联。 */
+  toolCallId?: string
   tool: string
   toolDisplayName: string
   source: string
@@ -343,6 +379,8 @@ export interface ApprovalProcess extends ProcessBase {
   sideEffect: string
   risk: string
   reason: string
+  payload?: Record<string, unknown>
+  payloadPreview?: string
   expiresAt: string | null
   decision: 'approve' | 'reject' | null
 }
@@ -397,7 +435,12 @@ export interface ChatMessageView extends ChatMessage {
  * 会在 `error.details.run_id` 给出占锁的运行，前端据此恢复停止/刷新入口。
  */
 export interface ChatRecovery {
-  kind: 'run_in_progress' | 'run_interrupted' | 'stream_failed' | 'approval_resume_failed'
+  kind:
+    | 'run_in_progress'
+    | 'run_interrupted'
+    | 'stream_failed'
+    | 'approval_resume_failed'
+    | 'approval_timeout'
   code: string
   message: string
   runId: string | null
@@ -414,7 +457,10 @@ export interface ChatState {
   runId: string | null
   runStatus: RunStatus | null
   currentAssistantId: string | null
+  /** 兼容单审批调用方；始终等于 `pendingApprovalIds[0] ?? null`。 */
   pendingApprovalId: string | null
+  /** M5：一轮可能挂起多个审批，按后端 `run.interrupted.approvals` 顺序维护。 */
+  pendingApprovalIds: string[]
   usage: Usage | null
   finishReason: string | null
   error: MessageError | null

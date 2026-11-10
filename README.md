@@ -105,11 +105,12 @@ VITE_API_BASE_URL=
   - `SMOKE_EMAIL=you@example.com SMOKE_PASSWORD=... pnpm smoke:real`：注册/登录 → 系统信息 → SSE → 幂等回放 → 并发 409 → 取消 → 历史/事件 → 能力错误 → 审批/恢复 → 登出。
   - `REAL_TEST_EMAIL=you@example.com REAL_TEST_PASSWORD=... pnpm test:real`：直接用前端 store 与 `fetch-event-source` 连真实后端。
   - 后端注册接口有频率限制，自动化请复用已有账号（两个脚本都支持环境变量登录）。
+  - `pnpm smoke:m5`：审批列表/详情/stats、审计用户+管理员+过滤、平台密钥 CRUD、聊天 429；最后会触发约 60s 聊天限流窗口。
   - M2 真实联调先启动假 Agent：`uv run python scripts/mock_a2a_agent.py`（在 agent-hub 仓库，默认 127.0.0.1:9100），再执行 `REAL_FAKE_AGENT_URL=http://127.0.0.1:9100 ... pnpm test:real`。
 
 mock 登录：任意邮箱 + 8 位以上密码；密码为 `wrong-password` 时返回 401。
 
-## 6. 当前状态（M1.5 / M2 / M4 前端）
+## 6. 当前状态（M1.5 / M2 / M4 / M5 前端）
 
 已完成：
 
@@ -126,18 +127,20 @@ mock 登录：任意邮箱 + 8 位以上密码；密码为 `wrong-password` 时�
 - [x] **M1.5**：附件上传/去重/受控下载；输入栏「+」技能/MCP 选择与 chips、`@` 文件选择、发送后清空；技能/指令/记忆/MCP 设置页；`skill.activated`/`memory.saved`/`tool.*` 事件卡；真实后端 M1.5 冒烟 68 项断言通过
 - [x] **M2 前端**：智能体列表/筛选/统计、两段式注册（预览 Agent Card → 确认）、详情抽屉（原始 Card/技能/最近任务）、健康检查/刷新/启停/删除；任务列表/筛选/分页/轮询、详情抽屉（请求/结果/错误/时间线）、取消/补充信息/授权/拒绝；对话内 A2A 卡片跳转任务
 - [x] **M4 前端**：知识库页（上传/拖拽/粘贴、服务端筛选与游标分页、6 键统计、状态轮询、详情抽屉、重试/删除、管理员重建）；检索调试（命中片段/分数/来源/复制、空结果与 503）；输入栏知识库分类（聚合 + 手输，≤5）；引用按 `document_id` 深链与工具卡来源
-- [x] `pnpm type-check`、`pnpm test`（113）、`pnpm build`、`pnpm lint` 通过
-- [x] 真实后端联调：`smoke:real`（M1）、`smoke:m15` 68 项、`smoke:m4` 知识库、`test:real` 7 个用例（含 M2 远程 Agent 与 M4 知识库）；计数以脚本输出为准
+- [x] **M5 前端**：审批状态机（`run.interrupted`/`run.resumed`、多审批、超时取消、决定语义）；对话内审批卡倒计时/遮罩/逐卡操作；审批中心 `/approvals`（5 键统计、Tab、筛选、详情、决策、游标分页）；设置页「安全与审计」（审计自查/管理员全局、平台密钥 CRUD）；安全 UX（聊天/登录 429 倒计时、敏感字段遮罩、外链确认、会话过期提示）
+- [x] `pnpm type-check`、`pnpm test`（180）、`pnpm build`、`pnpm lint` 通过
+- [x] 真实后端联调：`smoke:real`（M1）、`smoke:m15` 68 项、`smoke:m4` 知识库、`smoke:m5` 163 项、`test:real`（含 M2/M4/M5；M5 3 例）；计数以脚本输出为准。M1 聊天用例在本机因 LLM key 占位返回 401，属环境限制
 
 明确未包含（后续里程碑，编号与后端一致）：
 
 > M3「A2A 入站」已于 2026-11-10 取消：服务只做出站 A2A Client，不发布 Agent Card、不提供入站端点；设置页入站分区已移除。
 
 - [x] 知识库上传、重试、重建、检索调试与引用（M4，2026-11-10 完成）
-- [ ] 审批中心、审计查询与写操作 RBAC（M5；对话内审批卡已可用，审计需后端 admin 契约）
-- [ ] 断线续传 / Last-Event-ID（M6；当前靠历史 + `after_seq` 运行事件恢复）
+- [x] 审批中心、审计查询、平台密钥与安全 UX（M5，2026-11-11 完成并真实联调）
+- [ ] 智能体/任务写操作 RBAC 的 403（后端 M5 未实现，前端不伪造；待后端补齐）
+- [ ] 逐字断线续传 / Last-Event-ID（M6；`/runs/{id}/events` 不含事件名，当前靠状态轮询 + 历史/审批补齐）
 - [ ] 工作流编辑器与执行（X1 待后端立项，当前仅骨架 + mock）
-- [ ] v8 完整管理控制台（X2 待后端立项；M5 只在审计契约就绪时做最小集）
+- [ ] v8 完整管理控制台（X2 待后端立项；M5 已做审计查询 + 平台密钥最小集）
 - [ ] E2E（M6）与虚拟滚动/可访问性（F1）
 
 ## 7. 文档索引
@@ -154,6 +157,7 @@ mock 登录：任意邮箱 + 8 位以上密码；密码为 `wrong-password` 时�
 | [原型自检报告](docs/prototypes/review-2026-11-08.md) | 前后端契约对照、可行性风险、已修复问题 |
 | [后端交接包](docs/handoff/README.md) | 契约增量、工作流/管理端方案、后端工作包与 fixtures |
 | [M1.5/M2 字段对齐](docs/handoff/2026-11-09-m15-m2-alignment.md) | 真实后端字段差异、前端归一化、假 A2A Agent 联调命令 |
+| [M5 前端联调记录](docs/handoff/2026-11-11-m5-frontend-alignment.md) | 审批事件契约、审计/密钥、验收证据、缺口与未取证项 |
 
 ## 8. 与后端的关系
 
@@ -165,4 +169,4 @@ mock 登录：任意邮箱 + 8 位以上密码；密码为 `wrong-password` 时�
   - D4 知识库选择：请求字段为 `knowledge_categories`；
   - D8 HITL：按“保持流 + 超时”处理，审批后同一流继续；
 - 后端状态以 `agent-hub/docs/feedback/` 的实现报告与 OpenAPI 为准；后端 `docs/roadmap.md` 的完成勾选可能滞后（M1/M2 尚未勾选），不要据此判断前端可联调范围；
-- 后端就绪后优先联调：**M5 审批中心/审计**（M3 入站已取消、M4 知识库已完成，不再排期）。
+- M5 已联调完成；后端剩余契约缺口：写操作 RBAC 的 403、运行事件回放的事件名（M6）。

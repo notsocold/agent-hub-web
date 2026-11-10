@@ -1,4 +1,4 @@
-import type { AuthTokens } from '@/types'
+import { SECRET_NAME_PATTERN, type AuthTokens } from '@/types'
 
 import { mockDb } from './db'
 
@@ -131,6 +131,8 @@ export async function handleMockRequest(req: MockRequest): Promise<MockResult> {
       return fail(401, 'invalid_credentials', '邮箱或密码错误')
     }
     mockDb.user.email = email
+    // mock 沙盒：admin@example.com 登录后按管理员渲染设置页管理分区。
+    mockDb.user.role = email === 'admin@example.com' ? 'admin' : 'user'
     mockDb.user.last_login_at = new Date().toISOString()
     return ok(tokens())
   }
@@ -274,6 +276,14 @@ export async function handleMockRequest(req: MockRequest): Promise<MockResult> {
     )
   }
 
+  const approvalDetailMatch = /^\/approvals\/([^/]+)$/.exec(path)
+  if (method === 'GET' && approvalDetailMatch) {
+    const unauthorized = requireAuth(req)
+    if (unauthorized) return unauthorized
+    const approval = mockDb.approvals.find((item) => item.id === approvalDetailMatch[1])
+    return approval ? ok(approval) : fail(404, 'not_found', '审批不存在')
+  }
+
   const approvalDecisionMatch = /^\/approvals\/([^/]+)\/decision$/.exec(path)
   if (method === 'POST' && approvalDecisionMatch) {
     const decision = body.decision === 'reject' ? 'reject' : 'approve'
@@ -284,15 +294,99 @@ export async function handleMockRequest(req: MockRequest): Promise<MockResult> {
         String(body.note ?? ''),
       )
       if (!approval) return fail(404, 'not_found', '审批不存在')
+      const remaining = mockDb.listApprovals({
+        status: 'pending',
+        run_id: approval.run_id,
+        limit: 1,
+      })
+      const resumed = remaining.items.length === 0
       return ok({
         id: approval.id,
         status: approval.status,
         run_id: approval.run_id,
-        resumed: decision === 'approve',
-        resume_error: null,
+        resumed,
+        resume_error: resumed ? null : '本轮还有其他审批待处理',
       })
     } catch {
       return fail(409, 'approval_already_decided', '该审批已处理')
+    }
+  }
+
+  // ---------- 审计日志 ----------
+  if (method === 'GET' && (path === '/audit-logs' || path === '/admin/audit-logs')) {
+    const unauthorized = requireAuth(req)
+    if (unauthorized) return unauthorized
+    const scope = path === '/admin/audit-logs' ? 'all' : 'own'
+    if (scope === 'all' && mockDb.user.role !== 'admin') {
+      return fail(403, 'forbidden', '仅管理员可查看全局审计')
+    }
+    return ok(
+      mockDb.listAuditLogs(
+        {
+          action: stringParam(req.query, 'action'),
+          resource_type: stringParam(req.query, 'resource_type'),
+          actor_type: stringParam(req.query, 'actor_type'),
+          actor_id: stringParam(req.query, 'actor_id'),
+          resource_id: stringParam(req.query, 'resource_id'),
+          start: stringParam(req.query, 'start'),
+          end: stringParam(req.query, 'end'),
+          ...pageQuery(req.query),
+        },
+        scope,
+      ),
+    )
+  }
+
+  // ---------- 平台密钥 ----------
+  if (method === 'GET' && path === '/admin/secrets') {
+    const unauthorized = requireAuth(req)
+    if (unauthorized) return unauthorized
+    if (mockDb.user.role !== 'admin') return fail(403, 'forbidden', '仅管理员可管理平台密钥')
+    const rawEnabled = req.query.get('enabled')
+    return ok({
+      items: mockDb.listSecrets(rawEnabled === null ? undefined : rawEnabled === 'true'),
+    })
+  }
+
+  if (method === 'POST' && path === '/admin/secrets') {
+    const unauthorized = requireAuth(req)
+    if (unauthorized) return unauthorized
+    if (mockDb.user.role !== 'admin') return fail(403, 'forbidden', '仅管理员可管理平台密钥')
+    const name = String(body.name ?? '').trim()
+    const value = String(body.value ?? '')
+    const description = String(body.description ?? '')
+    if (!SECRET_NAME_PATTERN.test(name)) {
+      return fail(422, 'validation_error', '密钥名称需以字母或下划线开头，仅含字母/数字/下划线')
+    }
+    if (!value) return fail(422, 'validation_error', '密钥值不能为空')
+    if (description.length > 200) return fail(422, 'validation_error', '描述不能超过 200 字')
+    const created = mockDb.createSecret({ name, description })
+    if (!created) return fail(409, 'secret_exists', '同名密钥已存在')
+    return ok(created, 201)
+  }
+
+  const secretMatch = /^\/admin\/secrets\/([^/]+)$/.exec(path)
+  if (secretMatch) {
+    const unauthorized = requireAuth(req)
+    if (unauthorized) return unauthorized
+    if (mockDb.user.role !== 'admin') return fail(403, 'forbidden', '仅管理员可管理平台密钥')
+    const name = decodeURIComponent(secretMatch[1]!)
+    if (method === 'PATCH') {
+      const description = body.description === undefined ? undefined : String(body.description)
+      const enabled = typeof body.enabled === 'boolean' ? body.enabled : undefined
+      const value = body.value === undefined ? undefined : String(body.value)
+      if (value !== undefined && !value) return fail(422, 'validation_error', '密钥值不能为空')
+      if (description !== undefined && description.length > 200) {
+        return fail(422, 'validation_error', '描述不能超过 200 字')
+      }
+      if (description === undefined && enabled === undefined && value === undefined) {
+        return fail(422, 'validation_error', '至少提供一个要修改的字段')
+      }
+      const updated = mockDb.updateSecret(name, { description, enabled })
+      return updated ? ok(updated) : fail(404, 'not_found', '密钥不存在')
+    }
+    if (method === 'DELETE') {
+      return mockDb.deleteSecret(name) ? ok(null, 204) : fail(404, 'not_found', '密钥不存在')
     }
   }
 

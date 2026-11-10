@@ -20,13 +20,15 @@
 | `pnpm install` | 安装依赖 |
 | `pnpm dev` | 开发服务器（5173，热更新） |
 | `pnpm build` | 类型检查 + 生产构建 |
-| `pnpm test` | Vitest 单测（113 个用例，无需后端） |
+| `pnpm test` | Vitest 单测（180 个用例，无需后端） |
 | `pnpm test:watch` | Vitest 监听模式 |
 | `pnpm preview` | 预览构建产物 |
 | `pnpm type-check` | 仅类型检查 |
 | `pnpm lint` | oxlint + eslint（自动修复） |
 | `pnpm format` | Prettier 格式化 `src/` |
 | `pnpm smoke:m4` | 知识库真实冒烟（需后端 8000 与开发账号） |
+| `pnpm smoke:m5` | 审批/审计/平台密钥/聊天 429 真实冒烟（最后会占用约 60s 聊天限流窗口） |
+| `pnpm test:real` | 真实后端 vitest 联调（M1/M2/M4/M5；需 `VITE_API_BASE_URL`） |
 
 首次拉取后建议先跑 `pnpm install && pnpm build`，确认环境正常。
 
@@ -39,7 +41,17 @@
 | 直连 | `VITE_API_BASE_URL=http://localhost:8000/api/v1` | 需后端允许 CORS |
 | 生产 | `.env.production` 固定 `false` | 同源 `/api/v1`，由 Nginx 反代 |
 
-mock 登录：任意邮箱 + 8 位以上密码；输入 `wrong-password` 可测试 401。
+mock 登录：任意邮箱 + 8 位以上密码；输入 `wrong-password` 可测试 401。用 `admin@example.com` 登录会得到管理员沙盒账号（设置页可见平台密钥）。
+
+### M5 联调前置（2026-11-11）
+
+1. 后端代码为 M5（OpenAPI 含 `/admin/secrets`），并执行 `alembic upgrade head`：
+   - `9c1d4e7a2b60`（`platform_secrets`）；
+   - `2d8f6a1c3e70`（`approvals.tool_call_id`）。
+2. `.env` 配置 `CAPABILITY_SECRET_KEY`（AES-GCM 加密平台密钥）；未配置时密钥写入返回 503 `secret_store_unavailable`。
+3. 平台密钥与全局审计需要管理员：用后端 `scripts/grant_admin.py <email>` 临时提权；`scripts/seed_dev_account.py` 不会自动提权。
+4. `LLM_API_KEY` 若为占位符，聊天会 401，真实「审批 → 恢复 → 继续输出」无法触发；此时以 mock 流、reducer 单测和后端测试证据为准。
+5. `smoke:m5` 的聊天限流探测会占用约 60s 窗口，建议放在 `test:real` 之后运行。
 
 ## 3. 目录与命名
 
@@ -97,8 +109,9 @@ export const useChatStore = defineStore('chat', () => {
 - `AbortController` 必须在 `onUnmounted` / 主动停止时调用；
 - 事件处理函数保持幂等：同一 `message_id` 的 delta 只追加一次；
 - 高频 delta 合并渲染（`requestAnimationFrame`），避免逐 token 重排；
-- 断线重连要能恢复：保存 `run_id`，重连后查询 run 状态；
-- 后端默认断线不取消，前端不要一断线就清空消息。
+- 断线重连要能恢复：保存 `run_id`，重连后查询 run 状态；进入会话时用 pending 审批补卡，终态后重拉历史；
+- 后端默认断线不取消，前端不要一断线就清空消息；
+- HITL：`approval.required` 后等 `run.interrupted`（非终态）而不是 `message.done`；决定后等 `run.resumed`。`run.interrupted` 后 SSE 仍保持，空闲超时由后端 `HITL_STREAM_TIMEOUT_SECONDS` 控制，不要把它当终态清理卡片。
 
 ## 8. 调试
 

@@ -4,9 +4,11 @@ import { ElMessage } from 'element-plus'
 
 import PageHeader from '@/components/common/PageHeader.vue'
 import PageShell from '@/components/common/PageShell.vue'
+import AuditPanel from '@/components/settings/AuditPanel.vue'
 import InstructionPanel from '@/components/settings/InstructionPanel.vue'
 import McpPanel from '@/components/settings/McpPanel.vue'
 import MemoryPanel from '@/components/settings/MemoryPanel.vue'
+import SecretPanel from '@/components/settings/SecretPanel.vue'
 import SkillPanel from '@/components/settings/SkillPanel.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useSystemStore } from '@/stores/system'
@@ -15,18 +17,30 @@ import { formatDateTime } from '@/utils/format'
 const auth = useAuthStore()
 const system = useSystemStore()
 
-type SectionKey = 'account' | 'capabilities' | 'model' | 'about'
+type SectionKey = 'account' | 'capabilities' | 'security' | 'model' | 'about'
 
 const sections: ReadonlyArray<{ key: SectionKey; label: string }> = [
   { key: 'account', label: '账号' },
   { key: 'capabilities', label: '个人能力' },
+  { key: 'security', label: '安全与审计' },
   { key: 'model', label: '模型' },
   { key: 'about', label: '关于' },
 ]
 
 const active = ref<SectionKey>('capabilities')
+const securityTab = ref<'audit' | 'secrets'>('audit')
 
+const isAdmin = computed(() => auth.user?.role === 'admin')
 const generation = computed(() => system.info?.generation ?? null)
+
+const securityTabs = computed(() =>
+  isAdmin.value
+    ? [
+        { key: 'audit' as const, label: '审计日志' },
+        { key: 'secrets' as const, label: '平台密钥' },
+      ]
+    : [{ key: 'audit' as const, label: '审计日志' }],
+)
 
 function notReady(label: string): void {
   ElMessage.info(`${label}将在后续接入`)
@@ -98,6 +112,37 @@ onMounted(() => {
           <SkillPanel />
           <McpPanel />
         </div>
+
+        <template v-else-if="active === 'security'">
+          <section class="card">
+            <header class="card-head">
+              <h2>安全与审计</h2>
+              <span class="tag mono">{{ isAdmin ? '管理员' : '个人范围' }}</span>
+            </header>
+            <p class="card-lede">
+              审计记录覆盖审批、密钥、智能体、技能、MCP、记忆与安全事件；普通用户只看自己的记录，
+              管理员可切换全局检索。
+            </p>
+
+            <div class="security-tabs" role="tablist" aria-label="安全与审计分区">
+              <button
+                v-for="tab in securityTabs"
+                :key="tab.key"
+                type="button"
+                role="tab"
+                class="security-tab"
+                :class="{ 'is-active': securityTab === tab.key }"
+                :aria-selected="securityTab === tab.key"
+                @click="securityTab = tab.key"
+              >
+                {{ tab.label }}
+              </button>
+            </div>
+
+            <AuditPanel v-if="securityTab === 'audit'" :can-view-all="isAdmin" />
+            <SecretPanel v-else-if="isAdmin" :is-admin="isAdmin" />
+          </section>
+        </template>
 
         <template v-else-if="active === 'model'">
           <section class="card">
@@ -235,6 +280,40 @@ onMounted(() => {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
+}
+
+.card-lede {
+  color: var(--ink-2);
+  font-size: 11.5px;
+  line-height: 1.7;
+}
+
+.security-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--surface-2);
+  align-self: flex-start;
+}
+
+.security-tab {
+  padding: 5px 12px;
+  border-radius: 5px;
+  color: var(--ink-2);
+  font-size: 11.5px;
+  font-weight: 550;
+}
+
+.security-tab:hover {
+  color: var(--ink);
+}
+
+.security-tab.is-active {
+  background: var(--surface);
+  color: var(--prussian);
+  box-shadow: var(--shadow-sm);
 }
 
 h2 {

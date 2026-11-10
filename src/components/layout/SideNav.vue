@@ -38,6 +38,13 @@ const items: NavItem[] = [
     icon: 'M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v8a2.5 2.5 0 0 1-2.5 2.5H9l-5 3.5V6.5Z',
   },
   {
+    name: 'approvals',
+    label: '审批',
+    icon: 'M12 3 4.5 6v5.5c0 4.6 3.2 7.9 7.5 9.5 4.3-1.6 7.5-4.9 7.5-9.5V6L12 3ZM8.6 12.2l2.2 2.2 4.4-4.6',
+    capability: 'approvals',
+    stage: 'M5',
+  },
+  {
     name: 'workflows',
     label: '工作流',
     icon: 'M4 6h4M4 12h4M4 18h4M8 6h3a3 3 0 0 1 3 3v6a3 3 0 0 0 3 3h3M16 6h4M16 18h4',

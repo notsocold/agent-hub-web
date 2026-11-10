@@ -11,6 +11,7 @@ import type {
   AgentUpdateRequest,
   Approval,
   Attachment,
+  AuditLog,
   ChatMessage,
   Conversation,
   ConversationDetail,
@@ -29,6 +30,7 @@ import type {
   MemoryKind,
   MemoryUpdateRequest,
   PageResult,
+  PlatformSecret,
   Run,
   RunCancelResult,
   RunEvent,
@@ -62,6 +64,7 @@ import {
   mockUser,
   mockWorkflows,
 } from './fixtures'
+import { mockAuditLogs, mockExtraApprovals, mockPlatformSecrets } from './securityFixtures'
 
 function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T
@@ -109,6 +112,8 @@ class MockDb {
   conversations: Conversation[] = []
   messages: Record<string, ChatMessage[]> = {}
   approvals: Approval[] = []
+  auditLogs: AuditLog[] = []
+  platformSecrets: PlatformSecret[] = []
   agents: Agent[] = []
   tasks: A2aTaskListItem[] = []
   taskDetails: Record<string, A2aTaskDetail> = {}
@@ -139,7 +144,9 @@ class MockDb {
     this.user = clone(mockUser)
     this.conversations = clone(mockConversations)
     this.messages = clone(mockMessages)
-    this.approvals = clone(mockApprovals)
+    this.approvals = [...clone(mockApprovals), ...clone(mockExtraApprovals)]
+    this.auditLogs = clone(mockAuditLogs)
+    this.platformSecrets = clone(mockPlatformSecrets)
     this.agents = clone(mockAgents)
     this.tasks = clone(mockTasks)
     this.taskDetails = clone(mockTaskDetails)
@@ -320,6 +327,116 @@ class MockDb {
     return { id, status: 'canceled', canceled_at: canceledAt }
   }
 
+  writeAudit(input: {
+    action: string
+    resource_type: string
+    resource_id: string
+    detail?: Record<string, unknown>
+    actor_type?: string
+    actor_id?: string
+  }): AuditLog {
+    const entry: AuditLog = {
+      id: (this.auditLogs[0]?.id ?? 2000) + 1,
+      actor_type: input.actor_type ?? 'user',
+      actor_id: input.actor_id ?? this.user.id,
+      action: input.action,
+      resource_type: input.resource_type,
+      resource_id: input.resource_id,
+      detail: input.detail ?? {},
+      request_id: `mock-req-${crypto.randomUUID()}`,
+      created_at: new Date().toISOString(),
+    }
+    this.auditLogs.unshift(entry)
+    return entry
+  }
+
+  listAuditLogs(
+    query: {
+      action?: string
+      resource_type?: string
+      actor_type?: string
+      actor_id?: string
+      resource_id?: string
+      start?: string
+      end?: string
+    } & PageQuery,
+    scope: 'own' | 'all',
+  ): PageResult<AuditLog> {
+    const start = query.start ? Date.parse(query.start) : null
+    const end = query.end ? Date.parse(query.end) : null
+    const filtered = this.auditLogs
+      .filter((item) =>
+        scope === 'all' ? true : item.actor_type === 'user' && item.actor_id === this.user.id,
+      )
+      .filter((item) => (query.action ? item.action === query.action : true))
+      .filter((item) => (query.resource_type ? item.resource_type === query.resource_type : true))
+      .filter((item) => (query.actor_type ? item.actor_type === query.actor_type : true))
+      .filter((item) => (query.actor_id ? item.actor_id === query.actor_id : true))
+      .filter((item) => (query.resource_id ? item.resource_id === query.resource_id : true))
+      .filter((item) => (start === null ? true : Date.parse(item.created_at) >= start))
+      .filter((item) => (end === null ? true : Date.parse(item.created_at) < end))
+      .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at) || b.id - a.id)
+    return paginate(filtered, query)
+  }
+
+  listSecrets(enabled?: boolean): PlatformSecret[] {
+    return this.platformSecrets.filter((item) => (enabled === undefined ? true : item.enabled === enabled))
+  }
+
+  createSecret(input: {
+    name: string
+    description: string
+  }): PlatformSecret | null {
+    if (this.platformSecrets.some((item) => item.name === input.name)) return null
+    const timestamp = new Date().toISOString()
+    const secret: PlatformSecret = {
+      name: input.name,
+      description: input.description,
+      enabled: true,
+      created_at: timestamp,
+      updated_at: timestamp,
+    }
+    this.platformSecrets.unshift(secret)
+    this.writeAudit({
+      action: 'secret.create',
+      resource_type: 'secret',
+      resource_id: input.name,
+      detail: { name: input.name, enabled: true },
+    })
+    return secret
+  }
+
+  updateSecret(
+    name: string,
+    body: { description?: string; enabled?: boolean },
+  ): PlatformSecret | null {
+    const secret = this.platformSecrets.find((item) => item.name === name)
+    if (!secret) return null
+    if (body.description !== undefined) secret.description = body.description
+    if (body.enabled !== undefined) secret.enabled = body.enabled
+    secret.updated_at = new Date().toISOString()
+    this.writeAudit({
+      action: 'secret.update',
+      resource_type: 'secret',
+      resource_id: name,
+      detail: { name, ...body },
+    })
+    return secret
+  }
+
+  deleteSecret(name: string): boolean {
+    const index = this.platformSecrets.findIndex((item) => item.name === name)
+    if (index < 0) return false
+    this.platformSecrets.splice(index, 1)
+    this.writeAudit({
+      action: 'secret.delete',
+      resource_type: 'secret',
+      resource_id: name,
+      detail: { name },
+    })
+    return true
+  }
+
   listApprovals(
     query: { status?: string; conversation_id?: string; run_id?: string } & PageQuery,
   ): PageResult<Approval> {
@@ -404,6 +521,12 @@ class MockDb {
     }
 
     const resolved = approval.status
+    this.writeAudit({
+      action: 'approval.decide',
+      resource_type: 'approval',
+      resource_id: approval.id,
+      detail: { decision, tool: approval.tool_name },
+    })
     for (const listener of this.approvalListeners) {
       listener(id, resolved as 'approved' | 'rejected')
     }

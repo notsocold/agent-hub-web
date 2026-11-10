@@ -564,10 +564,12 @@ export async function mockChatStream(
 
     emit('approval.required', {
       approval_id: approval.id,
+      tool_call_id: 'call_slack_1',
       tool: approval.tool_name,
       tool_display_name: approval.tool_display_name,
       reason: approval.reason,
       payload: approval.payload,
+      payload_preview: approval.payload_preview,
       source: approval.source,
       executor: approval.executor,
       target: approval.target,
@@ -576,7 +578,22 @@ export async function mockChatStream(
       expires_at: approval.expires_at,
     })
 
+    // M5：挂起是非终态，SSE 保持连接；决定后 run.resumed 再继续。
+    emit('run.interrupted', {
+      run_id: runId,
+      conversation_id: conversation.id,
+      message_id: assistantMessageId,
+      status: 'interrupted',
+      approvals: [approval.id],
+    })
+
     const decision = await waitForDecision(approval.id)
+    emit('run.resumed', {
+      run_id: runId,
+      conversation_id: conversation.id,
+      status: 'running',
+    })
+
     if (decision === 'approved') {
       await play([
         {
@@ -648,6 +665,29 @@ export async function mockChatStream(
           delta: '已拒绝发布，周报草稿保留在会话中，未写入 Slack。',
         },
         delay: 100,
+      },
+      {
+        event: 'tool.start',
+        data: {
+          tool_call_id: 'call_slack_1',
+          tool: 'mcp__slack_mcp__post_message',
+          display_name: 'Slack · 发送消息',
+          source: 'mcp',
+          risk: 'write',
+          requires_approval: true,
+        },
+        delay: 80,
+      },
+      {
+        event: 'tool.result',
+        data: {
+          tool_call_id: 'call_slack_1',
+          status: 'rejected',
+          summary: '审批被拒绝，未执行',
+          source: 'mcp',
+          duration_ms: 0,
+        },
+        delay: 80,
       },
     ])
     emit('message.done', {

@@ -25,7 +25,11 @@ async function bootstrap(): Promise<void> {
     auth.clearSession()
     const current = router.currentRoute.value
     if (current.name !== 'login') {
-      void router.replace({ name: 'login', query: { redirect: current.fullPath } })
+      // expired=1 让登录页提示「登录已过期」，redirect 保留原目标路由。
+      void router.replace({
+        name: 'login',
+        query: { redirect: current.fullPath, expired: '1' },
+      })
     }
   })
 

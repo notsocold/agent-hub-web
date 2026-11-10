@@ -217,10 +217,54 @@ curl -N -X POST http://localhost:8000/api/v1/chat/stream \
 |---|---|---|
 | M3（已取消） | A2A 入站不实施：Agent Card 发布、JSON-RPC 入站端点、入站任务/会话、API Key 管理 | 服务仅出站；前端已移除设置页入站分区，`system/info.a2a` 不再读取（建议后端移除该字段） |
 | M4（已对齐） | 知识库端点、citations、`knowledge_categories` | 已实现并联调；仅剩「单文档重建 / 分类目录」缺口，前端用 retry 与文档聚合替代 |
-| M5 | 审计查询 API、写操作 RBAC 的 403 | 审批中心可先做；审计/RBAC 等后端 |
+| M5 | 写操作 RBAC 的 403；事件回放的事件名 | 审计/密钥/审批事件已对齐并联调；RBAC 后端未实现，前端不伪造；`/runs/{id}/events` 不含 `_event`，断线只做状态轮询 + 历史补齐 |
 | X1 | 工作流管理（`workflows` / `workflow_runs`，或明确不落地） | 待立项，不做编辑器/执行 |
 | X2 | 管理端用户、角色权限、菜单、字典、审计查询 | 待立项；`/api/v1/admin/*` 实测 404 |
 
 已由后端补齐、不再列为缺口：附件上传/受控下载、审批列表/详情/决定、会话搜索 `q`、`message_count`、`chat/stream` 的 `model`/`reasoning_effort` 与 reasoning SSE 事件。
 
 详见 [原型自检报告](prototypes/review-2026-11-08.md)；字段级方案、任务包与样例见[后端交接包](handoff/README.md)。
+
+## 12. M5 审批与安全加固前端落地（2026-11-11）
+
+> 机器可读契约以后端 [`openapi.json`](../../PythonProjects/agent-hub/docs/openapi.json) 与后端 `docs/api.md` §10 为准；本节记录前端实际消费方式与已验证行为。
+
+### 12.1 审批 SSE 生命周期
+
+```text
+approval.required ──> run.interrupted(非终态，SSE 保持) ──决定──> run.resumed ──> message.delta… ──> message.done
+```
+
+- `approval.required.data`：至少包含 `approval_id`、`tool_call_id`、`tool`、`source`、`risk`、`reason`、`payload`、`expires_at`；真实后端当前**不保证** `tool_display_name`/`executor`/`target`/`side_effect`/`payload_preview`（后端文档与实现不一致）。前端在 `run.interrupted` 后用 `GET /approvals?run_id=&status=all` 拉完整 `ApprovalOut` 补全卡片；
+- `run.interrupted.data`：`run_id`、`conversation_id`、`message_id`、`status="interrupted"`、`approvals`（pending id 数组）、`usage`、`citations`；**不再发** `message.done(finish_reason="interrupted")`；
+- `run.resumed.data`：`run_id`、`conversation_id`、`status="running"`；
+- 审批超时：`message.done.finish_reason="canceled"`、`reason="approval_timeout"`；前端提示「审批超时，本轮已取消」并把审批卡置为不可操作；
+- 多审批：一轮只挂起一次；中间决定返回 `resumed=false` + `resume_error="本轮还有其他审批待处理"`，最后一个决定后才恢复；
+- 决定接口其他正常语义：`运行已结束`/`运行不存在` → `resumed=false`，按「审批已记录」处理；409 `approval_expired`、`approval_already_decided` 分别刷新提示，不当作致命错误；
+- 旧后端兼容：仍识别 `message.done.finish_reason="interrupted"`，保留待审卡片。
+
+### 12.2 审计
+
+- `GET /audit-logs`：固定当前用户 `actor_type=user`；支持 `action`、`resource_type`、`start`、`end`、`cursor`、`limit`；
+- `GET /admin/audit-logs`：仅管理员，额外支持 `actor_type`、`actor_id`、`resource_id`；普通用户 403；
+- 响应 `{items,next_cursor,has_more}`，元素 9 字段：`id,actor_type,actor_id,action,resource_type,resource_id,detail,request_id,created_at`；
+- 前端动作筛选内置后端 38 个实际动作（`AUDIT_ACTIONS`），允许自由输入；`detail` 用 `RedactedJson` 默认遮罩敏感键。
+
+### 12.3 平台密钥（仅管理员）
+
+- `GET /admin/secrets?enabled=` → `{items:[{name,description,enabled,created_at,updated_at}]}`；
+- `POST /admin/secrets` 201，`PATCH /admin/secrets/{name}` 200，`DELETE` 204；
+- 永不回显明文/密文；无 `CAPABILITY_SECRET_KEY` 时写入 **503 `secret_store_unavailable`**；非管理员 **403**；删除不检查引用；
+- 名称规则 `^[A-Za-z_][A-Za-z0-9_]{0,63}$`；前端新建/轮换后提示「明文不会再次显示」。
+
+### 12.4 限流与安全 UX
+
+- 聊天 429 `rate_limited`：`error.details.retry_after_seconds` 驱动输入栏倒计时并禁用发送；
+- 登录/注册 429：同一字段驱动提交按钮倒计时；
+- 409/401/403 均按业务语义提示；401 由全局单飞刷新失败后跳登录并提示「登录已过期」；
+- Markdown 外链：同源/锚点/`mailto:`/`tel:` 直接放行，其他域名二次确认后 `noopener,noreferrer` 新标签打开；
+- 输出打码与注入检测由后端完成，前端不新增假 UI；审计页可检索 `security.injection_suspected` / `security.output_redacted`。
+
+### 12.5 断线续传现状（未完成项）
+
+`GET /runs/{id}/events?after_seq=` 的响应剔除了 `payload._event` 且 `type` 仅分类（run/message/tool/…），前端无法还原事件名做 reducer 重放。当前断线恢复为：轮询 `GET /runs/{id}` 状态、进入会话时用 `GET /approvals?run_id=&status=pending` 补审批卡、终态后 `refreshHistory()` 拉服务端消息。逐字续流需后端在 M6 增加 `event` 字段或流式续接端点。

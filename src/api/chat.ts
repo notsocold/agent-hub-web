@@ -11,7 +11,11 @@ import {
 import type { ChatEventName, ChatStreamRequest, StreamHandlers } from '@/types'
 import { storage } from '@/utils/storage'
 
-const CHAT_EVENTS = new Set<ChatEventName>([
+/**
+ * SSE 事件白名单。新增 `ChatEventDataMap` 事件时必须同步加入，
+ * 否则真实模式会在 onmessage 里被当作未知事件丢弃（mock 不经过这里）。
+ */
+export const CHAT_EVENT_NAMES = [
   'conversation.created',
   'run.started',
   'message.created',
@@ -27,15 +31,19 @@ const CHAT_EVENTS = new Set<ChatEventName>([
   'a2a.input_required',
   'a2a.auth_required',
   'approval.required',
+  'run.interrupted',
+  'run.resumed',
   'workflow.step',
   'memory.saved',
   'notice',
   'message.done',
   'error',
   'ping',
-])
+] as const satisfies readonly ChatEventName[]
 
-function isChatEvent(value: string): value is ChatEventName {
+const CHAT_EVENTS = new Set<ChatEventName>(CHAT_EVENT_NAMES)
+
+export function isChatEvent(value: string): value is ChatEventName {
   return CHAT_EVENTS.has(value as ChatEventName)
 }
 

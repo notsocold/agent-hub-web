@@ -20,9 +20,11 @@ const title = computed(() => {
     case 'run_in_progress':
       return '该会话有运行中的请求'
     case 'run_interrupted':
-      return '运行在等待审批或输入'
+      return '运行正在等待审批'
     case 'approval_resume_failed':
       return '审批已记录，运行未自动恢复'
+    case 'approval_timeout':
+      return '审批超时，本轮已取消'
     default:
       return '本次发送未完成'
   }
@@ -39,7 +41,9 @@ const showRetry = computed(
 )
 const showApprovals = computed(
   () =>
-    props.recovery.kind === 'run_interrupted' || props.recovery.kind === 'approval_resume_failed',
+    props.recovery.kind === 'run_interrupted' ||
+    props.recovery.kind === 'approval_resume_failed' ||
+    props.recovery.kind === 'approval_timeout',
 )
 const showStop = computed(
   () =>
@@ -61,7 +65,7 @@ const showStop = computed(
     </div>
     <div class="recovery-actions">
       <button v-if="showApprovals" type="button" class="btn primary" :disabled="busy" @click="emit('approvals')">
-        处理审批
+        {{ recovery.kind === 'approval_timeout' ? '查看审批记录' : '处理审批' }}
       </button>
       <button v-if="showRetry" type="button" class="btn primary" :disabled="busy" @click="emit('retry')">
         重试发送

@@ -12,6 +12,8 @@ const props = defineProps<{
   streaming: boolean
   loading: boolean
   resolvingApproval: boolean
+  /** M5：正在处理的审批 id，用于多审批时只禁用对应卡片。 */
+  resolvingApprovalId?: string | null
   hasMore?: boolean
   loadingOlder?: boolean
 }>()
@@ -59,6 +61,7 @@ const { showJump, onScroll, scrollToBottom } = useAutoScroll(container, () => [
           v-if="message.id === lastAssistantId && process.length > 0"
           :items="process"
           :busy="resolvingApproval"
+          :resolving-approval-id="resolvingApprovalId ?? null"
           @approve="emit('approve', $event)"
           @reject="emit('reject', $event)"
         />
