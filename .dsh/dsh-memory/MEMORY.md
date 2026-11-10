@@ -7,7 +7,7 @@ Project: `/home/zhaodan/work/NodeJsProjects/agent-hub-web`
 
 Active topics: 33
 
-- [M4 知识库前端已完成并联调](m_297e13a9-m4-知识库前端已完成并联调.md) — 2026-11-10 前端 M4 知识库完成并真实联调，已快进合并到 master（0a7b0cd，未推送）。 · `project` · importance 4 · 2026-11-10
+- [M4 知识库前端完成、联调通过并已快进合并到 master](m_297e13a9-m4-知识库前端完成-联调通过并已快进合并到-master.md) — M4 知识库前端已完成真实联调，并以 ff-only 快进合并进 master，提交未推送，origin/master 仍落后。 · `project` · importance 4 · 2026-11-10
 - [agent-hub-web 真实后端联调环境与限流约定](m_25168cdb-agent-hub-web-真实后端联调环境与限流约定.md) — agent-hub-web 真实联调：8000 实例 + Vite 代理、dev server 仅监听 127.0.0.1，各里程碑有冒烟与真实用例脚本；知识库联调需指定 KNOWLEDGE_DIR。 · `reference` · importance 4 · 2026-11-10
 - [agent-hub 知识库 M4 后端契约实际行为（前端按此落地，不造端点）](m_af9313d3-agent-hub-知识库-m4-后端契约实际行为-前端按此落地-不造端点.md) — M4 后端上传同步入库返回终态、无单文档重建与分类目录端点、rebuild 的 own 语义与系统文档只读等实际契约行为。 · `reference` · importance 4 · 2026-11-10
 - [A2A 能力边界收缩为仅出站，不做入站 Server](m_74289a06-a2a-能力边界收缩为仅出站-不做入站-server.md) — 2026-11-10 用户决策：agent-hub 只做出站 A2A Client，不发布 Agent Card、不提供 JSON-RPC 入站端点；M3 取消，设置页 A2A 分区移除。 · `decision` · importance 4 · 2026-11-10
