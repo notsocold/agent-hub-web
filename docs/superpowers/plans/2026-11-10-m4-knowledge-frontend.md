@@ -72,11 +72,11 @@
 - Produces: `KnowledgeStats`、`KnowledgeDocumentPage`、`KnowledgeUploadResult`、`KnowledgeRebuildRequest`、`KnowledgeRebuildResult`。
 - Produces: `mockDb.uploadKnowledgeDocument/deleteKnowledgeDocument/retryKnowledgeDocument/rebuildKnowledgeIndex`。
 
-- [ ] **Step 1: 写失败测试**——覆盖：列表 `q/category/status/owner_scope` 过滤与 6 键 stats；上传新建 201、同文件 200、超 10MB 413、`.exe` 422；删除 204 后列表减少；失败文档 retry 变 ready；非管理员 rebuild 403、管理员 rebuild 返回 `{documents,chunks,failed,elapsed_ms}`。
-- [ ] **Step 2: 运行并确认失败**（`pnpm vitest run src/api/mock/__tests__/knowledge.spec.ts`）。
-- [ ] **Step 3: 实现 types/API/mock**：upload 用 `FormData` + `onUploadProgress`，读 `response.status === 201` 判定 `created`；mock 用 `filename+size` 做幂等键，`scope=system` 置 `owner=null`。
-- [ ] **Step 4: 运行测试通过**。
-- [ ] **Step 5: 提交** `feat(knowledge): 对齐 M4 契约与 API/mock`。
+- [x] **Step 1: 写失败测试**——覆盖：列表 `q/category/status/owner_scope` 过滤与 6 键 stats；上传新建 201、同文件 200、超 10MB 413、`.exe` 422；删除 204 后列表减少；失败文档 retry 变 ready；非管理员 rebuild 403、管理员 rebuild 返回 `{documents,chunks,failed,elapsed_ms}`。
+- [x] **Step 2: 运行并确认失败**（`pnpm vitest run src/api/mock/__tests__/knowledge.spec.ts`）。
+- [x] **Step 3: 实现 types/API/mock**：upload 用 `FormData` + `onUploadProgress`，读 `response.status === 201` 判定 `created`；mock 用 `filename+size` 做幂等键，`scope=system` 置 `owner=null`。
+- [x] **Step 4: 运行测试通过**。
+- [x] **Step 5: 提交** `feat(knowledge): 对齐 M4 契约与 API/mock`。
 
 ### Task 2: 页面工具函数与知识库页
 
@@ -91,11 +91,11 @@
 - Produces: `aggregateCategories(docs: KnowledgeDocument[]): string[]`、`isInterimStatus(status): boolean`、`statusLabel/statusTone`、`formatScore`。
 - UploadDialog emits `uploaded(document, created)`；DocumentDetailDrawer emits `retry/delete/search`；SearchDebugPanel 自己调用 `knowledgeApi.search`。
 
-- [ ] **Step 1: 写失败测试**——`aggregateCategories` 过滤空字符串并去重；`isInterimStatus` 只对 pending/indexing 为真；页面首屏调用 `documents({limit:20})` 并渲染 6 键统计；筛选变化重新请求；`?document_id=` 打开详情抽屉。
-- [ ] **Step 2: 运行确认失败**。
-- [ ] **Step 3: 实现工具函数、三个子组件与页面**：两栏布局；列表服务端筛选 + 游标「加载更多」；5s 轮询仅在存在 pending/indexing 且页面可见时；上传成功刷新并高亮；删除二次确认；重建按钮仅 `auth.user.role==='admin'`。
-- [ ] **Step 4: 运行测试通过**。
-- [ ] **Step 5: 提交** `feat(knowledge): 知识库页上传、检索调试与文档管理`。
+- [x] **Step 1: 写失败测试**——`aggregateCategories` 过滤空字符串并去重；`isInterimStatus` 只对 pending/indexing 为真；页面首屏调用 `documents({limit:20})` 并渲染 6 键统计；筛选变化重新请求；`?document_id=` 打开详情抽屉。
+- [x] **Step 2: 运行确认失败**。
+- [x] **Step 3: 实现工具函数、三个子组件与页面**：两栏布局；列表服务端筛选 + 游标「加载更多」；5s 轮询仅在存在 pending/indexing 且页面可见时；上传成功刷新并高亮；删除二次确认；重建按钮仅 `auth.user.role==='admin'`。
+- [x] **Step 4: 运行测试通过**。
+- [x] **Step 5: 提交** `feat(knowledge): 知识库页上传、检索调试与文档管理`。
 
 ### Task 3: 对话侧分类选择与引用展示
 
@@ -110,11 +110,11 @@
 - Consumes: `ChatContextSelection.knowledge_categories`（已存在）、`Citation`。
 - Produces: `ToolProcess.citations?: Citation[]`；composer `knowledgeCategories` prop（候选分类）与内联手输。
 
-- [ ] **Step 1: 写失败测试**——composer 在 `capabilities.knowledge=true` 时显示分类面板，选择 ≤5 个后 `send` 携带 `knowledge_categories` 且发送后清空；`capabilities.knowledge=false` 时菜单项禁用；reducer 把 `tool.result.citations` 写进 `ToolProcess.citations`。
-- [ ] **Step 2: 运行确认失败**。
-- [ ] **Step 3: 实现**：分类面板（候选 + 手输 + 上限）、chip、`buildContext` 下发；capabilities store 懒加载分类；ToolCard 引用列表；MessageBubble 改 `?document_id=`。
-- [ ] **Step 4: 运行测试通过**。
-- [ ] **Step 5: 提交** `feat(chat): 知识库分类选择与引用来源`。
+- [x] **Step 1: 写失败测试**——composer 在 `capabilities.knowledge=true` 时显示分类面板，选择 ≤5 个后 `send` 携带 `knowledge_categories` 且发送后清空；`capabilities.knowledge=false` 时菜单项禁用；reducer 把 `tool.result.citations` 写进 `ToolProcess.citations`。
+- [x] **Step 2: 运行确认失败**。
+- [x] **Step 3: 实现**：分类面板（候选 + 手输 + 上限）、chip、`buildContext` 下发；capabilities store 懒加载分类；ToolCard 引用列表；MessageBubble 改 `?document_id=`。
+- [x] **Step 4: 运行测试通过**。
+- [x] **Step 5: 提交** `feat(chat): 知识库分类选择与引用来源`。
 
 ### Task 4: 真实冒烟、文档与整体验证
 
@@ -123,11 +123,11 @@
 - Modify: `package.json`（`smoke:m4`）、`scripts/smoke-real-backend.mjs`（删除 knowledge 403 旧断言）
 - Modify: `docs/roadmap.md`、`docs/pages.md`、`docs/api.md`
 
-- [ ] **Step 1: 写冒烟脚本**：登录 → 上传 md/txt → 列表 stats → 检索 → 分类过滤 → 删除；管理员分支（提权后）验证 rebuild 与 `owner_scope=all`；结束时清理自己创建的数据。
-- [ ] **Step 2: 更新旧断言**：`knowledge_categories` 不再 403，改为验证传入后聊天不被拒。
-- [ ] **Step 3: 文档收口**：M4 前端状态改「已联调/实现中」，补端点与行为差异（单文档重建=retry、同步入库、无分类目录）。
-- [ ] **Step 4: 全量验证**：`pnpm type-check && pnpm lint && pnpm test && pnpm build`；启动 `uvicorn` + seed 开发账号后跑 `pnpm smoke:m4` 与 `pnpm test:real`。
-- [ ] **Step 5: 提交** `test(knowledge): M4 真实冒烟与文档收口`。
+- [x] **Step 1: 写冒烟脚本**：登录 → 上传 md/txt → 列表 stats → 检索 → 分类过滤 → 删除；管理员分支（提权后）验证 rebuild 与 `owner_scope=all`；结束时清理自己创建的数据。
+- [x] **Step 2: 更新旧断言**：`knowledge_categories` 不再 403，改为验证传入后聊天不被拒。
+- [x] **Step 3: 文档收口**：M4 前端状态改「已联调/实现中」，补端点与行为差异（单文档重建=retry、同步入库、无分类目录）。
+- [x] **Step 4: 全量验证**：`pnpm type-check && pnpm lint && pnpm test && pnpm build`；启动 `uvicorn` + seed 开发账号后跑 `pnpm smoke:m4` 与 `pnpm test:real`。
+- [x] **Step 5: 提交** `test(knowledge): M4 真实冒烟与文档收口`。
 
 ---
 
@@ -136,3 +136,13 @@
 - **Spec coverage:** 页面文档管理→Task 2；上传/重试/删除/重建→Task 2；检索调试→Task 2；分类菜单→Task 3；引用与工具卡→Task 3；契约→Task 1；真实联调证据→Task 4。
 - **Type consistency:** `knowledgeApi.upload` 返回 `{document, created}`；页面据此提示 200/201 差异。`ToolProcess.citations` 与 `Citation` 同形。
 - **Review Focus:** 每条都在 Task 1/2/3 的测试步骤中落位。
+
+---
+
+## 完成记录（2026-11-10）
+
+- Task 1：`ec14227`（契约/API/mock，`pnpm test` 96）
+- Task 2：`8bd7f2e`（页面/组件/工具函数，`pnpm test` 106）
+- Task 3：`ecf103c`（分类菜单/工具卡引用/深链，`pnpm test` 113）
+- Task 4：`d422739`（smoke:m4 39/38 断言、real-m4 3/3、文档收口）
+- 环境限制：真实 LLM key 为占位符，M1 store 真实用例 401；知识库检索走 fake embedding，语义召回率未取得证据（与后端 M4 报告口径一致）。
