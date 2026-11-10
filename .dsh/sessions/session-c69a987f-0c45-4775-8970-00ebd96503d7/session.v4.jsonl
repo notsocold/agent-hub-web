@@ -1116,3 +1116,4 @@
 {"type":"step/end","seq":1114,"time":1794215629454,"data":{"turn":2,"step":2}}
 {"type":"workspace/changes","seq":1115,"time":1794215631589,"data":{"turn":2}}
 {"type":"turn/end","seq":1116,"time":1794215631589,"data":{"turn":2,"reason":{"kind":"completed"}}}
+{"type":"job/settled","seq":1117,"time":1794219574494,"data":{"jobId":"bash-63a4bdd0f44f411e","owner":"session-c69a987f-0c45-4775-8970-00ebd96503d7","kind":"bash","label":"pnpm dev --host 127.0.0.1","startedAt":1794215007488,"toolCall":{"callId":"call_00_xUysXee4uGCiSJPB4N9O9431","rootCallId":"call_00_xUysXee4uGCiSJPB4N9O9431"},"finishedAt":1794219574494,"status":"killed","cause":"teardown","producerReported":true,"detail":"signal: SIGTERM"}}
