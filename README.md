@@ -7,7 +7,8 @@
 > **当前状态：M1.5 与 M2 前端均已实现，并与真实后端完成联调（2026-11-10 凌晨）。**
 > 已实现登录/注册、路由守卫、应用布局与主题、对话工作台（SSE 流式、工具/技能/A2A/审批过程卡片、停止、历史会话）、运行详情、M1.5 个人能力（输入栏「+」上下文、附件上传/下载、指令/记忆/技能/MCP 设置页），以及 M2 智能体注册向导/Agent Card/健康检查/启停删除与任务列表/详情/取消/补充信息/授权/拒绝（真实 M2 后端 + 本地假 A2A Agent 已验证）。
 > 仓库默认 `.env.development` 仍开启 `VITE_USE_MOCK=true`，按 `docs/handoff/fixtures.md` 回放 REST 与 SSE；本机联调用 `.env.development.local` 覆盖为 `VITE_USE_MOCK=false` 即走真实接口。
-> 后端 M1 契约反馈见 `agent-hub/docs/feedback/2026-11-09-frontend-contract-feedback.md`，前端对接结论见 `agent-hub/docs/feedback/2026-11-09-frontend-integration-response.md`；M1.5 实现与偏差见 `agent-hub/docs/feedback/2026-11-09-m15-backend-report.md`。
+> 后端 M1 契约反馈见 `agent-hub/docs/feedback/2026-11-09-frontend-contract-feedback.md`，前端对接结论见 `agent-hub/docs/feedback/2026-11-09-frontend-integration-response.md`；M1.5/M2 实现与偏差见 `agent-hub/docs/feedback/2026-11-09-m15-backend-report.md`、`agent-hub/docs/feedback/2026-11-09-m2-backend-report.md`。
+> **路线对齐（2026-11-10）**：前端 M 编号与后端 M0–M6 同名同义；M3=A2A 入站、M5=审批与安全加固；体验项为 F1，工作流/完整管理台为 X1/X2 待立项。详见[路线图](docs/roadmap.md)。
 > 单文件 HTML 原型见 [docs/prototypes](docs/prototypes/README.md)；后端交接包见 [docs/handoff](docs/handoff/README.md)。
 
 ## 1. 规划定位
@@ -18,8 +19,8 @@
 - **会话**：浏览/重命名/归档历史会话，查看来源引用与运行详情；
 - **智能体**：注册远程 A2A 智能体，查看 Agent Card 与技能，做健康检查；
 - **任务**：跟踪主智能体发起的远程 A2A 任务，处理补充信息与授权；
-- **知识库**：上传文档、查看索引状态、调试检索；
-- **工作流**：把技能、检索、A2A、MCP 与审批编排成有序步骤模板；
+- **知识库**：上传文档、查看索引状态、调试检索（M4）；
+- **工作流**：把技能、检索、A2A、MCP 与审批编排成有序步骤模板（**X1 待后端立项；当前仅页面骨架与 mock**）；
 - **设置**：账号、模型参数、A2A 端点与个人能力。
 
 ## 2. 技术栈
@@ -36,7 +37,7 @@
 | SSE | `@microsoft/fetch-event-source` | 已实现，支持 POST + Bearer |
 | Markdown | `marked` + DOMPurify + highlight.js | 已实现 |
 | 时间 | dayjs（zh-cn） | 已实现 |
-| 测试 | Vitest 5 + @vue/test-utils + jsdom | 已配置，75 个单测 + 4 个真实后端联调用例 + M1/M1.5 冒烟脚本 |
+| 测试 | Vitest 5 + @vue/test-utils + jsdom | 已配置，79 个单测 + 4 个真实后端联调用例 + M1/M1.5 冒烟脚本 |
 | 代码质量 | ESLint + Oxlint + Prettier | 已配置 |
 | 包管理 | pnpm | 已使用（项目内 `.npmrc` 指定 store） |
 
@@ -124,17 +125,18 @@ mock 登录：任意邮箱 + 8 位以上密码；密码为 `wrong-password` 时�
 - [x] Vitest：契约、客户端、mock 路由、SSE 顺序、reducer、store、路由守卫、输入栏；真实后端 store/SSE 联调
 - [x] **M1.5**：附件上传/去重/受控下载；输入栏「+」技能/MCP 选择与 chips、`@` 文件选择、发送后清空；技能/指令/记忆/MCP 设置页；`skill.activated`/`memory.saved`/`tool.*` 事件卡；真实后端 M1.5 冒烟 68 项断言通过
 - [x] **M2 前端**：智能体列表/筛选/统计、两段式注册（预览 Agent Card → 确认）、详情抽屉（原始 Card/技能/最近任务）、健康检查/刷新/启停/删除；任务列表/筛选/分页/轮询、详情抽屉（请求/结果/错误/时间线）、取消/补充信息/授权/拒绝；对话内 A2A 卡片跳转任务
-- [x] `pnpm type-check`、`pnpm test`（75）、`pnpm build`、`pnpm lint` 通过
+- [x] `pnpm type-check`、`pnpm test`（79）、`pnpm build`、`pnpm lint` 通过
 - [x] 真实后端联调：`smoke:real` 97 项、`smoke:m15` 68 项、`test:real` 4 个用例（含 M2 远程 Agent 调用与任务详情）
 
-明确未包含（后续里程碑）：
+明确未包含（后续里程碑，编号与后端一致）：
 
-- [ ] 断线续传 / Last-Event-ID（M6；M1 断线后靠历史 + 运行事件恢复）
-- [ ] 审批独立列表页（M3；对话内审批卡已可用）
-- [ ] 知识库上传、重试、重建、检索调试（M4）
-- [ ] 工作流编辑器与执行（M5+）
-- [ ] v8 管理控制台（M5+）
-- [ ] E2E 与虚拟滚动（M5–M6）
+- [ ] A2A 入站前端配套（M3）：入站任务/会话来源标记、API Key 管理（若后端提供端点；A2A 地址门控已完成）
+- [ ] 知识库上传、重试、重建、检索调试与引用（M4）
+- [ ] 审批中心、审计查询与写操作 RBAC（M5；对话内审批卡已可用，审计需后端 admin 契约）
+- [ ] 断线续传 / Last-Event-ID（M6；当前靠历史 + `after_seq` 运行事件恢复）
+- [ ] 工作流编辑器与执行（X1 待后端立项，当前仅骨架 + mock）
+- [ ] v8 完整管理控制台（X2 待后端立项；M5 只在审计契约就绪时做最小集）
+- [ ] E2E（M6）与虚拟滚动/可访问性（F1）
 
 ## 7. 文档索引
 
@@ -144,7 +146,7 @@ mock 登录：任意邮箱 + 8 位以上密码；密码为 `wrong-password` 时�
 | [页面规划](docs/pages.md) | 页面清单、布局、交互与状态 |
 | [API 对接](docs/api.md) | Axios/SSE 用法、认证、错误、类型生成 |
 | [开发指南](docs/development.md) | 环境、命令、规范、新增页面步骤 |
-| [路线图](docs/roadmap.md) | 与后端对齐的 M1–M6 前端任务 |
+| [路线图](docs/roadmap.md) | 与后端 M0–M6 同名同义的前端任务、F/X 系列与契约门禁 |
 | [M1 实施计划](docs/superpowers/plans/2026-11-09-m1-chat-workbench.md) | 任务拆分、文件与验收 |
 | [HTML 原型索引](docs/prototypes/README.md) | v7 工作台 / v7 页面样例 / v8 管理控制台 |
 | [原型自检报告](docs/prototypes/review-2026-11-08.md) | 前后端契约对照、可行性风险、已修复问题 |
@@ -155,8 +157,10 @@ mock 登录：任意邮箱 + 8 位以上密码；密码为 `wrong-password` 时�
 
 - 后端契约：[agent-hub/docs/api.md](../../PythonProjects/agent-hub/docs/api.md)、[A2A 设计](../../PythonProjects/agent-hub/docs/a2a.md)；
 - 前端类型按 `docs/handoff/contract-delta.md` 编写，mock 数据按 `fixtures.md` 复刻；
+- **交接包是 2026-11-08 的提案**：其中的「M5+」编号已被 [路线图](docs/roadmap.md) 的 X1/X2 取代；契约与 fixtures 仍然有效，字段冲突时以 `contract-delta.md` 和当前 OpenAPI 为准；
 - 交接包中的 8 项决策（D1–D8）尚未全部拍板；前端按推荐项实现并在类型/降级处保留兼容：
   - D3 模型/推理等级：`/system/info` 为空时隐藏选择器；
   - D4 知识库选择：请求字段为 `knowledge_categories`；
   - D8 HITL：按“保持流 + 超时”处理，审批后同一流继续；
-- 后端就绪后优先联调：登录 → `/auth/me` → 会话列表 → 发消息 SSE → 停止 → 审批 → 运行事件。
+- 后端状态以 `agent-hub/docs/feedback/` 的实现报告与 OpenAPI 为准；后端 `docs/roadmap.md` 的完成勾选可能滞后（M1/M2 尚未勾选），不要据此判断前端可联调范围；
+- 后端就绪后优先联调：**M3 入站（Agent Card → `message/send` → 入站任务/会话）** → **M4 知识库** → **M5 审批中心/审计**。

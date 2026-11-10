@@ -1,15 +1,15 @@
 # 前端架构
 
 - 项目：Agent Hub Web（`agent-hub-web`）
-- 状态：M1 已实现（默认 mock）；本文设计已落地，未实现部分见路线图
-- 更新时间：2026-11-09
+- 状态：M1.5/M2 已实现并真实联调；M3 起的能力见路线图
+- 更新时间：2026-11-10
 
 ## 1. 目标
 
 1. 提供流畅的多轮对话工作台，SSE 流式渲染回答与任务进度；
 2. 让用户管理远程 A2A 智能体、知识库与审批；
 3. 与后端契约解耦：类型集中在 `src/types/`，页面不直接拼 URL；
-4. 保持工程化基线：TypeScript 严格模式、ESLint/Prettier、可构建、可测试（后续补 Vitest）。
+4. 保持工程化基线：TypeScript 严格模式、ESLint/Prettier、可构建、可测试（Vitest 已配置）。
 
 ## 2. 技术架构
 
@@ -40,7 +40,7 @@ flowchart TB
 
 ## 3. 分层职责
 
-> 下表已按 M1 实现落地：`views/`、`components/`、`stores/`、`api/`、`types/`、
+> 下表已按 M1.5/M2 实现落地：`views/`、`components/`、`stores/`、`api/`、`types/`、
 > `composables/`、`layouts/` 均有对应代码；mock 数据层位于 `src/api/mock/`。
 
 | 层 | 目录 | 职责 | 禁止 |
@@ -61,7 +61,7 @@ flowchart TB
 
 ## 4. 关键数据流
 
-### 4.1 对话（规划，M1）
+### 4.1 对话（M1）
 
 ```mermaid
 sequenceDiagram
@@ -109,14 +109,14 @@ sequenceDiagram
 
 | Store | 状态 | 说明 |
 |---|---|---|
-| `auth` | accessToken、refreshToken、user、isAuthenticated | 规划（当前未创建） |
+| `auth` | accessToken、refreshToken、user、isAuthenticated | 已实现 |
 | `chat` | 当前会话、消息时间线、流式状态、工具/任务卡片 | M1 |
 | `conversations` | 列表、分页游标、筛选条件 | M1 |
 | `agents` | 远程 Agent 列表、健康状态、注册表单 | M2 |
 | `tasks` | A2A 任务列表、筛选、实时更新 | M2 |
 | `knowledge` | 文档列表、上传队列、检索结果 | M4 |
 | `capabilities` | 指令、记忆、技能、MCP 设置与目录 | M1.5 |
-| `workflows` | 工作流列表、编辑器草稿 | 原型概念，待后端契约 |
+| `workflows` | 工作流列表、编辑器草稿 | X1 待立项（后端未纳入 M0–M6）；当前 mock |
 
 约定：
 
@@ -137,12 +137,12 @@ sequenceDiagram
 | `/settings` | `SettingsView` | AppLayout |
 | `/login` | `LoginView`（M1） | 独立布局 |
 
-> 原型 v7 已增加工作流页与「个人能力」设置分区；对应路由（如 `/workflows`）和 store 待后端契约确认后纳入，不在 M0 路由表中。
+> 原型 v7 已增加工作流页与「个人能力」设置分区；`/workflows` 路由已存在但受 `capabilities.workflows` 门控（当前后端恒为 `false`），store 仍用 mock。工作流属 X1 待立项，不随 M3/M4 排期。
 
 - 路由级懒加载（`() => import(...)`），首屏只加载布局与当前页；
 - `meta.title` 驱动顶栏与 `document.title`；
 - 路由守卫在 M1 加：未认证访问业务页 → `/login?redirect=...`；
-- 404 重定向到 `/chat`（后续可改为 NotFound 页）。
+- 404 显示 `NotFoundView`（不再重定向到对话页）。
 
 ## 7. SSE 设计
 
@@ -178,7 +178,7 @@ await fetchEventSource('/api/v1/chat/stream', {
 - `AbortController` 在组件卸载/用户停止时调用；
 - 后端默认「断开不取消」；前端重连后按 `run_id` 拉最终状态；
 - 断线重试最多 3 次，指数退避；`message.done` 后不重连；
-- SSE 事件 `id` 可用于后续 `Last-Event-ID` 断点续传（后端 M6 支持）。
+- SSE 事件 `id` 可用于后续 `Last-Event-ID` 断点续传（后端 M6 评估多实例/断线策略；当前用 `after_seq` 回放恢复）。
 
 ## 8. 样式方案
 
@@ -201,7 +201,7 @@ await fetchEventSource('/api/v1/chat/stream', {
 ## 10. 性能
 
 - 路由懒加载；重型依赖（Markdown、代码高亮）按需 import；
-- 长会话消息列表用虚拟滚动（`el-virtual-list` 或自研，M4 评估）；
+- 长会话消息列表用虚拟滚动（`el-virtual-list` 或自研，F1 评估，M6 前收口）；
 - SSE 增量按帧合并，避免每个 token 触发一次完整重渲染；
 - Markdown 渲染做缓存（按 message_id + content hash）；
 - 图片/附件走缩略图与懒加载。

@@ -5,8 +5,9 @@
 
 Project: `/home/zhaodan/work/NodeJsProjects/agent-hub-web`
 
-Active topics: 26
+Active topics: 29
 
+- [前端路线图编号与后端 M0–M6 同名同义，新增 F1/X1/X2 系列](m_4eef4b73-前端路线图编号与后端-m0-m6-同名同义-新增-f1-x1-x2-系列.md) — agent-hub-web 的 docs/roadmap.md 放弃自增 M1–M6，改为与 agent-hub 后端同编号同语义，并用 F1（前端横切）与 X1/X2（后端未立项）承载无后端归属的工作。 · `decision` · importance 4 · 2026-11-10
 - [事故善后：活动会话已脱敏，剩余 Key 轮换与其他工作区](m_b5975052-事故善后-活动会话已脱敏-剩余-key-轮换与其他工作区.md) — 活动会话已脱敏并推送；剩余：轮换 4 把 key、清理其他工作区会话、公开历史清理、钩子跨机安装。 · `todo` · importance 4 · 2026-11-09
 - [agent-hub-web 的 DSH 会话：脱敏原生 zstd 与工作区快照后随仓库提交](m_54f277cf-agent-hub-web-的-dsh-会话-脱敏原生-zstd-与工作区快照后.md) — 会话快照不整目录忽略，用 scripts/dsh-session-sanitize.mjs 同一规则脱敏原生 zstd 与工作区快照后提交，脚本带并发写保护可在 dsh web 运行时安全处理活动会话。 · `reference` · importance 4 · 2026-11-09
 - [agent-hub M1.5/M2 真实字段差异与前端归一化](m_df7d70bd-agent-hub-m1-5-m2-真实字段差异与前端归一化.md) — 真实后端与 contract-delta 草稿的字段差异，以及 M1.5/M2 对齐与后端交接文档位置。 · `reference` · importance 4 · 2026-11-09
@@ -26,6 +27,8 @@ Active topics: 26
 - [agent-hub-web v8 管理员控制台（独立管理会话原型）](m_e70f698d-agent-hub-web-v8-管理员控制台-独立管理会话原型.md) — v8 管理员控制台独立为 ui-v8-admin.html：深墨管理侧栏 + 概览/用户/角色权限/菜单/字典/审计/系统设置七页，v7 工作台不出现管理员入口。 · `decision` · importance 4 · 2026-11-05
 - [输入框「@」只用于选择文件，上下文能力统一收进「+」菜单](m_93398223-输入框-只用于选择文件-上下文能力统一收进-菜单.md) — 用户明确：@ 是文件选择用途，不用于选择智能体；附件、技能、工作流、知识库等显式选择统一收进输入栏「+」上下文菜单。 · `decision` · importance 4 · 2026-11-05
 - [agent-hub-web 原型 v7：工作流管理页 + 输入区「+」菜单 + 模型/推理等级](m_6855443e-agent-hub-web-原型-v7-工作流管理页-输入区-菜单-模型-推理等.md) — v7 新增工作流管理页与可配置步骤编辑器，重做对话输入区为「+」上下文菜单（附件/技能/工作流/知识库）和右侧模型/推理等级选择，并打通工作流在对话中的调用。 · `decision` · importance 4 · 2026-11-05
+- [后端仓库 agent-hub 的 docs/roadmap.md M1/M2 勾选仍滞后，需单独同步](m_626d77c1-后端仓库-agent-hub-的-docs-roadmap-md-m1-m2-勾.md) — agent-hub-web 侧文档已收尾，但后端仓库 roadmap 的 M1/M2 完成勾选尚未更新，需在后端仓库单独提交同步。 · `todo` · importance 3 · 2026-11-10
+- [M1 收尾两项已修复：A2A 设置门控、model/reasoning_effort 随请求发送](m_bf11250b-m1-收尾两项已修复-a2a-设置门控-model-reasoning-effo.md) — A2A 设置已按 a2a.enabled 门控；模型/推理选择已随 chat/stream 发送；新增 4 个单测，79 个用例通过。 · `project` · importance 3 · 2026-11-10
 - [agent-hub-web 的 DSH 会话脱敏钩子与脚本行为约定](m_fd58cf40-agent-hub-web-的-dsh-会话脱敏钩子与脚本行为约定.md) — 脱敏钩子只在提交前拦截、不自动改写；脚本以 stat 一致性校验保证活动会话可安全脱敏。 · `reference` · importance 3 · 2026-11-09
 - [agent-hub-web 公开仓库推送：沙箱无 HTTPS 凭据，改用 SSH remote](m_1108af97-agent-hub-web-公开仓库推送-沙箱无-https-凭据-改用-ssh.md) — agent-hub-web 是 public 仓库，Agent 沙箱内没有 HTTPS git 凭据助手，push 需用 SSH 地址而非 https。 · `reference` · importance 3 · 2026-11-09
 - [master 迁移采用 ff-only 快进合并，保留 14 个 M1 提交历史](m_35ab530a-master-迁移采用-ff-only-快进合并-保留-14-个-m1-提交历史.md) — 把 feat/m1-chat-workbench 迁到 master 时选择快进合并而非 squash/rebase，完整保留提交历史，推送由用户自己完成。 · `decision` · importance 3 · 2026-11-09

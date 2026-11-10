@@ -14,6 +14,7 @@ import { useChatStore } from '@/stores/chat'
 import { useConversationsStore } from '@/stores/conversations'
 import { useSystemStore } from '@/stores/system'
 import type { Approval, ChatContextSelection, ReasoningEffortId } from '@/types'
+import { withModelSelection } from '@/utils/chatSelection'
 
 const route = useRoute()
 const router = useRouter()
@@ -152,12 +153,18 @@ function handleRemoved(id: string): void {
   void router.replace({ query: {} })
 }
 
+const modelSelection = computed(() => ({
+  model: model.value,
+  reasoningEffort: reasoningEffort.value,
+  reasoningSupported: system.reasoningEfforts.length > 0,
+}))
+
 function handleSend(payload: { text: string; context: ChatContextSelection }): void {
-  void chat.send(payload.text, payload.context)
+  void chat.send(payload.text, withModelSelection(payload.context, modelSelection.value))
 }
 
 function useSuggestion(text: string): void {
-  void chat.send(text)
+  void chat.send(text, withModelSelection({}, modelSelection.value))
 }
 
 async function handleApproval(approve: boolean): Promise<void> {

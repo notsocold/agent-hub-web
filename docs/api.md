@@ -1,6 +1,6 @@
 # API 对接指南
 
-后端契约以 [`agent-hub/docs/api.md`](../../../PythonProjects/agent-hub/docs/api.md) 为准；本文只写前端如何消费。
+后端契约以 [`agent-hub/docs/api.md`](../../../PythonProjects/agent-hub/docs/api.md) 为准；本文只写前端如何消费。里程碑归属与开工门禁见[路线图](roadmap.md)。
 
 > 前端已实现 `src/api/client.ts`、`src/api/<domain>.ts`、`src/types/` 与 `src/api/mock/`；
 > 开发环境默认 mock，联调时设置 `VITE_USE_MOCK=false`。
@@ -170,7 +170,7 @@ curl -N -X POST http://localhost:8000/api/v1/chat/stream \
 - 若长时间无输出，检查 Nginx `proxy_buffering off`；
 - 401 检查 localStorage token 与后端时钟偏差。
 
-## 9. 个人能力层接口（M1.5，规划）
+## 9. 个人能力层接口（M1.5，已实现）
 
 | 功能 | 接口 | 说明 |
 |---|---|---|
@@ -179,16 +179,20 @@ curl -N -X POST http://localhost:8000/api/v1/chat/stream \
 | 技能 | `/skills`、`/skills/catalog` | 系统 + 用户技能；zip 导入；参考文件读取 |
 | MCP | `/mcp/servers`、`/mcp/available` | 系统 + 用户服务器；工具发现；凭据只回显提示 |
 
-请求仍走 `/api/v1`，认证、错误信封与分页约定同上。设置页四区块与输入栏「+」选择器按此契约设计；显式选择只影响当次请求。
+请求仍走 `/api/v1`，认证、错误信封与分页约定同上。设置页四区块与输入栏「+」选择器已按此契约实现；显式选择只影响当次请求。
 
-## 10. 已知契约缺口
+## 10. 契约缺口（按里程碑）
 
-以下原型元素尚无后端契约，接入前需先补设计：
+以下元素尚无后端契约或尚未实现，接入前需先补设计；归属以[路线图](roadmap.md)为准：
 
-- 工作流管理（`workflows` / `workflow_runs`，或明确不落地）；
-- 管理端用户、角色权限、菜单、字典、审计查询；
-- `chat/stream` 的 `model` / `reasoning_effort` 与 reasoning 事件；
-- 附件上传端点；
-- 知识库选择字段、会话搜索 `q`、`message_count`、审批列表。
+| 归属 | 缺口 | 当前处理 |
+|---|---|---|
+| M3 | 入站任务的来源/可空 `agent`/调用方字段、会话来源（`metadata` 或新增 `source`，由 M3 定）、入站 API Key 管理端点 | 先冻结契约；未启用时只读展示 |
+| M4 | 知识库文档/检索端点、citations 形状、`knowledge_categories` | 页面保持 `knowledge=false` 门控 |
+| M5 | 审计查询 API、写操作 RBAC 的 403 | 审批中心可先做；审计/RBAC 等后端 |
+| X1 | 工作流管理（`workflows` / `workflow_runs`，或明确不落地） | 待立项，不做编辑器/执行 |
+| X2 | 管理端用户、角色权限、菜单、字典、审计查询 | 待立项；`/api/v1/admin/*` 实测 404 |
+
+已由后端补齐、不再列为缺口：附件上传/受控下载、审批列表/详情/决定、会话搜索 `q`、`message_count`、`chat/stream` 的 `model`/`reasoning_effort` 与 reasoning SSE 事件。
 
 详见 [原型自检报告](prototypes/review-2026-11-08.md)；字段级方案、任务包与样例见[后端交接包](handoff/README.md)。

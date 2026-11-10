@@ -29,6 +29,15 @@ const active = ref<SectionKey>('capabilities')
 
 const generation = computed(() => system.info?.generation ?? null)
 
+// 入站 A2A 只有在后端显式开启时才展示可复制地址；未开启时显示占位与说明，
+// 避免把尚未挂载的端点当成可用能力。
+const a2aEnabled = computed(() => system.a2a?.enabled === true)
+const a2aCardUrl = computed(() => (a2aEnabled.value ? (system.a2a?.card_url ?? '') : ''))
+const a2aJsonrpcUrl = computed(() => (a2aEnabled.value ? (system.a2a?.jsonrpc_url ?? '') : ''))
+const a2aStatusLabel = computed(() =>
+  a2aEnabled.value ? (system.a2a?.auth_type ?? '未配置') : '入站未启用',
+)
+
 async function copy(value: string): Promise<void> {
   try {
     await navigator.clipboard.writeText(value)
@@ -152,32 +161,37 @@ onMounted(() => {
           <section class="card">
             <header class="card-head">
               <h2>A2A 端点</h2>
-              <span class="tag mono">{{ system.a2a?.auth_type ?? '未配置' }}</span>
+              <span class="tag mono" data-testid="a2a-status">{{ a2aStatusLabel }}</span>
             </header>
+            <p v-if="!a2aEnabled" class="muted" data-testid="a2a-disabled-hint">
+              入站 A2A 尚未启用（后端 M3）。启用后可在此查看并复制 Agent Card 与 JSON-RPC 地址。
+            </p>
             <dl class="kv">
               <div>
                 <dt>Agent Card</dt>
-                <dd class="mono ellipsis">{{ system.a2a?.card_url ?? '—' }}</dd>
+                <dd class="mono ellipsis">{{ a2aCardUrl || '—' }}</dd>
               </div>
               <div>
                 <dt>JSON-RPC</dt>
-                <dd class="mono ellipsis">{{ system.a2a?.jsonrpc_url ?? '—' }}</dd>
+                <dd class="mono ellipsis">{{ a2aJsonrpcUrl || '—' }}</dd>
               </div>
             </dl>
             <div class="card-actions">
               <button
                 type="button"
                 class="btn"
-                :disabled="!system.a2a?.card_url"
-                @click="copy(system.a2a?.card_url ?? '')"
+                data-testid="copy-card-url"
+                :disabled="!a2aCardUrl"
+                @click="copy(a2aCardUrl)"
               >
                 复制 Card 地址
               </button>
               <button
                 type="button"
                 class="btn"
-                :disabled="!system.a2a?.jsonrpc_url"
-                @click="copy(system.a2a?.jsonrpc_url ?? '')"
+                data-testid="copy-jsonrpc-url"
+                :disabled="!a2aJsonrpcUrl"
+                @click="copy(a2aJsonrpcUrl)"
               >
                 复制 JSON-RPC
               </button>

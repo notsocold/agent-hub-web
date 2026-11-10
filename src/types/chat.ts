@@ -426,4 +426,8 @@ export interface ChatContextSelection {
   mcp_servers?: string[]
   mcp_tools?: string[]
   knowledge_categories?: string[]
+  /** 输入栏模型选择；为空时走后端默认模型。 */
+  model?: string
+  /** 仅在 `/system/info.reasoning_efforts` 非空时下发。 */
+  reasoning_effort?: ReasoningEffortId
 }
