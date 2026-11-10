@@ -121,6 +121,17 @@ describe('chat reducer', () => {
       result_preview: 'Q3 复盘 (0.94)',
       duration_ms: 800,
       seq: 2,
+      citations: [
+        {
+          index: 1,
+          document_id: 'doc-1',
+          chunk_id: 'chunk-1',
+          title: 'Q3 复盘',
+          category: '客服',
+          score: 0.94,
+          updated_at: '2026-09-30T00:00:00Z',
+        },
+      ],
     })
 
     expect(state.process).toHaveLength(1)
@@ -130,6 +141,8 @@ describe('chat reducer', () => {
       expect(item.status).toBe('ok')
       expect(item.summary).toBe('命中 3 个片段')
       expect(item.durationMs).toBe(800)
+      expect(item.citations).toHaveLength(1)
+      expect(item.citations?.[0]?.document_id).toBe('doc-1')
     }
   })
 

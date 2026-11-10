@@ -1,8 +1,10 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 
+import { knowledgeApi } from '@/api/knowledge'
 import { mcpApi } from '@/api/mcp'
 import { skillsApi } from '@/api/skills'
+import { aggregateCategories } from '@/utils/knowledge'
 import type { McpAvailableServer, McpAvailableTool, SkillCatalogItem } from '@/types'
 
 /**
@@ -21,6 +23,10 @@ export const useCapabilitiesStore = defineStore('capabilities', () => {
   const loading = ref(false)
   const loaded = ref(false)
   const error = ref<string | null>(null)
+  /** 知识库分类候选：后端没有分类目录端点，只能从可见文档聚合。 */
+  const knowledgeCategories = ref<string[]>([])
+  const knowledgeCategoriesLoaded = ref(false)
+  const loadingKnowledgeCategories = ref(false)
 
   const enabledSkills = computed(() => skills.value.filter((item) => item.enabled))
   const enabledMcpServers = computed(() => mcpServers.value.filter((item) => item.enabled))
@@ -44,9 +50,31 @@ export const useCapabilitiesStore = defineStore('capabilities', () => {
     }
   }
 
+  /**
+   * 懒加载分类候选（最多 100 篇可见文档）。
+   *
+   * - 能力关闭时后端返回 403：静默保持空列表，由输入栏提示「未启用」；
+   * - 失败不阻断聊天主流程，也不写全局 error，避免影响技能/MCP 目录。
+   */
+  async function loadKnowledgeCategories(force = false): Promise<void> {
+    if (loadingKnowledgeCategories.value) return
+    if (knowledgeCategoriesLoaded.value && !force) return
+    loadingKnowledgeCategories.value = true
+    try {
+      const page = await knowledgeApi.documents({ limit: 100 })
+      knowledgeCategories.value = aggregateCategories(page.items)
+      knowledgeCategoriesLoaded.value = true
+    } catch {
+      knowledgeCategories.value = []
+    } finally {
+      loadingKnowledgeCategories.value = false
+    }
+  }
+
   /** 设置页改动后让下一次选择重新拉取。 */
   function invalidate(): void {
     loaded.value = false
+    knowledgeCategoriesLoaded.value = false
   }
 
   function toolsOfServer(serverId: string): McpAvailableTool[] {
@@ -94,8 +122,12 @@ export const useCapabilitiesStore = defineStore('capabilities', () => {
     enabledMcpServers,
     loadedServerTools,
     loadingTools,
+    knowledgeCategories,
+    knowledgeCategoriesLoaded,
+    loadingKnowledgeCategories,
     load,
     loadTools,
+    loadKnowledgeCategories,
     invalidate,
     toolsOfServer,
   }

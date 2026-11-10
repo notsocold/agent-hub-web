@@ -3,6 +3,7 @@ import { computed } from 'vue'
 
 import ProcessCardShell from './ProcessCardShell.vue'
 import { formatDuration } from '@/utils/format'
+import { formatScore } from '@/utils/knowledge'
 import type { ToolProcess } from '@/types'
 
 const props = defineProps<{
@@ -47,6 +48,26 @@ const RISK_LABELS: Record<string, string> = {
 
     <p v-if="item.argsPreview" class="line mono">{{ item.argsPreview }}</p>
     <p v-if="item.summary" class="line summary">{{ item.summary }}</p>
+
+    <div v-if="item.citations?.length" class="citations">
+      <p class="block-label">引用来源</p>
+      <ol>
+        <li v-for="citation in item.citations" :key="citation.chunk_id">
+          <RouterLink
+            :to="{
+              name: 'knowledge',
+              query: { document_id: citation.document_id, q: citation.title },
+            }"
+          >
+            <span class="index mono">[{{ citation.index }}]</span>
+            <span class="citation-title">{{ citation.title }}</span>
+            <span class="citation-meta">
+              {{ citation.category }} · {{ formatScore(citation.score) }}
+            </span>
+          </RouterLink>
+        </li>
+      </ol>
+    </div>
 
     <details v-if="item.resultPreview || item.error || metadataEntries.length" class="details">
       <summary>查看结果</summary>
@@ -110,6 +131,63 @@ const RISK_LABELS: Record<string, string> = {
 
 .summary {
   color: var(--ink);
+}
+
+.citations {
+  margin-top: 8px;
+}
+
+.block-label {
+  margin-bottom: 3px;
+  color: var(--ink-3);
+  font-size: 9.5px;
+  letter-spacing: 0.04em;
+}
+
+.citations ol {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.citations a {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 2px 4px;
+  border-radius: 4px;
+  color: var(--ink-2);
+  font-size: 10.5px;
+}
+
+.citations a:hover {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+.citations a:hover .citation-title {
+  text-decoration: underline;
+}
+
+.index {
+  flex: none;
+  color: var(--prussian);
+  font-size: 9.5px;
+}
+
+.citation-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.citation-meta {
+  flex: none;
+  color: var(--ink-3);
+  font-size: 9px;
 }
 
 .details {

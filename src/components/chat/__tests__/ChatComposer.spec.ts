@@ -182,3 +182,54 @@ describe('ChatComposer', () => {
     expect(wrapper.findAll('[data-testid="chip-skill"]')).toHaveLength(3)
   })
 })
+
+const knowledgeCapabilities = { ...capabilities, knowledge: true }
+const knowledgeCategories = ['售后', '客服']
+
+describe('ChatComposer 知识库分类', () => {
+  it('选择分类后随本轮请求发送并在发送后清空', async () => {
+    const wrapper = mountComposer({
+      capabilities: knowledgeCapabilities,
+      limits,
+      knowledgeCategories,
+    })
+    await wrapper.find('[data-testid="composer-plus"]').trigger('click')
+    await wrapper.find('[data-testid="ctx-knowledge"]').trigger('click')
+    const options = wrapper.findAll('[data-testid="knowledge-option"]')
+    expect(options).toHaveLength(2)
+    const afterSale = options.find((option) => option.text().includes('售后'))
+    await afterSale!.trigger('click')
+    expect(wrapper.find('[data-testid="chip-knowledge"]').text()).toContain('售后')
+
+    const textarea = wrapper.find('textarea')
+    await textarea.setValue('退货需要保留吊牌吗')
+    await textarea.trigger('keydown', { key: 'Enter' })
+
+    const payload = wrapper.emitted('send')?.[0]?.[0] as {
+      context: { knowledge_categories?: string[] }
+    }
+    expect(payload.context.knowledge_categories).toEqual(['售后'])
+    expect(wrapper.findAll('[data-testid="chip-knowledge"]')).toHaveLength(0)
+  })
+
+  it('支持手动输入分类且最多 5 个', async () => {
+    const wrapper = mountComposer({ capabilities: knowledgeCapabilities, limits })
+    await wrapper.find('[data-testid="composer-plus"]').trigger('click')
+    await wrapper.find('[data-testid="ctx-knowledge"]').trigger('click')
+    const input = wrapper.find('[data-testid="knowledge-input"]')
+    for (const name of ['A', 'B', 'C', 'D', 'E', 'F']) {
+      await input.setValue(name)
+      await input.trigger('keydown', { key: 'Enter' })
+    }
+    expect(wrapper.findAll('[data-testid="chip-knowledge"]')).toHaveLength(5)
+  })
+
+  it('能力关闭时菜单项禁用且不打开分类面板', async () => {
+    const wrapper = mountComposer({ capabilities, limits })
+    await wrapper.find('[data-testid="composer-plus"]').trigger('click')
+    const item = wrapper.find('[data-testid="ctx-knowledge"]')
+    expect(item.classes()).toContain('is-disabled')
+    await item.trigger('click')
+    expect(wrapper.find('[data-testid="knowledge-option"]').exists()).toBe(false)
+  })
+})

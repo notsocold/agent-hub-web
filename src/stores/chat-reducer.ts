@@ -198,6 +198,9 @@ function addToolResult(state: ChatState, data: Record<string, unknown>): ChatSta
     summary: str(data.summary),
     error: str(data.error) || null,
     metadata: asRecord(data.metadata),
+    citations: Array.isArray(data.citations)
+      ? (data.citations as Citation[])
+      : existing?.citations,
   }
   return { ...state, process: upsertProcess(state.process, item) }
 }

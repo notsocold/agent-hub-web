@@ -29,6 +29,8 @@ const props = withDefaults(
     skills?: SkillCatalogItem[]
     mcpServers?: McpAvailableServer[]
     mcpTools?: McpAvailableTool[]
+    /** 知识库分类候选；由父级从可见文档聚合，支持在面板里手输新分类。 */
+    knowledgeCategories?: string[]
     limits?: SystemLimits
     capabilities?: SystemCapabilities
     conversationId?: string | null
@@ -41,6 +43,7 @@ const props = withDefaults(
     skills: () => [],
     mcpServers: () => [],
     mcpTools: () => [],
+    knowledgeCategories: () => [],
     toolsLoading: () => [],
   },
 )
@@ -58,7 +61,7 @@ const textarea = ref<HTMLTextAreaElement | null>(null)
 const root = ref<HTMLElement | null>(null)
 const fileInput = ref<HTMLInputElement | null>(null)
 const menuOpen = ref(false)
-const panel = ref<'skill' | 'mcp' | null>(null)
+const panel = ref<'skill' | 'mcp' | 'knowledge' | null>(null)
 const search = ref('')
 const expandedServer = ref<string | null>(null)
 
@@ -66,6 +69,8 @@ const attachments = ref<Array<Attachment & { progress?: number; localId: string 
 const selectedSkills = ref<SkillCatalogItem[]>([])
 const selectedServers = ref<McpAvailableServer[]>([])
 const selectedTools = ref<McpAvailableTool[]>([])
+const selectedCategories = ref<string[]>([])
+const categoryInput = ref('')
 
 const uploading = computed(() => attachments.value.some((item) => item.status === 'processing'))
 const hasContext = computed(
@@ -73,7 +78,8 @@ const hasContext = computed(
     attachments.value.length > 0 ||
     selectedSkills.value.length > 0 ||
     selectedServers.value.length > 0 ||
-    selectedTools.value.length > 0,
+    selectedTools.value.length > 0 ||
+    selectedCategories.value.length > 0,
 )
 
 const canSend = computed(
@@ -111,6 +117,15 @@ const serverLimitReached = computed(
 const attachmentLimitReached = computed(
   () => attachments.value.length >= limits.value.attachments_per_message,
 )
+const categoryLimitReached = computed(
+  () => selectedCategories.value.length >= limits.value.knowledge_categories_per_message,
+)
+
+/** 候选分类 = 父级聚合的可见文档分类 + 本轮手输过的分类（去重）。 */
+const categoryOptions = computed(() => {
+  const merged = new Set([...props.knowledgeCategories, ...selectedCategories.value])
+  return [...merged].sort((a, b) => a.localeCompare(b, 'zh-Hans-CN'))
+})
 
 const filteredSkills = computed(() => {
   const keyword = search.value.trim().toLowerCase()
@@ -159,6 +174,9 @@ function buildContext(): ChatContextSelection {
   if (selectedTools.value.length > 0) {
     context.mcp_tools = selectedTools.value.map((item) => item.id)
   }
+  if (selectedCategories.value.length > 0) {
+    context.knowledge_categories = [...selectedCategories.value]
+  }
   return context
 }
 
@@ -168,6 +186,8 @@ function resetComposer(): void {
   selectedSkills.value = []
   selectedServers.value = []
   selectedTools.value = []
+  selectedCategories.value = []
+  categoryInput.value = ''
   panel.value = null
   search.value = ''
   expandedServer.value = null
@@ -201,10 +221,40 @@ function openMenu(): void {
   search.value = ''
 }
 
-function openPanel(next: 'skill' | 'mcp'): void {
+function openPanel(next: 'skill' | 'mcp' | 'knowledge'): void {
+  if (next === 'knowledge' && !capabilityOn('knowledge')) {
+    ElMessage.info('知识库能力未启用')
+    return
+  }
   panel.value = next
   search.value = ''
+  categoryInput.value = ''
   expandedServer.value = null
+}
+
+function toggleCategory(name: string): void {
+  const value = name.trim()
+  if (!value) return
+  if (selectedCategories.value.includes(value)) {
+    selectedCategories.value = selectedCategories.value.filter((item) => item !== value)
+    return
+  }
+  if (categoryLimitReached.value) {
+    ElMessage.warning(`每轮最多 ${limits.value.knowledge_categories_per_message} 个知识库分类`)
+    return
+  }
+  selectedCategories.value = [...selectedCategories.value, value]
+}
+
+function addCategory(): void {
+  const value = categoryInput.value.trim()
+  if (!value) return
+  toggleCategory(value)
+  categoryInput.value = ''
+}
+
+function removeCategory(name: string): void {
+  selectedCategories.value = selectedCategories.value.filter((item) => item !== name)
 }
 
 function openFilePicker(): void {
@@ -396,6 +446,24 @@ onUnmounted(() => {
         </span>
 
         <span
+          v-for="category in selectedCategories"
+          :key="category"
+          class="chip is-knowledge"
+          data-testid="chip-knowledge"
+        >
+          <span class="chip-kind">知识库</span>
+          <span class="chip-label">{{ category }}</span>
+          <button
+            type="button"
+            class="chip-remove"
+            :aria-label="`移除知识库分类 ${category}`"
+            @click="removeCategory(category)"
+          >
+            ×
+          </button>
+        </span>
+
+        <span
           v-for="skill in selectedSkills"
           :key="skill.id"
           class="chip is-skill"
@@ -511,9 +579,22 @@ onUnmounted(() => {
                 <span>工作流</span>
                 <span class="ctx-stage">M5+</span>
               </button>
-              <button type="button" role="menuitem" class="ctx-item is-disabled" disabled>
+              <button
+                type="button"
+                role="menuitem"
+                class="ctx-item"
+                data-testid="ctx-knowledge"
+                :class="{ 'is-disabled': !capabilityOn('knowledge') }"
+                @click.stop="openPanel('knowledge')"
+              >
                 <span>知识库</span>
-                <span class="ctx-stage">M4</span>
+                <span class="ctx-stage">
+                  {{
+                    capabilityOn('knowledge')
+                      ? `${selectedCategories.length}/${limits.knowledge_categories_per_message}`
+                      : '未启用'
+                  }}
+                </span>
               </button>
               <p class="ctx-foot">选择只影响当次请求，发送后清空。</p>
             </template>
@@ -554,6 +635,50 @@ onUnmounted(() => {
                 <p v-if="filteredSkills.length === 0" class="ctx-empty">没有可用技能</p>
               </div>
               <p class="ctx-foot">技能正文只在本轮显式激活，不写回账号设置。</p>
+            </template>
+
+            <template v-else-if="panel === 'knowledge'">
+              <div class="ctx-subhead">
+                <button type="button" class="ctx-back" aria-label="返回" @click.stop="panel = null">
+                  ←
+                </button>
+                <span>选择知识库分类</span>
+                <span class="ctx-stage">
+                  {{ selectedCategories.length }}/{{ limits.knowledge_categories_per_message }}
+                </span>
+              </div>
+              <input
+                v-model="categoryInput"
+                class="ctx-search"
+                type="text"
+                data-testid="knowledge-input"
+                placeholder="输入分类名后回车添加"
+                maxlength="64"
+                @click.stop
+                @keydown.enter.prevent.stop="addCategory"
+              />
+              <div class="ctx-list">
+                <button
+                  v-for="category in categoryOptions"
+                  :key="category"
+                  type="button"
+                  class="ctx-row"
+                  data-testid="knowledge-option"
+                  :class="{ 'is-selected': selectedCategories.includes(category) }"
+                  @click.stop="toggleCategory(category)"
+                >
+                  <span class="ctx-row-main">
+                    <span class="ctx-row-name">{{ category }}</span>
+                  </span>
+                  <span class="ctx-row-meta mono">
+                    {{ selectedCategories.includes(category) ? '已选' : '' }}
+                  </span>
+                </button>
+                <p v-if="categoryOptions.length === 0" class="ctx-empty">
+                  暂无可选分类，可直接输入分类名
+                </p>
+              </div>
+              <p class="ctx-foot">分类作为本轮 search_knowledge 的默认过滤；发送后清空。</p>
             </template>
 
             <template v-else>

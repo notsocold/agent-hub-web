@@ -314,6 +314,8 @@ export interface ToolProcess extends ProcessBase {
   summary: string
   error: string | null
   metadata: Record<string, unknown>
+  /** `tool.result` 携带的整轮累计引用（检索类工具才有），与助手消息 citations 同形。 */
+  citations?: Citation[]
 }
 
 export interface A2aProcess extends ProcessBase {

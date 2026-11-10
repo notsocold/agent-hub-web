@@ -22,6 +22,8 @@ const capabilityLabel = computed(() => {
   if (skills > 0) parts.push(`技能 ×${skills}`)
   if (servers > 0) parts.push(`MCP ×${servers}`)
   if (tools > 0) parts.push(`工具 ×${tools}`)
+  const categories = props.message.capabilities.knowledge_categories
+  if (categories.length > 0) parts.push(`知识库 ${categories.join('/')}`)
   return parts.join(' · ')
 })
 
@@ -99,7 +101,12 @@ async function copy(text: string): Promise<void> {
           <p class="block-label">引用来源</p>
           <ol>
             <li v-for="citation in message.citations" :key="citation.chunk_id">
-              <RouterLink :to="{ name: 'knowledge', query: { q: citation.title } }">
+              <RouterLink
+                :to="{
+                  name: 'knowledge',
+                  query: { document_id: citation.document_id, q: citation.title },
+                }"
+              >
                 <span class="index mono">[{{ citation.index }}]</span>
                 <span class="citation-title">{{ citation.title }}</span>
                 <span class="citation-meta"
