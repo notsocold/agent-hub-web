@@ -45,3 +45,10 @@ __screenshots__/
 .dsh/sessions/**/session.lock
 .dsh/sessions/**/*.tmp
 .dsh/sessions/.backup/
+
+# Playwright
+.playwright-browsers/
+dist-e2e/
+test-results/
+playwright-report/
+.playwright-libs/

@@ -24,7 +24,10 @@
     "sessions:scan": "node scripts/dsh-session-sanitize.mjs",
     "sessions:sanitize": "node scripts/dsh-session-sanitize.mjs --current-workspace --apply",
     "sessions:check": "node scripts/dsh-session-sanitize.mjs --staged",
-    "size": "node scripts/check-bundle-size.mjs"
+    "size": "node scripts/check-bundle-size.mjs",
+    "e2e": "LD_LIBRARY_PATH=.playwright-libs/root/usr/lib/x86_64-linux-gnu PLAYWRIGHT_BROWSERS_PATH=.playwright-browsers playwright test",
+    "e2e:server": "vite build --mode e2e --outDir dist-e2e && vite preview --outDir dist-e2e --port 4173 --strictPort",
+    "verify:nginx": "node scripts/verify-nginx-sse.mjs"
   },
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.2",
@@ -40,6 +43,7 @@
     "vue-router": "^5.3.1"
   },
   "devDependencies": {
+    "@playwright/test": "^1.65.0",
     "@tsconfig/node24": "^24.0.5",
     "@types/node": "^24.13.4",
     "@vitejs/plugin-vue": "^6.0.8",
