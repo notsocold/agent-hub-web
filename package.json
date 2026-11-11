@@ -21,6 +21,7 @@
     "smoke:m15": "node scripts/smoke-m15-backend.mjs",
     "smoke:m4": "node scripts/smoke-m4-backend.mjs",
     "smoke:m5": "node scripts/smoke-m5-backend.mjs",
+    "smoke:m7": "node scripts/smoke-m7-backend.mjs",
     "sessions:scan": "node scripts/dsh-session-sanitize.mjs",
     "sessions:sanitize": "node scripts/dsh-session-sanitize.mjs --current-workspace --apply",
     "sessions:check": "node scripts/dsh-session-sanitize.mjs --staged",
