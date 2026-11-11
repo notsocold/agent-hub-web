@@ -72,7 +72,8 @@ const statusText = computed(
 }
 
 .kind-tool {
-  --kind-color: var(--kind-tool);
+  /* 徽标为 10px 小字：amber 在 amber-soft 上仅 3.34:1，改用为文字设计的 amber-text。 */
+  --kind-color: var(--amber-text);
   --kind-bg: var(--kind-tool-soft);
 }
 

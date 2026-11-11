@@ -1070,7 +1070,6 @@ onUnmounted(() => {
   padding: 0 8px;
   border: 1px solid var(--line);
   border-radius: 5px;
-  outline: none;
   background: var(--surface-2);
   color: var(--ink);
   font: inherit;
@@ -1213,7 +1212,6 @@ onUnmounted(() => {
   padding: 0 20px 0 7px;
   border: 1px solid transparent;
   border-radius: 5px;
-  outline: none;
   background:
     linear-gradient(45deg, transparent 50%, var(--ink-3) 50%) no-repeat right 9px center / 4px 4px,
     linear-gradient(135deg, var(--ink-3) 50%, transparent 50%) no-repeat right 6px center / 4px 4px,
@@ -1242,7 +1240,6 @@ onUnmounted(() => {
   min-height: 46px;
   padding: 8px 8px 4px;
   border: 0;
-  outline: none;
   resize: none;
   background: transparent;
   color: var(--ink);

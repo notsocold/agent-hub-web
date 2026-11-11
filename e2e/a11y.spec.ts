@@ -1,0 +1,84 @@
+import AxeBuilder from '@axe-core/playwright'
+import { expect, test, type Page } from '@playwright/test'
+
+import { login } from './fixtures'
+
+/**
+ * 可访问性门禁：critical / serious 必须为 0。
+ * 只扫用户实际会停留的主要界面与高风险新交互（命令面板）。
+ */
+async function scan(page: Page) {
+  const results = await new AxeBuilder({ page })
+    .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+    .analyze()
+  return results.violations.filter(
+    (violation) => violation.impact === 'critical' || violation.impact === 'serious',
+  )
+}
+
+function describeViolations(violations: Awaited<ReturnType<typeof scan>>): string[] {
+  return violations.flatMap((violation) =>
+    violation.nodes.map(
+      (node) =>
+        `${violation.id} (${violation.impact}): ${node.target.join(' > ')} — ${node.html.slice(0, 160)}`,
+    ),
+  )
+}
+
+test.describe('可访问性扫描', () => {
+  test('登录页', async ({ page }) => {
+    await page.goto('/login')
+    await expect(page.getByRole('button', { name: '登录', exact: true })).toBeVisible()
+    expect(describeViolations(await scan(page))).toEqual([])
+  })
+
+  test('对话页空态与消息态', async ({ page }) => {
+    await login(page)
+    expect(describeViolations(await scan(page))).toEqual([])
+
+    await page.getByRole('textbox', { name: '输入消息' }).fill('可访问性扫描样本')
+    await page.getByRole('button', { name: '发送' }).click()
+    await expect(page.getByRole('button', { name: '发送' })).toBeVisible({ timeout: 30_000 })
+    expect(describeViolations(await scan(page))).toEqual([])
+  })
+
+  test('命令面板打开态', async ({ page }) => {
+    await login(page)
+    await page.keyboard.press('Control+K')
+    await expect(page.getByRole('dialog', { name: '全局搜索' })).toBeVisible()
+    expect(describeViolations(await scan(page))).toEqual([])
+  })
+
+  test('审批页', async ({ page }) => {
+    await login(page)
+    await page.goto('/approvals')
+    await expect(page.getByRole('heading', { name: '审批', level: 1 })).toBeVisible()
+    expect(describeViolations(await scan(page))).toEqual([])
+  })
+
+  test('知识库页', async ({ page }) => {
+    await login(page)
+    await page.goto('/knowledge')
+    await expect(page.getByRole('heading', { name: '知识库', level: 1 })).toBeVisible()
+    expect(describeViolations(await scan(page))).toEqual([])
+  })
+
+  test('设置页', async ({ page }) => {
+    await login(page)
+    await page.goto('/settings')
+    await expect(page.getByRole('heading', { name: '设置', level: 1 })).toBeVisible()
+    expect(describeViolations(await scan(page))).toEqual([])
+  })
+
+  test('智能体页与任务页', async ({ page }) => {
+    await login(page)
+
+    await page.goto('/agents')
+    await expect(page.getByRole('heading', { name: '智能体', level: 1 })).toBeVisible()
+    expect(describeViolations(await scan(page))).toEqual([])
+
+    await page.goto('/tasks')
+    await expect(page.getByRole('heading', { name: '任务', level: 1 })).toBeVisible()
+    expect(describeViolations(await scan(page))).toEqual([])
+  })
+})

@@ -356,7 +356,6 @@ function reset(): void {
   padding: 10px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  outline: none;
   background: var(--surface);
   color: var(--ink);
   font: inherit;

@@ -259,29 +259,21 @@ async function removeSkill(): Promise<void> {
       />
 
       <ul v-else class="skill-list">
-        <li
-          v-for="skill in items"
-          :key="skill.id"
-          class="skill-item"
-          role="button"
-          tabindex="0"
-          @click="openDetail(skill)"
-          @keydown.enter="openDetail(skill)"
-        >
-          <div class="skill-main">
-            <p class="skill-title">
+        <li v-for="skill in items" :key="skill.id" class="skill-item">
+          <button type="button" class="skill-open" @click="openDetail(skill)">
+            <span class="skill-title">
               {{ skill.name }}
               <span class="mono slug">{{ skill.slug }}</span>
               <span class="chip">{{ SKILL_SCOPE_LABELS[skill.scope] ?? skill.scope }}</span>
               <span v-if="skill.scope === 'system'" class="chip chip-locked">系统 · 只读</span>
-            </p>
-            <p v-if="skill.description" class="skill-desc">{{ skill.description }}</p>
-            <p class="skill-meta">
+            </span>
+            <span v-if="skill.description" class="skill-desc">{{ skill.description }}</span>
+            <span class="skill-meta">
               <span class="mono">≈ {{ formatTokens(skill.estimated_tokens) }} tokens</span>
               <span>{{ skill.file_count }} 个文件 · {{ formatBytes(skill.size_bytes) }}</span>
               <span v-if="skill.updated_at" class="mono">更新于 {{ formatDateTime(skill.updated_at) }}</span>
-            </p>
-          </div>
+            </span>
+          </button>
           <span class="switch-wrap" @click.stop>
             <el-switch
               :model-value="skill.effective_enabled ?? skill.enabled"
@@ -300,6 +292,7 @@ async function removeSkill(): Promise<void> {
       type="file"
       accept=".zip,application/zip"
       class="sr-only"
+      tabindex="-1"
       aria-hidden="true"
       @change="onFileChange"
     />
@@ -493,7 +486,6 @@ h3 {
   border: 1px solid var(--line-2);
   border-radius: 7px;
   background: var(--surface-2);
-  cursor: pointer;
   transition: border-color 0.15s;
 }
 
@@ -501,9 +493,12 @@ h3 {
   border-color: var(--ink-3);
 }
 
-.skill-main {
+.skill-open {
+  display: flex;
   flex: 1;
+  flex-direction: column;
   min-width: 0;
+  text-align: left;
 }
 
 .skill-title {
@@ -539,6 +534,7 @@ h3 {
 }
 
 .skill-desc {
+  display: block;
   margin-top: 4px;
   color: var(--ink-2);
   font-size: 11.5px;

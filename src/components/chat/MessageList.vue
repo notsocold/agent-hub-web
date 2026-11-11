@@ -37,6 +37,59 @@ const rows = computed(() =>
   buildMessageRows(props.messages, props.process, props.currentRunId ?? null),
 )
 
+/** 最近一条助手消息：只用于判断状态节点，不读取正文。 */
+const lastAssistant = computed<ChatMessageView | null>(() => {
+  for (let index = props.messages.length - 1; index >= 0; index -= 1) {
+    const message = props.messages[index]
+    if (message?.role === 'assistant') return message
+  }
+  return null
+})
+
+/**
+ * 本次挂载是否见过流式状态。
+ * 打开历史会话时消息本身就是 completed，不应误播报成「回复完成」。
+ */
+const hasStreamed = ref(props.streaming)
+watch(
+  () => props.streaming,
+  (streaming) => {
+    if (streaming) hasStreamed.value = true
+  },
+)
+// 切换会话时重置：新会话的历史完成态不应沿用上一个会话的流式经历。
+watch(
+  () => props.conversationId,
+  () => {
+    hasStreamed.value = props.streaming
+  },
+)
+
+type LiveStatus = 'idle' | 'started' | 'completed' | 'failed' | 'waiting_approval'
+
+/** 从消息/执行过程/流式标记推导当前状态节点；不依赖消息正文，因此逐字增量不会触发播报。 */
+const liveStatus = computed<LiveStatus>(() => {
+  if (props.process.some((item) => item.kind === 'approval' && item.status === 'waiting')) {
+    return 'waiting_approval'
+  }
+  const assistant = lastAssistant.value
+  if (!props.streaming && assistant?.status === 'failed') return 'failed'
+  if (props.streaming) return 'started'
+  if (hasStreamed.value && assistant?.status === 'completed') return 'completed'
+  return 'idle'
+})
+
+const LIVE_TEXT: Record<LiveStatus, string> = {
+  idle: '',
+  started: '助手开始回复',
+  completed: '回复完成',
+  failed: '生成失败',
+  waiting_approval: '等待审批',
+}
+
+/** 同一状态 computed 返回相同字符串，相邻状态未变化时不会更新 DOM 或重复播报。 */
+const liveText = computed(() => LIVE_TEXT[liveStatus.value])
+
 function canScroll(): boolean {
   return rows.value.length > 0
 }
@@ -107,6 +160,8 @@ defineExpose({ scrollToBottom, scrollToMessage, refresh })
     </div>
 
     <p v-if="loading && rows.length === 0" class="loading" role="status">正在加载历史消息…</p>
+
+    <p class="sr-only" role="status" aria-live="polite" aria-atomic="true">{{ liveText }}</p>
 
     <div class="list-wrap">
       <VList

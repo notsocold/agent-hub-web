@@ -20,6 +20,7 @@ declare module 'vue' {
     AuditPanel: typeof import('./components/settings/AuditPanel.vue')['default']
     CapabilityGate: typeof import('./components/settings/CapabilityGate.vue')['default']
     ChatComposer: typeof import('./components/chat/ChatComposer.vue')['default']
+    CommandPalette: typeof import('./components/common/CommandPalette.vue')['default']
     ConnectionBanner: typeof import('./components/chat/ConnectionBanner.vue')['default']
     ConversationItem: typeof import('./components/chat/ConversationItem.vue')['default']
     ConversationSidebar: typeof import('./components/chat/ConversationSidebar.vue')['default']

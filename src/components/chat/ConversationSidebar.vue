@@ -248,7 +248,6 @@ onMounted(() => {
   padding: 0 9px 0 30px;
   border: 1px solid transparent;
   border-radius: 6px;
-  outline: none;
   background: var(--surface-2);
   color: var(--ink);
   font: inherit;

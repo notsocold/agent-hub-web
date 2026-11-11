@@ -8,7 +8,7 @@ test.describe('认证与登录态', () => {
 
     await expect(page.getByRole('textbox', { name: '输入消息' })).toBeVisible()
     await expect(page.getByRole('heading', { name: '今天要调度什么？' })).toBeVisible()
-    await expect(page.getByRole('button', { name: '账号菜单' })).toBeVisible()
+    await expect(page.getByTestId('account-menu')).toBeVisible()
   })
 
   test('错误密码给出提示并停留在登录页', async ({ page }) => {
@@ -29,7 +29,7 @@ test.describe('认证与登录态', () => {
   test('登出后回到登录页', async ({ page }) => {
     await login(page)
 
-    await page.getByRole('button', { name: '账号菜单' }).click()
+    await page.getByTestId('account-menu').click()
     await page.getByRole('menuitem', { name: '退出登录' }).click()
     // 确认弹窗的「退出」与菜单项「退出登录」文字相近，必须用 exact 区分。
     await page.getByRole('button', { name: '退出', exact: true }).click()

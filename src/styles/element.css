@@ -1,5 +1,5 @@
 /* Element Plus 主题映射：用原型 token 覆盖默认蓝紫色系。 */
-:root {
+html:root {
   --el-font-family: var(--font-sans);
   --el-font-size-base: 13px;
   --el-border-radius-base: 6px;
@@ -72,7 +72,7 @@ html[data-theme='dark'] {
   font-weight: 550;
 }
 
-.el-button--primary {
+html .el-button--primary {
   --el-button-text-color: var(--surface);
   --el-button-bg-color: var(--prussian);
   --el-button-border-color: var(--prussian);
