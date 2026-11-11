@@ -176,6 +176,9 @@ function durationOf(item: ProcessItem): string {
           <li v-for="event in serverEvents" :key="event.id">
             <span class="seq mono">#{{ event.seq }}</span>
             <span class="kind" :class="`kind-${event.type}`">{{ event.type }}</span>
+            <span class="event-name mono" :class="{ 'is-unknown': !event.event }">
+              {{ event.event || '未知事件' }}
+            </span>
             <span class="title">{{ event.title || event.subtitle || event.id }}</span>
             <span class="status mono">{{ event.status }}</span>
             <span class="duration mono">{{ formatDuration(event.duration_ms) }}</span>
@@ -277,7 +280,20 @@ function durationOf(item: ProcessItem): string {
 }
 
 .server-events li {
-  grid-template-columns: 30px 48px minmax(0, 1fr) auto auto auto;
+  grid-template-columns: 30px 48px 108px minmax(0, 1fr) auto auto auto;
+}
+
+.event-name {
+  overflow: hidden;
+  max-width: 100%;
+  color: var(--prussian);
+  font-size: 9.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.event-name.is-unknown {
+  color: var(--ink-3);
 }
 
 .seq {

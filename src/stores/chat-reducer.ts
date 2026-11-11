@@ -12,6 +12,7 @@ import type {
   MessageError,
   NoticeProcess,
   ProcessItem,
+  RunEvent,
   SkillProcess,
   ToolProcess,
   Usage,
@@ -19,6 +20,7 @@ import type {
 } from '@/types'
 import { TASK_STATES } from '@/types'
 import type { RunStatus } from '@/types'
+import { isChatEvent } from '@/api/chat'
 
 function str(value: unknown): string {
   return typeof value === 'string' ? value : ''
@@ -370,6 +372,16 @@ export function markAllApprovalsResolved(state: ChatState): ChatState {
     pendingApprovalIds: [],
     pendingApprovalId: null,
   }
+}
+
+/**
+ * M7：把事件回放项映射成 SSE 事件名。
+ *
+ * 后端对无法识别的事件返回空串；前端只接受白名单内的事件，空串/未知事件
+ * 返回 null 由调用方跳过并记录，绝不根据 `type` 猜测事件名。
+ */
+export function eventNameOfRunEvent(event: Pick<RunEvent, 'event'>): ChatEventName | null {
+  return event.event && isChatEvent(event.event) ? event.event : null
 }
 
 export function reduceChat(state: ChatState, event: ChatEventName, raw: unknown): ChatState {

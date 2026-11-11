@@ -12,6 +12,7 @@ import {
   clearPendingApproval,
   clearPendingApprovalIds,
   createInitialChatState,
+  eventNameOfRunEvent,
   hydrateApprovals,
   markAllApprovalsResolved,
   markApprovalClosed,
@@ -668,16 +669,58 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
+  /**
+   * M7：把已落库事件（`GET /runs/{id}/events`）按 `event` 重放进 reducer。
+   *
+   * 用途：进入会话/重连降级时补齐工具卡、审批卡、通知等「已落库」过程项。
+   * `message.delta` 不落库，断线窗口内的逐字文本仍由终态 `refreshHistory()` 补齐。
+   * `event` 为空或不在白名单的事件跳过并记录，不根据 `type` 猜测事件名。
+   */
+  async function replayPersistedEvents(runId: string, afterSeq: number): Promise<void> {
+    let cursor: string | undefined
+    let applied = 0
+    try {
+      for (let page = 0; page < 20; page += 1) {
+        const result = await runsApi.events(runId, {
+          limit: 200,
+          after_seq: afterSeq,
+          ...(cursor ? { cursor } : {}),
+        })
+        if (state.value.runId !== runId) return
+        for (const item of result.items) {
+          const name = eventNameOfRunEvent(item)
+          if (!name) {
+            console.debug('[chat] 忽略无事件名的回放事件', item.type, item.seq)
+            continue
+          }
+          const payload = item.payload ?? {}
+          const seq = typeof payload.seq === 'number' ? payload.seq : item.seq
+          state.value = reduceChat(state.value, name, { ...payload, seq })
+          applied += 1
+        }
+        if (!result.has_more || !result.next_cursor) break
+        cursor = result.next_cursor
+      }
+    } catch (error) {
+      // 回放是补卡增强，失败不阻塞恢复主流程（轮询/审批对账仍会进行）。
+      console.debug('[chat] 事件回放失败', error)
+      return
+    }
+    if (applied > 0) flushDeltas()
+  }
+
   async function adoptRun(runId: string): Promise<void> {
     clearPolling()
     pollRunId = runId
     recoveryBusy.value = true
     try {
       const run = await runsApi.get(runId)
+      const runChanged = state.value.runId !== run.id
       state.value = {
         ...state.value,
         runId: run.id,
         runStatus: run.status,
+        lastSeq: runChanged ? 0 : state.value.lastSeq,
         streaming: run.status === 'running' || run.status === 'queued',
       }
       if (isTerminal(run.status)) {
@@ -690,6 +733,9 @@ export const useChatStore = defineStore('chat', () => {
         await refreshHistory()
         return
       }
+      // 非终态：先回放已落库事件补卡，再进入审批横幅/轮询。
+      await replayPersistedEvents(run.id, runChanged ? 0 : state.value.lastSeq)
+
       const interrupted = run.status === 'interrupted'
       state.value = {
         ...state.value,
