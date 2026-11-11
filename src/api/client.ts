@@ -1,6 +1,7 @@
 import axios, { type AxiosInstance, type InternalAxiosRequestConfig, type AxiosError } from 'axios'
 
 import type { ApiErrorBody, AuthTokens } from '@/types'
+import { recordError, recordRequest } from '@/utils/diagnostics'
 import { storage } from '@/utils/storage'
 
 export class ApiRequestError extends Error {
@@ -97,6 +98,47 @@ export function apiErrorFromResponse(status: number, body: unknown): ApiRequestE
   })
 }
 
+/** 请求开始时间：WeakMap 避免往 axios config 上挂任意字段。 */
+const requestStartedAt = new WeakMap<object, number>()
+
+function headerValue(headers: unknown, name: string): string {
+  if (!headers || typeof headers !== 'object') return ''
+  const record = headers as Record<string, unknown>
+  const value = record[name] ?? record[name.toLowerCase()]
+  if (typeof value === 'string') return value
+  if (Array.isArray(value) && typeof value[0] === 'string') return value[0]
+  return ''
+}
+
+function elapsedMs(config: object): number {
+  const startedAt = requestStartedAt.get(config)
+  if (startedAt === undefined) return 0
+  return Math.max(0, Math.round(performance.now() - startedAt))
+}
+
+/** 成功与失败都记录一次请求，失败另记错误缓冲；记录本身不得影响请求。 */
+function recordOutcome(
+  config: InternalAxiosRequestConfig | undefined,
+  status: number,
+  headers: unknown,
+): void {
+  if (!config) return
+  try {
+    const requestId = headerValue(headers, 'x-request-id')
+    recordRequest({
+      method: String(config.method ?? 'get').toUpperCase(),
+      url: String(config.url ?? ''),
+      status,
+      durationMs: elapsedMs(config),
+      requestId,
+      traceId: headerValue(headers, 'x-trace-id'),
+      at: Date.now(),
+    })
+  } catch {
+    // 诊断写入失败不影响业务请求。
+  }
+}
+
 function toApiRequestError(error: unknown): ApiRequestError {
   if (axios.isAxiosError<ApiErrorBody>(error)) {
     const status = error.response?.status ?? 0
@@ -150,6 +192,7 @@ export function createHttpClient(options: HttpClientOptions = {}): AxiosInstance
   }
 
   client.interceptors.request.use((config) => {
+    requestStartedAt.set(config, performance.now())
     const token = storage.getAccessToken()
     if (token) {
       config.headers.set('Authorization', `Bearer ${token}`)
@@ -158,10 +201,27 @@ export function createHttpClient(options: HttpClientOptions = {}): AxiosInstance
   })
 
   client.interceptors.response.use(
-    (response) => response,
+    (response) => {
+      recordOutcome(response.config, response.status, response.headers)
+      return response
+    },
     async (error: unknown) => {
+      const failed = toApiRequestError(error)
+      if (axios.isAxiosError(error)) {
+        recordOutcome(error.config, error.response?.status ?? 0, error.response?.headers)
+      }
+      try {
+        recordError({
+          code: failed.code,
+          message: failed.message,
+          requestId: failed.requestId,
+          at: Date.now(),
+        })
+      } catch {
+        // 诊断写入失败不影响业务错误处理。
+      }
       if (!isUnauthorized(error)) {
-        throw toApiRequestError(error)
+        throw failed
       }
 
       const config = error.config as RetryableConfig | undefined

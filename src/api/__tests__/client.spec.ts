@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { ApiRequestError, createHttpClient } from '@/api/client'
 import type { AuthTokens } from '@/types'
+import { getRecentErrors, getRecentRequests, resetDiagnostics } from '@/utils/diagnostics'
 import { storage } from '@/utils/storage'
 
 const tokens: AuthTokens = {
@@ -150,5 +151,43 @@ describe('api client', () => {
     expect(onUnauthorized).toHaveBeenCalledTimes(1)
     expect(storage.getAccessToken()).toBeNull()
     expect(storage.getRefreshToken()).toBeNull()
+  })
+
+  it('成功响应记录 X-Request-ID / X-Trace-ID 到诊断缓冲', async () => {
+    resetDiagnostics()
+    const client = createHttpClient({ baseURL: '/api/v1' })
+    client.defaults.adapter = async (config) => ({
+      data: { ok: true },
+      status: 200,
+      statusText: 'OK',
+      headers: { 'x-request-id': 'req-ok', 'x-trace-id': 'trace-1' },
+      config,
+    })
+
+    await client.get('/anything')
+
+    const rows = getRecentRequests()
+    expect(rows[0]?.requestId).toBe('req-ok')
+    expect(rows[0]?.traceId).toBe('trace-1')
+    expect(rows[0]?.status).toBe(200)
+    expect(rows[0]?.url).toBe('/anything')
+  })
+
+  it('失败响应把结构化错误写进诊断错误缓冲', async () => {
+    resetDiagnostics()
+    const client = createHttpClient({ baseURL: '/api/v1' })
+    client.defaults.adapter = async (config) => {
+      throw new AxiosError('Forbidden', 'ERR_BAD_REQUEST', config, undefined, {
+        data: { error: { code: 'forbidden', message: '无权限', request_id: 'req-forbidden' } },
+        status: 403,
+        statusText: 'Forbidden',
+        headers: {},
+        config,
+      })
+    }
+
+    await expect(client.get('/x')).rejects.toMatchObject({ code: 'forbidden' })
+    expect(getRecentErrors()[0]?.requestId).toBe('req-forbidden')
+    expect(getRecentRequests()[0]?.status).toBe(403)
   })
 })
