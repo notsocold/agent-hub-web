@@ -37,11 +37,20 @@ export interface RunEventParams {
  * 事件，再跟随实时事件，终态后关闭。`after_seq` 由调用方传 `lastSeq`，
  * 回放事件与实时事件统一交给 `onEvent`，由 store 的 `seq` 去重。
  */
+function abortError(): Error {
+  const error = new Error('Aborted')
+  error.name = 'AbortError'
+  return error
+}
+
 async function connectRunStream(
   runId: string,
   afterSeq: number,
   handlers: ChatStreamHandlers,
 ): Promise<void> {
+  // fetch-event-source 只监听「注册之后」的 abort；若 signal 已经 abort，
+  // 这里必须直接返回，否则 401 刷新后的重试会重新打开一条旧 run 的流。
+  if (handlers.signal.aborted) throw abortError()
   await fetchEventSource(
     `${resolveBaseUrl()}/runs/${encodeURIComponent(runId)}/stream?after_seq=${afterSeq}`,
     {
@@ -148,12 +157,15 @@ export const runsApi = {
     afterSeq: number,
     handlers: ChatStreamHandlers,
   ): Promise<void> {
+    if (handlers.signal.aborted) throw abortError()
     try {
       await streamOnce(runId, afterSeq, handlers)
     } catch (error) {
       if (error instanceof ApiRequestError && error.status === 401) {
         try {
           await refreshSession()
+          // 刷新 token 期间用户可能已切会话/停止重连：aborted 后不得重开流。
+          if (handlers.signal.aborted) throw abortError()
           await streamOnce(runId, afterSeq, handlers)
           return
         } catch (retryError) {

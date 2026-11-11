@@ -4,7 +4,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { approvalsApi } from '@/api/approvals'
 import { conversationsApi } from '@/api/conversations'
 import { runsApi } from '@/api/runs'
-import { eventNameOfRunEvent } from '@/stores/chat-reducer'
+import { mockRunEvents } from '@/api/mock/fixtures'
+import { createInitialChatState, eventNameOfRunEvent, reduceChat } from '@/stores/chat-reducer'
 import { useChatStore } from '@/stores/chat'
 import type { Approval, ConversationDetail, PageResult, Run, RunEvent } from '@/types'
 
@@ -120,6 +121,28 @@ describe('事件回放事件名映射', () => {
   it('空串与未知事件返回 null，不猜测 type', () => {
     expect(eventNameOfRunEvent({ event: '' })).toBeNull()
     expect(eventNameOfRunEvent({ event: 'future.event' })).toBeNull()
+  })
+
+  it('周报 fixture 按事件回放能补工具/技能/A2A/审批卡', () => {
+    const weeklyRunId = '33333333-3333-4333-8333-333333333333'
+    let state = createInitialChatState()
+    for (const item of mockRunEvents[weeklyRunId] ?? []) {
+      const name = eventNameOfRunEvent(item)
+      if (!name) continue
+      state = reduceChat(state, name, { ...item.payload, seq: item.seq })
+    }
+
+    const kinds = state.process.map((item) => item.kind)
+    expect(kinds).toContain('tool')
+    expect(kinds).toContain('skill')
+    expect(kinds).toContain('a2a')
+    expect(kinds).toContain('approval')
+    // 回放以 message.done 结束：审批卡保留但不再可操作，待审指针清空。
+    const approvalCard = state.process.find((item) => item.kind === 'approval')
+    expect(approvalCard?.kind === 'approval' && approvalCard.approvalId).toBe(
+      '66666666-6666-4666-8666-666666666666',
+    )
+    expect(state.pendingApprovalIds).toHaveLength(0)
   })
 })
 

@@ -474,7 +474,12 @@ export const useChatStore = defineStore('chat', () => {
         retryable: true,
       },
     }
-    if (runId && !isTerminal(state.value.runStatus)) schedulePolling(runId)
+    if (runId && !isTerminal(state.value.runStatus)) {
+      // 续流失败/回放上限：先用分页回放补已落库过程卡（工具/审批/通知），
+      // 再轮询跟进状态；回放失败不阻塞轮询。
+      void replayPersistedEvents(runId, state.value.lastSeq)
+      schedulePolling(runId)
+    }
   }
 
   /**
@@ -701,6 +706,8 @@ export const useChatStore = defineStore('chat', () => {
     let cursor: string | undefined
     let applied = 0
     try {
+      // 进入回放前再确认一次，避免 await 期间用户切走会话后把事件写进新会话。
+      if (state.value.runId !== runId) return
       for (let page = 0; page < 20; page += 1) {
         const result = await runsApi.events(runId, {
           limit: 200,
@@ -731,11 +738,15 @@ export const useChatStore = defineStore('chat', () => {
   }
 
   async function adoptRun(runId: string): Promise<void> {
+    // 恢复过程中用户可能切会话：await 之后用 conversationId 判断代次，
+    // 避免旧 run 的 process/recovery/轮询写进新会话。
+    const conversationId = state.value.conversationId
     clearPolling()
     pollRunId = runId
     recoveryBusy.value = true
     try {
       const run = await runsApi.get(runId)
+      if (state.value.conversationId !== conversationId) return
       const runChanged = state.value.runId !== run.id
       state.value = {
         ...state.value,
@@ -756,6 +767,7 @@ export const useChatStore = defineStore('chat', () => {
       }
       // 非终态：先回放已落库事件补卡，再进入审批横幅/轮询。
       await replayPersistedEvents(run.id, runChanged ? 0 : state.value.lastSeq)
+      if (state.value.conversationId !== conversationId) return
 
       const interrupted = run.status === 'interrupted'
       state.value = {
@@ -844,6 +856,8 @@ export const useChatStore = defineStore('chat', () => {
       conversationsApi.messages(conversationId, { limit: HISTORY_PAGE_SIZE }),
       conversationsApi.get(conversationId),
     ])
+    // 请求期间用户已切走会话：迟到响应不得覆盖新会话的消息与 run 状态。
+    if (state.value.conversationId !== conversationId) return
     const fetched = page.items.map(toView).reverse()
     const fetchedIds = new Set(fetched.map((message) => message.id))
     const fetchedClientIds = new Set(
@@ -1168,7 +1182,14 @@ export const useChatStore = defineStore('chat', () => {
 
   async function refresh(): Promise<void> {
     const runId = state.value.runId
-    if (runId && (state.value.streaming || state.value.runStatus === 'interrupted')) {
+    // 降级（续流失败/回放上限）时 run 可能仍在运行：走 adoptRun 重新校验、
+    // 回放补卡并恢复轮询，而不是只刷新历史消息。
+    if (
+      runId &&
+      (state.value.streaming ||
+        state.value.runStatus === 'interrupted' ||
+        connection.value === 'degraded')
+    ) {
       await adoptRun(runId)
       return
     }

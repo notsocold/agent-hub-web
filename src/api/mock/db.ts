@@ -245,7 +245,15 @@ class MockDb {
   getConversation(id: string): ConversationDetail | null {
     const conversation = this.conversations.find((item) => item.id === id)
     if (!conversation) return null
-    const run = Object.values(this.runs).find((item) => item.conversation_id === id)
+    // 多 run 会话必须取最新一轮：M7 起 mock 聊天也会写入 runs，
+    // 取「第一个匹配」会把 last_run 回退到历史 run。
+    const run = Object.values(this.runs)
+      .filter((item) => item.conversation_id === id)
+      .sort((left, right) => {
+        const leftAt = left.started_at ? Date.parse(left.started_at) : 0
+        const rightAt = right.started_at ? Date.parse(right.started_at) : 0
+        return rightAt - leftAt
+      })[0]
     return {
       ...conversation,
       archived_at: conversation.status === 'archived' ? conversation.updated_at : null,

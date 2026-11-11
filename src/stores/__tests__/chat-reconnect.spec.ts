@@ -368,6 +368,48 @@ describe('chat store 断线重连状态机', () => {
     expect(runsApi.stream).toHaveBeenCalledTimes(1)
   })
 
+  it('降级轮询前补一次已落库事件回放', async () => {
+    vi.mocked(runsApi.get).mockResolvedValue(makeRun({ status: 'running' }))
+    vi.mocked(runsApi.stream).mockRejectedValue(
+      new ApiRequestError('回放事件超过上限', { code: 'replay_too_large', status: 400 }),
+    )
+    vi.mocked(runsApi.events).mockResolvedValue({ items: [], next_cursor: null, has_more: false })
+
+    const chat = createChatStore()
+    await chat.send('你好')
+    await vi.advanceTimersByTimeAsync(1000)
+    await flushMicrotasks()
+
+    expect(chat.connection).toBe('degraded')
+    // 降级后仍要用分页回放补工具/审批卡，不能只轮询状态。
+    expect(runsApi.events).toHaveBeenCalledWith(
+      'run-1',
+      expect.objectContaining({ after_seq: expect.any(Number) }),
+    )
+  })
+
+  it('adoptRun 期间切换会话不把旧 run 写进新会话', async () => {
+    let resolveRun!: (run: ReturnType<typeof makeRun>) => void
+    vi.mocked(runsApi.get).mockReturnValue(
+      new Promise((resolve) => {
+        resolveRun = resolve
+      }),
+    )
+    vi.mocked(runsApi.events).mockResolvedValue({ items: [], next_cursor: null, has_more: false })
+
+    const chat = createChatStore()
+    chat.setConversation('conv-1', '会话 A')
+    const pending = chat.adoptRun('run-1')
+    chat.setConversation('conv-2', '会话 B')
+    resolveRun(makeRun({ status: 'running' }))
+    await pending
+    await flushMicrotasks()
+
+    expect(chat.state.conversationId).toBe('conv-2')
+    expect(chat.state.recovery).toBeNull()
+    expect(chat.processItems).toHaveLength(0)
+  })
+
   it('续流 404 时结束恢复并刷新历史（不再轮询）', async () => {
     vi.mocked(runsApi.get).mockResolvedValue(makeRun({ status: 'running' }))
     vi.mocked(runsApi.stream).mockRejectedValue(
@@ -503,6 +545,23 @@ describe('chat store 断线重连状态机', () => {
     expect(openChatStream).toHaveBeenCalledTimes(1)
     expect(chat.connection).toBe('idle')
     expect(chat.reconnectAttempt).toBe(0)
+  })
+
+  it('降级后 refresh 走 adoptRun 恢复轮询', async () => {
+    const chat = createChatStore()
+    await chat.send('你好')
+    for (const delay of [1000, 2000, 4000, 8000, 16000]) {
+      await vi.advanceTimersByTimeAsync(delay)
+    }
+    expect(chat.connection).toBe('degraded')
+
+    const before = vi.mocked(runsApi.get).mock.calls.length
+    await chat.refresh()
+    expect(vi.mocked(runsApi.get).mock.calls.length).toBe(before + 1)
+
+    // adoptRun 后恢复轮询：一个轮询周期后应再次 GET run。
+    await vi.advanceTimersByTimeAsync(2500)
+    expect(vi.mocked(runsApi.get).mock.calls.length).toBe(before + 2)
   })
 
   it('degraded 后重试发送会停掉旧轮询，不与新流竞争', async () => {

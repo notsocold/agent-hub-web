@@ -767,6 +767,7 @@ export async function mockRunStream(
   options: MockStreamOptions = {},
 ): Promise<void> {
   const frameDelay = options.frameDelay ?? 30
+  if (handlers.signal.aborted) throw abortError()
   const run = mockDb.getRun(runId)
   if (!run) {
     throw new ApiRequestError('运行不存在', { code: 'not_found', status: 404 })
@@ -774,24 +775,35 @@ export async function mockRunStream(
 
   handlers.onOpen?.(runId)
 
-  const page = mockDb.listRunEvents(runId, { after_seq: afterSeq, limit: 500 })
-  for (const item of page?.items ?? []) {
-    if (handlers.signal.aborted) throw abortError()
-    if (!item.event) continue
-    await sleep(frameDelay, handlers.signal)
-    // 外层 seq 是事件的权威序号；payload 内即使有 seq 也以它为准去重。
-    handlers.onEvent(item.event as ChatEventName, { ...item.payload, seq: item.seq })
-  }
-
-  if (TERMINAL_RUN_STATUSES.has(run.status)) {
-    handlers.onClose?.()
-    return
-  }
-
+  // 与真实后端一致：先订阅实时事件，再回放快照，避免回放窗口内的新事件丢失；
+  // 用 seq 去重，回放与实时不会重复。
+  const seen = new Set<number>()
   const unsubscribe = mockDb.subscribeRunEvents(runId, (event, data) => {
-    if (!handlers.signal.aborted) handlers.onEvent(event, data)
+    if (handlers.signal.aborted) return
+    const seq = typeof data.seq === 'number' ? data.seq : 0
+    if (seq > 0) {
+      if (seq <= afterSeq || seen.has(seq)) return
+      seen.add(seq)
+    }
+    handlers.onEvent(event, data)
   })
+
   try {
+    const page = mockDb.listRunEvents(runId, { after_seq: afterSeq, limit: 500 })
+    for (const item of page?.items ?? []) {
+      if (handlers.signal.aborted) throw abortError()
+      if (!item.event || seen.has(item.seq)) continue
+      seen.add(item.seq)
+      await sleep(frameDelay, handlers.signal)
+      // 外层 seq 是事件的权威序号；payload 内即使有 seq 也以它为准去重。
+      handlers.onEvent(item.event as ChatEventName, { ...item.payload, seq: item.seq })
+    }
+
+    if (TERMINAL_RUN_STATUSES.has(run.status)) {
+      handlers.onClose?.()
+      return
+    }
+
     await mockDb.waitRunTerminal(runId, handlers.signal)
   } finally {
     unsubscribe()
