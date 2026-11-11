@@ -16,7 +16,7 @@
 
 ## 1. 里程碑总览
 
-| 编号 | 后端目标 | 前端目标 | 后端状态（2026-11-10） | 前端状态（2026-11-10） | 前端验收/门禁 |
+| 编号 | 后端目标 | 前端目标 | 后端状态（2026-11-11） | 前端状态（2026-11-11） | 前端验收/门禁 |
 |---|---|---|---|---|---|
 | M0 | 项目骨架 | 工程骨架 | 已完成 | 已完成 | 构建通过 |
 | M1 | 对话最小闭环 | 登录 + 对话闭环 | 已完成 | 已联调 | `smoke:real` 97 项 |
@@ -25,8 +25,8 @@
 | M3 | A2A 入站 | —（已取消） | 取消（需求变更：仅出站） | 取消（设置页入站分区已移除） | 不适用 |
 | M4 | 知识库 RAG | 知识库页 + 引用 | 已完成（2026-11-10） | 已联调（2026-11-10） | `smoke:m4` 41/40 项 + `test:real` M4 3 例 |
 | M5 | 审批与安全加固 | 审批中心 + 权限/安全 UX | 已完成（2026-11-11） | 已联调（2026-11-11） | `smoke:m5` 163 项 + `test:real` M5 3 例 |
-| M6 | 生产化与可观测 | 生产化 + E2E + 断线续传 | 未开始（仅 `/readyz` 基础探针） | 未开始（部分基础已有） | Nginx SSE、E2E、续传 |
-| F1 | —（横切） | 体验与可访问性 | — | 部分 | M6 前收口 |
+| M6 | 生产化与可观测 | 生产化 + E2E + 断线续传 | 进行中（2026-11-11 设计/计划已出） | 已完成（2026-11-11） | `pnpm size` / `pnpm e2e` / `pnpm verify:nginx` |
+| F1 | —（横切） | 体验与可访问性 | — | 部分（下一轮收口） | 排在 M6 之后 |
 | X1 | 未立项 | 工作流 | 仅「M5 后评估」 | 仅页面骨架 + mock | 后端立项后升级为 M 编号 |
 | X2 | 未立项 | 完整管理控制台 | `/api/v1/admin/*` 实测 404 | 仅 v8 原型 | 后端提供 admin 契约后升级 |
 
@@ -150,19 +150,31 @@
 > 3. 本机 `LLM_API_KEY` 为占位符（DeepSeek 401），无法真实触发「批准 → 恢复 → 继续输出」；该链路由 mock 流、reducer 单测与后端 395 项测试证据覆盖，`smoke:real` 的 M1 聊天用例因此失败，属环境限制。
 > 4. 审批成功恢复后的 SSE 续接未取得真实 HTTP 证据（同上）。
 
-### M6 生产化与可观测（未开始）
+### M6 生产化与可观测（前端已完成，2026-11-11）
 
 后端目标：结构化日志 + OpenTelemetry、Prometheus 指标、`/readyz`、Docker/Compose、清理任务、压测、CI。
+后端 M6 设计明确「只做后端与运维产物、不改业务契约、前端无需适配」，前端因此按「上线前置条件」独立收口。
 
-- [ ] 构建产物拆分与 CDN 部署；生产环境强制关闭 mock（当前已强制）。
-- [ ] Nginx 配置与 SSE 代理验证：`proxy_buffering off`、读超时、压缩关闭、连接复用。
-- [ ] 断线续传：基于现有 `GET /runs/{id}/events` + `after_seq` 的恢复；SSE `Last-Event-ID` 与多实例广播（粘性/Redis Stream）待后端 M6 决策后接入。
-- [ ] 可观测：错误上报（Sentry 可选）、`request_id`/`run_id` 展示与复制、Web Vitals/性能标记。
-- [ ] E2E（Playwright）：登录、对话、审批、知识库主链路；接入 CI。
-- [ ] 主题/偏好持久化的生产验收（实现归 F1；M6 只做回归）。
-- [ ] F1 收口：虚拟滚动、可访问性审计、移动端回归在 M6 验收前完成。
+已交付：
 
-验收：生产构建可部署；SSE 经反向代理正常；重连不产生风暴；主链路 E2E 通过；关键指标可查。
+- [x] 构建产物拆分与体积门禁：`manualChunks` 拆出 `markdown` / `vue-vendor` / `http`；`pnpm size` 逐文件 gzip 门禁（单 chunk ≤ 110 KB、JS 总 ≤ 420 KB、CSS ≤ 60 KB）。ChatView 由 118.7 KB → 41.3 KB gzip，Markdown 三件套独立成块按需加载。
+- [x] 生产强制关闭 mock：构建期（`vite build --mode production` 且 `VITE_USE_MOCK=true` 直接失败，实测 exit 1）与运行期（`import.meta.env.MODE === 'production'`）双层；`vite preview` 不被误伤。
+- [x] Nginx 配置与 SSE 代理验证：`deploy/nginx.conf` 的 SSE location（`proxy_buffering off` / `proxy_cache off` / `gzip off` / 长读超时 / `Connection ""`）；`pnpm verify:nginx` 在已有 `dev_nginx` 容器内起临时实例对照实测：`/sse` 5 帧逐秒到达（间隔 999–1002 ms），`/sse-buffered` 首帧 5030 ms 后集中到达 5 帧。`--check-deploy` 对交付配置做 `nginx -t` 语法校验。
+- [x] 断线续传：SSE 断线自动重连（1/2/4/8/16s ±20%，最多 5 次、总窗口 60s），重连前 `GET /runs/{id}` 回填 `conversation_id` 并校验 run，重连保留 `lastSeq` 去重，正常 EOF（未收到 `message.done`）也触发重连；重连中显示可中断的连接条，失败降级复用 M5 恢复横幅 + 轮询。
+- [x] 可观测：`X-Request-ID` / `X-Trace-ID` 与请求耗时进环形缓冲；错误态展示并复制 `request_id`（聊天错误透传 SSE `error.request_id`）；账号菜单「诊断信息」抽屉（版本 / 构建时间 / git sha / API base / mock / run_id / conversation_id / 最近请求 / 最近错误 / Web Vitals）；Web Vitals 自研采集 LCP/CLS/INP/TTFB；`VITE_ERROR_REPORT_ENDPOINT` / `VITE_PERF_ENDPOINT` 上报钩子默认关闭。
+- [x] E2E（Playwright + chromium，mock 构建）：`pnpm e2e` 9 例通过（登录 3 / 对话 2 / 审批 2 / 知识库 2）；`.github/workflows/ci.yml` 提供 quality + e2e 两个 job。
+- [x] 部署文档：`deploy/README.md`（部署、缓存、回滚、验证记录与证据边界）。
+- [ ] F1 收口（虚拟滚动、a11y 审计、移动端回归）：按用户决策拆到下一轮，不阻塞 M6。
+
+验收：`pnpm build` + `pnpm size` 通过；`VITE_USE_MOCK=true pnpm build` 失败；`pnpm e2e` 9 例通过；`pnpm verify:nginx` exit 0 且给出缓冲对照时间线；断线重连单测覆盖回填/去重/终态/EOF/上限。
+
+> 2026-11-11 联调证据：`pnpm test` 44 文件 / 232 用例通过；`pnpm type-check` 通过；`pnpm build` 通过；`pnpm size` 通过；`pnpm e2e` 9 passed；`pnpm verify:nginx` 与 `--check-deploy` exit 0。
+>
+> 未取证与限制：
+> 1. **不做逐字续流**：后端 `GET /runs/{id}/events` 剔除 `payload._event`、无 `Last-Event-ID`、单实例不引入 Redis 广播，断线期间的文本增量只能等 run 结束后 `refreshHistory()` 补齐；建议后端后续给回放加 `event` 字段或提供 `GET /runs/{id}/stream?after_seq=`。
+> 2. **E2E 只跑 mock 构建**：本机 `LLM_API_KEY` 为占位符（聊天 401），真实后端链路仍由 `smoke:real` / `test:real` 覆盖；不提供「只改 baseURL 就切真实后端」的假模式。
+> 3. **Nginx 验证是「指令语义」证据**：临时实例 + 容器内假 SSE 源证明 `proxy_buffering off` 生效，不等于真实后端 LLM 长流/断线场景；`--check-deploy` 只验语法。
+> 4. **CI 仅为配置交付**：仓库尚无远端 workflow 历史，是否有 runner 由用户决定。
 
 ## 3. F1 体验与可访问性（横切，不占 M 编号）
 
@@ -204,7 +216,7 @@
 | M3 | 不适用（已取消） | 2026-11-10 决策：仅出站 A2A Client，入站不实施 | 无；设置页入站分区已移除，智能体页继续承载出站能力 |
 | M4 | 知识库文档/检索端点；citations；`knowledge_categories`；能力开关 | 7 个端点已实现，`capabilities.knowledge=true`；前端已联调 | 按实际契约消费；单文档重建复用 retry；分类候选由文档聚合 |
 | M5 | 审批列表/详情/决定；审计查询；平台密钥；429；`run.interrupted`/`run.resumed` | 后端已交付并在开发库迁移 | 已联调；RBAC 403 仍缺，待后端补 |
-| M6 | `after_seq` 事件回放（已有）；Last-Event-ID/多实例 SSE；metrics/trace | `after_seq` 已实现；其余未开始 | 先做 Nginx/E2E；续传等后端决策 |
+| M6 | 无新增业务契约；`/readyz` 加字段、DB 503 兼容 | 后端 M6 设计已明确前端无需适配；单实例、无 Redis 广播 | 前端生产化已收口：构建门禁、重连、可观测、E2E、Nginx SSE；逐字续流待后端补回放事件名 |
 | X1/X2 | 无 | 未立项 | 保留原型/交接包，不进入排期 |
 
 ## 6. 待决策
@@ -222,6 +234,7 @@
 
 ## 7. 变更记录
 
+- **2026-11-11（M6 前端）**：前端 M6 生产化完成：分包与体积门禁（ChatView 118.7→41.3 KB gzip）、生产 mock 双层门禁、SSE 断线自动重连（回填 conversation_id + lastSeq 去重，不做逐字续流）、诊断抽屉与 Web Vitals、Playwright E2E 9 例 + CI、Nginx SSE 配置与容器内对照实测（`/sse` 逐秒 999–1002 ms vs `/sse-buffered` 集中到达）。F1 收口与视觉欠账按用户决策排到下一轮。
 - **2026-11-11**：M5 前端完成并对接后端交付：审批中心、多审批与超时语义、审计查询、平台密钥、429/遮罩/外链等安全 UX；`smoke:m5` 163 项与 `test:real` M5 3 例通过。记录事件回放无事件名、写操作 RBAC 未落地、LLM 占位导致审批恢复无真实 HTTP 证据三项缺口。
 - **2026-11-10（需求变更）**：A2A 能力边界收缩为**仅出站**。M3「A2A 入站」取消（保留编号空位），设置页「A2A 端点」分区整块移除，`system/info.a2a` 前端不再读取；F1 并行范围收窄为 M4–M6。后端仓库的 M3 清理由后端单独处理。
 - **2026-11-10**：与后端 M0–M6 语义对齐。M3 由「审批」改为「A2A 入站前端配套」；M5 由「体验与可访问性」改为「审批与安全加固」；体验项移入 F1；工作流/完整管理台移入 X1/X2；M1/M1.5/M2 状态更新为真实联调通过；补充契约前置、门禁与待决策。

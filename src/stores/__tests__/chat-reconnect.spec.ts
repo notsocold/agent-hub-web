@@ -6,7 +6,7 @@ import { openChatStream } from '@/api/chat'
 import { conversationsApi } from '@/api/conversations'
 import { runsApi } from '@/api/runs'
 import { useChatStore } from '@/stores/chat'
-import type { ChatEventName, ConversationDetail, PageResult, Run } from '@/types'
+import type { ConversationDetail, PageResult, Run } from '@/types'
 
 vi.mock('@/api/chat', () => ({ openChatStream: vi.fn() }))
 vi.mock('@/api/conversations', () => ({
@@ -18,15 +18,6 @@ vi.mock('@/api/runs', () => ({
 vi.mock('@/api/approvals', () => ({
   approvalsApi: { decide: vi.fn(), list: vi.fn(), detail: vi.fn() },
 }))
-
-/** 测试用 handlers 视图：避免测试依赖生产类型的内部细节。 */
-interface StreamHandlersLike {
-  signal: AbortSignal
-  onOpen?: (runId: string | null) => void
-  onEvent: (event: ChatEventName, data: unknown) => void
-  onError: (error: Error) => void
-  onClose?: () => void
-}
 
 function makeRun(overrides: Partial<Run> = {}): Run {
   return {
@@ -87,12 +78,6 @@ function createChatStore(): ReturnType<typeof useChatStore> {
   const store = useChatStore()
   stores.push(store)
   return store
-}
-
-function handlersAt(index: number): StreamHandlersLike {
-  const handlers = vi.mocked(openChatStream).mock.calls[index]?.[1]
-  if (!handlers) throw new Error(`缺少第 ${index + 1} 次 openChatStream 调用`)
-  return handlers as unknown as StreamHandlersLike
 }
 
 /** 刷新微任务队列；假时钟下不推进真实时间。 */
