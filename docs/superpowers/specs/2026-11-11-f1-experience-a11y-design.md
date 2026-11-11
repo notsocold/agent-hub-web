@@ -93,9 +93,9 @@ process 行的锚定规则（这是设计定死的边界，不留给实施者猜
 
 **加载更早消息**：
 
-- `VList` 设 `shift`（聊天是反向无限滚动：历史 prepend + 新消息 append 并存），使 prepend 后视口内容不跳。
+- **不使用 `VList` 的 `shift`**。virtua 文档明确 `shift` 只适用于「头部增删」；本列表同时存在 append（发送/流式）与 process 行中间插入，常开会把 append 也按头部插入补偿，导致用户上滑阅读时视口跳动。改为手动补偿：点击加载更早前记录 `scrollSize/scrollOffset`，新消息渲染后 `scrollTo(offset + Δ)`，视口内容保持不动。
 - 「加载更早消息」按钮**放在 VList 之外的固定顶部条**（不参与虚拟滚动），仅 `hasMore` 时显示；加载中显示「正在加载更早消息…」。历史加载完后按钮消失，顶部条高度归零。
-- 若 E2E 发现 `shift` 在 append/prepend 混合下不稳，回退方案：`shift=false` + prepend 前记录 `scrollSize/scrollOffset`、渲染后按差值补偿 `scrollTo`（实现细节留给构建者）。
+- append / 流式增高仍沿用「pinned 时贴底、上滑后不打扰」的逻辑；`onResize` 的 rAF 回调内会再次确认 pinned。
 
 **保留的行为**（验收时必须逐项确认）：
 
@@ -218,7 +218,7 @@ process 行的锚定规则（这是设计定死的边界，不留给实施者猜
 | F1-A | Markdown 缓存正确且不破坏安全边界 | 单测（缓存命中/淘汰/流式不缓存）+ 现有 DOMPurify 用例 |
 | F1-A | 三态统一 | 代码清单核对 + 单测（组件 props）+ 页面截图/手测 |
 | F1-A | 门禁 | `pnpm test`、`type-check`、`lint`、`build`、`size` 全过 |
-| F1-B | ⌘K 三类结果可用 | E2E：页面跳转、会话搜索（对话页内）、会话搜索（从 `/settings` 跨页）、当前会话消息定位 |
+| F1-B | ⌘K 三类结果可用 | E2E：页面跳转、会话搜索（对话页内）、会话搜索（从 `/settings` 跨页）、当前会话消息定位（用 `toBeInViewport` 断言命中消息行） |
 | F1-B | a11y | axe 扫描 critical/serious = 0；对比度脚本输出；键盘手测清单 |
 | F1-B | 偏好 | 单测（读写/损坏回退）+ E2E（切换密度后刷新仍生效） |
 | F1-B | 移动端 | E2E 390×844 冒烟 |
@@ -234,7 +234,8 @@ process 行的锚定规则（这是设计定死的边界，不留给实施者猜
 | Markdown 缓存内存增长 | 长会话内存上升 | LRU 200 条 + 只缓存非流式内容 |
 | axe 扫描暴露 Element Plus 内部违规 | CI 红 | 应用层可修的修；库内部精确 allowlist（规则+选择器），不整体关闭 |
 | 命令面板与会话搜索请求打爆后端 | 体验/限流 | 250 ms 防抖 + limit 8 + 请求取消（AbortController） |
-| 命令面板跨页定位消息的时序不稳（路由切换 → 加载会话 → MessageList 挂载 → 滚动） | 定位静默失败 | `pendingScrollMessageId` 在 store 保留、由 MessageList 就绪后消费并清空；E2E 覆盖从 `/settings` 打开面板选中消息的路径；仍不稳则跨页时只跳到会话、不定位消息（降级为提示「已进入会话」，定位仅限对话页内） |
+| 消息定位与贴底 rAF 互相抢滚动 | 定位后又被拉回底部 | `scrollToMessage` 先置 `pinned=false` 并取消已排队的贴底 rAF；rAF 回调执行前再检查 pinned |
+| 命令面板在输入法组合态下误触发导航 | 中文输入选词时误跳页 | 键盘处理先判断 `event.isComposing`，组合态交还输入法 |
 | 消息密度改变行高影响虚拟测量 | 切换密度后位置跳动 | 切换后 `scrollToIndex(pinned ? last : 当前可见项)` 并触发一次重算 |
 
 ## 9. 留给构建者的自主决定

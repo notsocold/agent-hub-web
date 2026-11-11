@@ -79,12 +79,12 @@ git commit -m "feat(f1): 消息行模型与 virtua 依赖"
 
 **Interfaces:**
 - Consumes: `buildMessageRows`（Task 1）、`virtua/vue` 的 `VList` 与 `VListHandle`
-- Produces: `defineExpose({ scrollToBottom, scrollToMessage, refresh })`
+- Produces: `defineExpose({ scrollToBottom, scrollToMessage })`
 - Produces: `scrollToMessage(id: string): boolean`（找到返回 true）
 
 - [ ] **Step 1: 写 MessageList 的新模板结构**
 
-`VList` 包在 `.message-shell`（flex 列）里：固定顶部「加载更早」条（`hasMore` 时）、`VList`（`flex:1; min-height:0`）、浮动「回到底部」按钮。slot 根元素 `:key="row.id"`；process 行渲染 `ProcessTimeline`，message 行渲染 `MessageBubble`。
+`VList` 包在 `.message-shell`（flex 列）里：固定顶部「加载更早」条（`hasMore` 时）、`VList`（`flex:1; min-height:0`）、浮动「回到底部」按钮。slot 根元素 `:key="row.id"`；process 行渲染 `ProcessTimeline`，message 行渲染 `MessageBubble`。**不要给 `VList` 设 `shift`**：聊天同时有 append 与中间插入，shift 只适用于纯头部增删。
 
 - [ ] **Step 2: 实现滚动逻辑**
 
@@ -267,7 +267,7 @@ Expected: FAIL
 
 - [ ] **Step 3: 实现并接入**
 
-设置页「界面」分区：主题开关（复用 `useTheme`）、密度三段、语言只读、偏好说明。切换密度后触发 `MessageList.refresh()`（虚拟列表重算）并保持贴底状态。
+设置页「界面」分区：主题开关（复用 `useTheme`）、密度三段、语言只读、偏好说明。密度由入口 `initPreferences()` 初始化（不能依赖设置页懒加载），切换即时生效；对话页重新挂载时自然按新密度排版。
 
 - [ ] **Step 4: 运行测试确认通过**
 
