@@ -89,7 +89,7 @@ async function copy(text: string): Promise<void> {
       />
 
       <div class="response">
-        <MarkdownView :content="message.content" />
+        <MarkdownView :content="message.content" :cache="!message.streaming" />
         <span v-if="message.streaming" class="cursor" aria-hidden="true"></span>
 
         <p v-if="message.status === 'failed' && message.error" class="error">

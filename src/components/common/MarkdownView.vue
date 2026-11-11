@@ -4,11 +4,16 @@ import { ElMessageBox } from 'element-plus'
 
 import { renderMarkdown } from '@/utils/markdown'
 
-const props = defineProps<{
-  content: string
-}>()
+const props = withDefaults(
+  defineProps<{
+    content: string
+    /** 默认使用 LRU 缓存；流式消息可关闭，避免中间态挤占缓存。 */
+    cache?: boolean
+  }>(),
+  { cache: true },
+)
 
-const html = computed(() => renderMarkdown(props.content))
+const html = computed(() => renderMarkdown(props.content, { cache: props.cache }))
 
 /** 邮件与电话交给系统应用处理，无需离开确认。 */
 const PASS_THROUGH_PROTOCOLS = new Set(['mailto:', 'tel:'])
