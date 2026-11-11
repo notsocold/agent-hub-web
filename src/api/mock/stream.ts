@@ -105,15 +105,53 @@ export async function mockChatStream(
   const isApproval = /审批|发布|slack|写操作/i.test(payload.message)
   const isError = /错误|失败|error/i.test(payload.message)
 
+  // M7：登记 run 与事件，使 `GET /runs/{id}` 和续流端点对 mock 新产生的 run 可达。
+  mockDb.upsertRun({
+    id: runId,
+    conversation_id: conversation.id,
+    status: 'running',
+    source: 'chat',
+    model: payload.model ?? 'deepseek-chat',
+    reasoning_effort: payload.reasoning_effort ?? 'low',
+    workflow: null,
+    capabilities: baseCapabilities(payload),
+    usage: null,
+    started_at: new Date().toISOString(),
+    finished_at: null,
+    duration_ms: null,
+    active_duration_ms: null,
+    first_token_ms: null,
+    pending: { kind: null, approval_id: null, task_id: null },
+    message_ids: { user: userMessageId, assistant: assistantMessageId },
+    agents: [],
+    error: null,
+  })
+
   let seq = 0
   function emit(event: ChatEventName, data: Record<string, unknown>): void {
     seq += 1
-    handlers.onEvent(event, {
+    const frame = {
       ...data,
       run_id: runId,
       ts: new Date().toISOString(),
       seq,
-    })
+    }
+    // 与后端一致：delta 不落库；其余事件写回放存储并广播给续流订阅者。
+    if (event !== 'message.delta' && event !== 'reasoning.delta') {
+      mockDb.appendRunEvent(runId, event, frame)
+    }
+    if (event === 'message.done') {
+      const finish = typeof data.finish_reason === 'string' ? data.finish_reason : 'stop'
+      mockDb.setRunStatus(
+        runId,
+        finish === 'error' ? 'failed' : finish === 'canceled' ? 'canceled' : 'succeeded',
+      )
+    } else if (event === 'run.interrupted') {
+      mockDb.setRunStatus(runId, 'interrupted')
+    } else if (event === 'run.resumed') {
+      mockDb.setRunStatus(runId, 'running')
+    }
+    handlers.onEvent(event, frame)
   }
 
   async function play(frames: Frame[]): Promise<void> {

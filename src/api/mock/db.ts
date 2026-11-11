@@ -368,6 +368,8 @@ class MockDb {
     const canceledAt = new Date().toISOString()
     run.status = 'canceled'
     run.finished_at = canceledAt
+    // M7：取消也是终态，通知续流订阅者关闭连接。
+    this.notifyRunTerminal(id)
     return { id, status: 'canceled', canceled_at: canceledAt }
   }
 

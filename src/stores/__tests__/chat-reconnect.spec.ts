@@ -15,7 +15,13 @@ vi.mock('@/api/conversations', () => ({
   conversationsApi: { messages: vi.fn(), get: vi.fn() },
 }))
 vi.mock('@/api/runs', () => ({
-  runsApi: { get: vi.fn(), events: vi.fn(), cancel: vi.fn(), resume: vi.fn() },
+  runsApi: {
+    get: vi.fn(),
+    events: vi.fn(),
+    cancel: vi.fn(),
+    resume: vi.fn(),
+    stream: vi.fn(),
+  },
 }))
 vi.mock('@/api/approvals', () => ({
   approvalsApi: { decide: vi.fn(), list: vi.fn(), detail: vi.fn() },
@@ -121,6 +127,8 @@ describe('chat store 断线重连状态机', () => {
       handlers.onOpen?.('run-1')
       throw new Error('network down')
     })
+    // 默认重连也失败（网络尚未恢复）；需要成功续流的用例自行覆盖。
+    vi.mocked(runsApi.stream).mockRejectedValue(new Error('network down'))
   })
 
   afterEach(() => {
@@ -131,16 +139,15 @@ describe('chat store 断线重连状态机', () => {
     vi.restoreAllMocks()
   })
 
-  it('断线后重连：先 GET run 回填 conversation_id，再用同 client_message_id 重连', async () => {
-    vi.mocked(openChatStream)
-      .mockImplementationOnce(async (_payload, handlers) => {
-        handlers.onOpen?.('run-1')
-        throw new Error('network down')
-      })
-      .mockImplementationOnce(async (_payload, handlers) => {
-        handlers.onOpen?.('run-1')
-        handlers.onEvent('message.done', messageDone(1))
-      })
+  it('断线后重连：先 GET run 回填 conversation_id，再从 lastSeq 续流', async () => {
+    vi.mocked(openChatStream).mockImplementationOnce(async (_payload, handlers) => {
+      handlers.onOpen?.('run-1')
+      throw new Error('network down')
+    })
+    vi.mocked(runsApi.stream).mockImplementationOnce(async (_runId, _afterSeq, handlers) => {
+      handlers.onOpen?.('run-1')
+      handlers.onEvent('message.done', messageDone(1))
+    })
     vi.mocked(runsApi.get).mockResolvedValue(
       makeRun({ conversation_id: 'conv-9', status: 'running' }),
     )
@@ -151,45 +158,44 @@ describe('chat store 断线重连状态机', () => {
     expect(openChatStream).toHaveBeenCalledTimes(1)
     expect(chat.connection).toBe('reconnecting')
     expect(runsApi.get).not.toHaveBeenCalled()
-    const clientMessageId = vi.mocked(openChatStream).mock.calls[0]?.[0]?.client_message_id
-    expect(clientMessageId).toBeTruthy()
 
     await vi.advanceTimersByTimeAsync(1000)
 
     expect(runsApi.get).toHaveBeenCalledWith('run-1')
-    // 正确性关键：回填 run.conversation_id，避免重连被后端当成新会话。
+    // 正确性关键：回填 run.conversation_id，避免切会话后事件写错会话。
     expect(chat.state.conversationId).toBe('conv-9')
-    expect(openChatStream).toHaveBeenCalledTimes(2)
-    const reconnectPayload = vi.mocked(openChatStream).mock.calls[1]?.[0]
-    expect(reconnectPayload?.conversation_id).toBe('conv-9')
-    expect(reconnectPayload?.client_message_id).toBe(clientMessageId)
+    // M7：重连不再重发 POST /chat/stream（会新建 run），而是从 lastSeq 续流。
+    expect(openChatStream).toHaveBeenCalledTimes(1)
+    expect(runsApi.stream).toHaveBeenCalledTimes(1)
+    const [streamRunId, streamAfterSeq] = vi.mocked(runsApi.stream).mock.calls[0]!
+    expect(streamRunId).toBe('run-1')
+    expect(streamAfterSeq).toBe(0)
     expect(chat.state.finishReason).toBe('stop')
     expect(chat.connection).toBe('idle')
   })
 
   it('重连保留 lastSeq，不重复处理回放事件', async () => {
-    vi.mocked(openChatStream)
-      .mockImplementationOnce(async (_payload, handlers) => {
-        handlers.onOpen?.('run-1')
-        handlers.onEvent('tool.start', { tool_call_id: 'call-1', tool: 'search', seq: 2 })
-        handlers.onEvent('tool.result', {
-          tool_call_id: 'call-1',
-          result_preview: '命中 1 条',
-          seq: 3,
-        })
-        throw new Error('network down')
+    vi.mocked(openChatStream).mockImplementationOnce(async (_payload, handlers) => {
+      handlers.onOpen?.('run-1')
+      handlers.onEvent('tool.start', { tool_call_id: 'call-1', tool: 'search', seq: 2 })
+      handlers.onEvent('tool.result', {
+        tool_call_id: 'call-1',
+        result_preview: '命中 1 条',
+        seq: 3,
       })
-      .mockImplementationOnce(async (_payload, handlers) => {
-        handlers.onOpen?.('run-1')
-        // 服务端回放已处理事件：seq 均 <= lastSeq，必须被 reducer 丢弃。
-        handlers.onEvent('tool.start', { tool_call_id: 'call-1', tool: 'search', seq: 2 })
-        handlers.onEvent('tool.result', {
-          tool_call_id: 'call-1',
-          result_preview: '命中 1 条',
-          seq: 3,
-        })
-        handlers.onEvent('message.done', messageDone(4))
+      throw new Error('network down')
+    })
+    vi.mocked(runsApi.stream).mockImplementationOnce(async (_runId, _afterSeq, handlers) => {
+      handlers.onOpen?.('run-1')
+      // 服务端回放已处理事件：seq 均 <= lastSeq，必须被 reducer 丢弃。
+      handlers.onEvent('tool.start', { tool_call_id: 'call-1', tool: 'search', seq: 2 })
+      handlers.onEvent('tool.result', {
+        tool_call_id: 'call-1',
+        result_preview: '命中 1 条',
+        seq: 3,
       })
+      handlers.onEvent('message.done', messageDone(4))
+    })
 
     const chat = createChatStore()
     await chat.send('你好')
@@ -198,7 +204,8 @@ describe('chat store 断线重连状态机', () => {
 
     await vi.advanceTimersByTimeAsync(1000)
 
-    expect(openChatStream).toHaveBeenCalledTimes(2)
+    // 续流必须携带 lastSeq，回放事件才能被去重。
+    expect(vi.mocked(runsApi.stream).mock.calls[0]?.[1]).toBe(3)
     expect(chat.processItems).toHaveLength(1)
     expect(chat.processItems[0]?.kind).toBe('tool')
     expect(chat.state.lastSeq).toBe(4)
@@ -224,16 +231,14 @@ describe('chat store 断线重连状态机', () => {
     expect(chat.state.runStatus).toBe('succeeded')
   })
 
-  it('正常 EOF（onClose）且无 message.done 时触发重连', async () => {
-    let calls = 0
+  it('正常 EOF（onClose）且无 message.done 时触发续流重连', async () => {
     vi.mocked(openChatStream).mockImplementation(async (_payload, handlers) => {
-      calls += 1
       handlers.onOpen?.('run-1')
-      if (calls === 1) {
-        // 服务端静默关流：只靠 onerror 会漏掉，必须由 onClose 触发重连。
-        handlers.onClose?.()
-        return
-      }
+      // 服务端静默关流：只靠 onerror 会漏掉，必须由 onClose 触发重连。
+      handlers.onClose?.()
+    })
+    vi.mocked(runsApi.stream).mockImplementationOnce(async (_runId, _afterSeq, handlers) => {
+      handlers.onOpen?.('run-1')
       handlers.onEvent('message.done', messageDone(2))
     })
 
@@ -248,15 +253,13 @@ describe('chat store 断线重连状态机', () => {
     await vi.advanceTimersByTimeAsync(1000)
 
     expect(runsApi.get).toHaveBeenCalledWith('run-1')
-    expect(openChatStream).toHaveBeenCalledTimes(2)
-    expect(vi.mocked(openChatStream).mock.calls[1]?.[0]?.client_message_id).toBe(
-      vi.mocked(openChatStream).mock.calls[0]?.[0]?.client_message_id,
-    )
+    expect(runsApi.stream).toHaveBeenCalledTimes(1)
     expect(chat.state.finishReason).toBe('stop')
     expect(chat.state.streaming).toBe(false)
   })
 
   it('连续失败 5 次后进入 degraded，并复用恢复横幅路径', async () => {
+    vi.mocked(runsApi.stream).mockRejectedValue(new Error('network down'))
     const chat = createChatStore()
     await chat.send('你好')
 
@@ -264,7 +267,8 @@ describe('chat store 断线重连状态机', () => {
       await vi.advanceTimersByTimeAsync(delay)
     }
 
-    expect(openChatStream).toHaveBeenCalledTimes(6)
+    expect(openChatStream).toHaveBeenCalledTimes(1)
+    expect(runsApi.stream).toHaveBeenCalledTimes(5)
     expect(runsApi.get).toHaveBeenCalledTimes(5)
     expect(chat.reconnectAttempt).toBe(5)
     expect(chat.connection).toBe('degraded')
@@ -274,38 +278,27 @@ describe('chat store 断线重连状态机', () => {
 
     // 达到上限后不再自动发起重连。
     await vi.advanceTimersByTimeAsync(60_000)
-    expect(openChatStream).toHaveBeenCalledTimes(6)
+    expect(runsApi.stream).toHaveBeenCalledTimes(5)
   })
 
   it('重连请求在收到响应头之前失败时，仍继续按退避重试', async () => {
-    let calls = 0
-    vi.mocked(openChatStream).mockImplementation(async (_payload, handlers) => {
-      calls += 1
-      // 只有首次连接拿到过 X-Run-ID；后续重连都在 onOpen 之前失败（网络还没恢复）。
-      if (calls === 1) handlers.onOpen?.('run-1')
-      throw new Error('network down')
-    })
+    vi.mocked(runsApi.stream).mockRejectedValue(new Error('network down'))
 
     const chat = createChatStore()
     await chat.send('你好')
     expect(chat.connection).toBe('reconnecting')
 
     await vi.advanceTimersByTimeAsync(1000)
-    expect(openChatStream).toHaveBeenCalledTimes(2)
+    expect(runsApi.stream).toHaveBeenCalledTimes(1)
     // 第 2 次尝试失败后必须继续排队下一次（不能因 in-flight 去重被吞掉）。
     expect(chat.reconnectAttempt).toBe(2)
 
     await vi.advanceTimersByTimeAsync(2000)
-    expect(openChatStream).toHaveBeenCalledTimes(3)
+    expect(runsApi.stream).toHaveBeenCalledTimes(2)
   })
 
   it('超过 60s 总窗口后进入 degraded（即使不足 5 次）', async () => {
-    let calls = 0
-    vi.mocked(openChatStream).mockImplementation(async (_payload, handlers) => {
-      calls += 1
-      if (calls === 1) handlers.onOpen?.('run-1')
-      throw new Error('network down')
-    })
+    vi.mocked(runsApi.stream).mockRejectedValue(new Error('network down'))
 
     const chat = createChatStore()
     await chat.send('你好')
@@ -315,9 +308,67 @@ describe('chat store 断线重连状态机', () => {
     vi.setSystemTime(Date.now() + 60_000)
     await vi.advanceTimersByTimeAsync(1000)
 
-    expect(openChatStream).toHaveBeenCalledTimes(2)
+    expect(runsApi.stream).toHaveBeenCalledTimes(1)
     expect(chat.connection).toBe('degraded')
     expect(chat.reconnectAttempt).toBe(1)
+  })
+
+  it('续流 400 replay_too_large 时降级轮询，不弹致命错误', async () => {
+    vi.mocked(runsApi.get).mockResolvedValue(makeRun({ status: 'running' }))
+    vi.mocked(runsApi.stream).mockRejectedValue(
+      new ApiRequestError('回放事件超过上限', { code: 'replay_too_large', status: 400 }),
+    )
+
+    const chat = createChatStore()
+    await chat.send('你好')
+    await vi.advanceTimersByTimeAsync(1000)
+
+    expect(runsApi.stream).toHaveBeenCalledTimes(1)
+    expect(chat.connection).toBe('degraded')
+    expect(chat.state.streaming).toBe(false)
+    expect(chat.state.recovery?.kind).toBe('stream_failed')
+    expect(chat.state.recovery?.message).toContain('轮询')
+
+    // 降级后必须继续用轮询跟进，而不是卡死/反复重试同一 after_seq。
+    const before = vi.mocked(runsApi.get).mock.calls.length
+    await vi.advanceTimersByTimeAsync(2500)
+    expect(vi.mocked(runsApi.get).mock.calls.length).toBe(before + 1)
+    expect(runsApi.stream).toHaveBeenCalledTimes(1)
+  })
+
+  it('续流 404 时结束恢复并刷新历史（不再轮询）', async () => {
+    vi.mocked(runsApi.get).mockResolvedValue(makeRun({ status: 'running' }))
+    vi.mocked(runsApi.stream).mockRejectedValue(
+      new ApiRequestError('运行不存在', { code: 'not_found', status: 404 }),
+    )
+
+    const chat = createChatStore()
+    await chat.send('你好')
+    await vi.advanceTimersByTimeAsync(1000)
+
+    expect(chat.connection).toBe('idle')
+    expect(chat.state.streaming).toBe(false)
+    expect(chat.state.recovery).toBeNull()
+    expect(conversationsApi.messages).toHaveBeenCalled()
+
+    const before = vi.mocked(runsApi.get).mock.calls.length
+    await vi.advanceTimersByTimeAsync(10_000)
+    expect(vi.mocked(runsApi.get).mock.calls.length).toBe(before)
+  })
+
+  it('断线发生在 run 建立之前时不续流，也不进入重连', async () => {
+    vi.mocked(openChatStream).mockImplementation(async () => {
+      // 后端还没返回 X-Run-ID 就断网：没有可续流的 run。
+      throw new ApiRequestError('网络异常', { code: 'network_error', status: 0 })
+    })
+
+    const chat = createChatStore()
+    await chat.send('你好')
+    await vi.advanceTimersByTimeAsync(60_000)
+
+    expect(runsApi.stream).not.toHaveBeenCalled()
+    expect(chat.connection).toBe('idle')
+    expect(chat.state.error?.code).toBe('network_error')
   })
 
   it('GET run 返回的 run 与当前 run 不一致时放弃重连', async () => {
@@ -379,6 +430,7 @@ describe('chat store 断线重连状态机', () => {
   })
 
   it('离线时暂停计时，online 事件立即重试并重置计数', async () => {
+    vi.mocked(runsApi.stream).mockRejectedValue(new Error('network down'))
     const onLine = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
 
     const chat = createChatStore()
@@ -387,17 +439,17 @@ describe('chat store 断线重连状态机', () => {
     expect(chat.connection).toBe('reconnecting')
     expect(chat.reconnectAttempt).toBe(0)
     await vi.advanceTimersByTimeAsync(30_000)
-    expect(openChatStream).toHaveBeenCalledTimes(1)
+    expect(runsApi.stream).not.toHaveBeenCalled()
 
     onLine.mockReturnValue(true)
     window.dispatchEvent(new Event('online'))
     await flushMicrotasks()
 
     // 恢复在线后立即重试（不等剩余退避），且计数从 0 重新开始。
-    expect(openChatStream).toHaveBeenCalledTimes(2)
+    expect(runsApi.stream).toHaveBeenCalledTimes(1)
     expect(chat.reconnectAttempt).toBe(1)
     await vi.advanceTimersByTimeAsync(1000)
-    expect(openChatStream).toHaveBeenCalledTimes(3)
+    expect(runsApi.stream).toHaveBeenCalledTimes(2)
 
     chat.stopReconnect()
     expect(chat.connection).toBe('degraded')

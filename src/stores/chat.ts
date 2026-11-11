@@ -577,22 +577,15 @@ export const useChatStore = defineStore('chat', () => {
         return
       }
 
-      // running / queued：用回填后的 conversation_id + 原 client_message_id 重发流。
-      await openChatStream(
-        {
-          conversation_id: run.conversation_id,
-          message: attempt.text,
-          client_message_id: attempt.clientMessageId,
-          ...attempt.context,
-        },
-        {
-          signal: currentController.signal,
-          onOpen: (id) => onOpen(id, false),
-          onEvent,
-          onError,
-          onClose: onStreamClose,
-        },
-      )
+      // running / queued：M7 起从 lastSeq 续流（GET + Bearer），
+      // 不再重发消息——重发会新建 run，且回放事件会与已处理事件重复。
+      await runsApi.stream(runId, state.value.lastSeq, {
+        signal: currentController.signal,
+        onOpen: () => onOpen(runId, false),
+        onEvent,
+        onError,
+        onClose: onStreamClose,
+      })
 
       if (
         !currentController.signal.aborted &&
@@ -604,6 +597,25 @@ export const useChatStore = defineStore('chat', () => {
       }
     } catch (error) {
       if (isAbort(error) || currentController.signal.aborted) return
+
+      // 400 replay_too_large：回放超过上限，改用轮询恢复；不能重试同一 after_seq。
+      if (error instanceof ApiRequestError && error.code === 'replay_too_large') {
+        settled = true
+        resetReconnectBudget()
+        enterDegraded('断点回放事件超过上限，改为轮询恢复。', runId)
+        return
+      }
+
+      // 404：run 已删除/不可见，续流和轮询都没有意义，补历史后结束恢复。
+      if (error instanceof ApiRequestError && error.status === 404) {
+        settled = true
+        resetReconnectBudget()
+        connection.value = 'idle'
+        state.value = { ...state.value, streaming: false, recovery: null }
+        await refreshHistory().catch(() => undefined)
+        return
+      }
+
       if (error instanceof ApiRequestError && error.status >= 400 && error.status < 500) {
         // 4xx 业务错误不重连：交给现有错误/409 恢复逻辑。
         settled = true

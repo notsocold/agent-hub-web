@@ -1,7 +1,8 @@
 import { fetchEventSource } from '@microsoft/fetch-event-source'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { ApiRequestError, notifyUnauthorized, refreshSession } from '@/api/client'
+import { mockDb } from '@/api/mock'
 import { runsApi } from '@/api/runs'
 import type { AuthTokens, ChatStreamHandlers } from '@/types'
 import { storage } from '@/utils/storage'
@@ -120,5 +121,42 @@ describe('runsApi.stream 运行事件续流', () => {
       code: 'replay_too_large',
     })
     expect(fetchEventSource).toHaveBeenCalledTimes(1)
+  })
+})
+
+const WEEKLY_RUN_ID = '33333333-3333-4333-8333-333333333333'
+
+describe('mock 续流端点', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.stubEnv('VITE_USE_MOCK', 'true')
+    mockDb.reset()
+  })
+
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
+  it('按 after_seq 回放 fixture 事件并在终态后关闭', async () => {
+    const streamHandlers = handlers()
+
+    await runsApi.stream(WEEKLY_RUN_ID, 3, streamHandlers)
+
+    const emitted = vi.mocked(streamHandlers.onEvent).mock.calls.map(([name]) => name)
+    // fixtures 共 6 条事件，after_seq=3 只回放 4/5/6。
+    expect(emitted).toEqual(['skill.activated', 'approval.required', 'message.done'])
+    expect(vi.mocked(streamHandlers.onEvent).mock.calls[0]?.[1]).toMatchObject({ seq: 4 })
+    expect(streamHandlers.onClose).toHaveBeenCalledTimes(1)
+    expect(fetchEventSource).not.toHaveBeenCalled()
+  })
+
+  it('run 不存在时抛 404，不进入回放', async () => {
+    const streamHandlers = handlers()
+
+    await expect(runsApi.stream('missing-run', 0, streamHandlers)).rejects.toMatchObject({
+      status: 404,
+      code: 'not_found',
+    })
+    expect(streamHandlers.onEvent).not.toHaveBeenCalled()
   })
 })
