@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 
 import ChatComposer from '@/components/chat/ChatComposer.vue'
+import ConnectionBanner from '@/components/chat/ConnectionBanner.vue'
 import ConversationSidebar from '@/components/chat/ConversationSidebar.vue'
 import MessageList from '@/components/chat/MessageList.vue'
 import RunRecoveryBanner from '@/components/chat/RunRecoveryBanner.vue'
@@ -255,6 +256,14 @@ function handleRecoveryRefresh(): void {
         @retry="handleRecoveryRetry"
         @refresh="handleRecoveryRefresh"
         @approvals="openApprovals"
+      />
+
+      <!-- 仅重连中显示；降级后由 RunRecoveryBanner 接管，避免双横幅。 -->
+      <ConnectionBanner
+        v-if="chat.connection === 'reconnecting'"
+        :connection="chat.connection"
+        :attempt="chat.reconnectAttempt"
+        @stop="chat.stopReconnect()"
       />
 
       <ErrorState
