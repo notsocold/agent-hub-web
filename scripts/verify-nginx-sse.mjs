@@ -45,6 +45,8 @@ const FRAME_COUNT = 5
 const REMOTE_DIR = '/tmp/agent-hub-sse-verify'
 const CHECK_REMOTE_DIR = '/tmp/agent-hub-sse-verify-deploy'
 const CHECK_DEPLOY = process.argv.includes('--check-deploy')
+// 静态模式：只做 deploy/nginx.conf 的续流 SSE 断言，不依赖 Docker/nginx -t。
+const STATIC_ONLY = process.argv.includes('--static-only')
 
 const state = {
   hostPort: Number(process.env.NGINX_HOST_PORT || 0),
@@ -704,6 +706,27 @@ function checkDeployStaticConfig(source) {
   return problems
 }
 
+function checkStaticOnly() {
+  log('\n==> --static-only：不依赖 Docker，只校验 deploy/nginx.conf 的续流 SSE location')
+  if (!existsSync(DEPLOY_CONF)) {
+    fail(`找不到交付配置：${DEPLOY_CONF}`)
+  }
+  const source = readFileSync(DEPLOY_CONF, 'utf8')
+  log(`  交付文件：${DEPLOY_CONF}`)
+  log('  [静态断言] 续流 SSE location（/api/v1/runs/{run_id}/stream）')
+  const problems = checkDeployStaticConfig(source)
+  if (problems.length > 0) {
+    log('  [FAIL] 静态断言未通过：')
+    for (const problem of problems) log(`    ✗ ${problem}`)
+    fail(`deploy/nginx.conf 静态断言未通过（${problems.length} 项）`)
+  }
+  log(
+    `\n[PASS] deploy/nginx.conf 续流 SSE location 静态断言通过` +
+      '（未运行 nginx -t；Docker 可用时请用 --check-deploy）',
+  )
+  return 0
+}
+
 async function checkDeploy() {
   log('\n==> --check-deploy：校验 deploy/nginx.conf 语法 + 续流 SSE location 静态断言')
   if (!existsSync(DEPLOY_CONF)) {
@@ -924,6 +947,11 @@ async function runVerify() {
 }
 
 async function main() {
+  if (STATIC_ONLY) {
+    // 不进入 cleanup 的容器清理流程，避免 Docker 不可用时误报。
+    state.cleaned = true
+    return checkStaticOnly()
+  }
   const environment = ensureEnvironment()
   log('=== Agent Hub Nginx SSE 验证 ===')
   log(`容器：${CONTAINER}（${environment.nginxVersion}）`)

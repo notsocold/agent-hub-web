@@ -206,10 +206,13 @@ pnpm verify:nginx
 node scripts/verify-nginx-sse.mjs
 
 # 校验 deploy/nginx.conf 语法 + 续流 SSE location 静态断言
-# （不监听端口、不连接上游）
+# （不监听端口、不连接上游；需要 Docker）
 pnpm verify:nginx --check-deploy
 # 等价于
 node scripts/verify-nginx-sse.mjs --check-deploy
+
+# 仅续流 location 静态断言（不依赖 Docker，CI 外的快速自检）
+node scripts/verify-nginx-sse.mjs --static-only
 ```
 
 环境变量：
@@ -237,7 +240,8 @@ node scripts/verify-nginx-sse.mjs --check-deploy
 
 `--check-deploy` 除了 `nginx -t`，还会静态断言 `deploy/nginx.conf`：
 
-- 存在匹配 `/api/v1/runs/{run_id}/stream` 的正则 location；
+- 存在匹配 `/api/v1/runs/{run_id}/stream` 的正则 location，且正则头必须与
+  `location ~ ^/api/v1/runs/[0-9a-fA-F-]+/stream$` 完全一致（锚定 + UUID 字符集）；
 - 该 location 块内包含 `proxy_http_version 1.1`、`proxy_buffering off`、`proxy_cache off`、
   `gzip off`、`proxy_read_timeout 3600s`、`proxy_send_timeout 3600s`、
   `proxy_set_header Connection ""`；
