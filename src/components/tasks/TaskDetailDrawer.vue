@@ -8,13 +8,19 @@ import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
 import StatusBadge from '@/components/common/StatusBadge.vue'
 import { tasksApi } from '@/api/tasks'
 import { formatDateTime, formatDuration } from '@/utils/format'
+import { isSafeAuthorizationUrl } from './authorizationUrl'
 import { stateLabel, stateTone } from './taskMeta'
 import type { A2aTaskDetail, TaskAction } from '@/types'
 
-const props = defineProps<{
-  modelValue: boolean
-  taskId: string | null
-}>()
+const props = withDefaults(
+  defineProps<{
+    modelValue: boolean
+    taskId: string | null
+    /** M7：任务动作接口仅管理员可用，普通用户只能查看详情。 */
+    canManage?: boolean
+  }>(),
+  { canManage: false },
+)
 
 const emit = defineEmits<{
   'update:modelValue': [value: boolean]
@@ -48,6 +54,14 @@ const openConversation = (): void => {
 const resumeQuestion = computed(() => detail.value?.input_request?.question ?? '')
 const authScopes = computed(() => detail.value?.auth_request?.scopes ?? [])
 const authorizationUrl = computed(() => detail.value?.auth_request?.authorization_url ?? null)
+/** M7：后端会把非法/内网/超长授权链接置空；前端只渲染安全链接。 */
+const hasSafeAuthorizationUrl = computed(() => isSafeAuthorizationUrl(authorizationUrl.value))
+const showAuthorizationUnavailable = computed(
+  () =>
+    props.canManage &&
+    detail.value?.state === 'auth_required' &&
+    !hasSafeAuthorizationUrl.value,
+)
 const expiresAt = computed(
   () => detail.value?.input_request?.expires_at ?? detail.value?.auth_request?.expires_at ?? null,
 )
@@ -79,10 +93,10 @@ function hasAction(action: TaskAction): boolean {
   return detail.value?.available_actions.includes(action) ?? false
 }
 
-const canCancel = computed(() => hasAction('cancel'))
-const canResume = computed(() => hasAction('resume') && !expired.value)
-const canAuthorize = computed(() => hasAction('authorize') && !expired.value)
-const canReject = computed(() => hasAction('reject') && !expired.value)
+const canCancel = computed(() => props.canManage && hasAction('cancel'))
+const canResume = computed(() => props.canManage && hasAction('resume') && !expired.value)
+const canAuthorize = computed(() => props.canManage && hasAction('authorize') && !expired.value)
+const canReject = computed(() => props.canManage && hasAction('reject') && !expired.value)
 
 const canOpenConversation = computed(() => detail.value?.conversation != null)
 
@@ -178,23 +192,10 @@ async function submitResume(): Promise<void> {
   }
 }
 
-function isSafeAuthUrl(url: string): boolean {
-  try {
-    const parsed = new URL(url)
-    if (parsed.protocol === 'https:') return true
-    if (parsed.protocol === 'http:') {
-      return parsed.hostname === '127.0.0.1' || parsed.hostname === 'localhost'
-    }
-    return false
-  } catch {
-    return false
-  }
-}
-
 function goAuthorize(): void {
   const url = authorizationUrl.value
   if (!url) return
-  if (!isSafeAuthUrl(url)) {
+  if (!isSafeAuthorizationUrl(url)) {
     ElMessage.error('授权地址不安全，已阻止打开')
     return
   }
@@ -418,9 +419,13 @@ onUnmounted(() => {
         </ol>
       </section>
 
+      <p v-if="showAuthorizationUnavailable" class="auth-unavailable" role="status">
+        授权链接不可用，请联系管理员。
+      </p>
+
       <div class="actions">
         <button
-          v-if="authorizationUrl && canAuthorize"
+          v-if="hasSafeAuthorizationUrl && canAuthorize"
           type="button"
           class="btn"
           :disabled="busy !== null"
@@ -707,6 +712,16 @@ h3 {
 .timeline-note {
   color: var(--ink-3);
   font-size: 10.5px;
+}
+
+.auth-unavailable {
+  margin: 0 0 8px;
+  padding: 7px 9px;
+  border: 1px solid var(--amber-soft, var(--line));
+  border-radius: 6px;
+  background: var(--amber-bg, var(--surface-2));
+  color: var(--amber-text, var(--ink-2));
+  font-size: 11px;
 }
 
 .actions {

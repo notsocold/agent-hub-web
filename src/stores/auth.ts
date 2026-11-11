@@ -12,6 +12,8 @@ export const useAuthStore = defineStore('auth', () => {
   const initialized = ref(false)
 
   const isAuthenticated = computed(() => Boolean(accessToken.value))
+  /** M7：agents/tasks 的写接口仅管理员可用，普通用户不渲染写入口。 */
+  const isAdmin = computed(() => user.value?.role === 'admin')
 
   function setSession(tokens: AuthTokens): void {
     storage.setTokens(tokens)
@@ -80,6 +82,7 @@ export const useAuthStore = defineStore('auth', () => {
     accessToken,
     initialized,
     isAuthenticated,
+    isAdmin,
     login,
     register,
     restore,

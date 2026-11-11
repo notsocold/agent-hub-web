@@ -12,10 +12,12 @@ import PageShell from '@/components/common/PageShell.vue'
 import StatCard from '@/components/common/StatCard.vue'
 import StatusBadge from '@/components/common/StatusBadge.vue'
 import { agentsApi } from '@/api/agents'
+import { useAuthStore } from '@/stores/auth'
 import { useSystemStore } from '@/stores/system'
 import { formatDateTime, formatDuration } from '@/utils/format'
 import type { Agent, AgentHealthStatus } from '@/types'
 
+const auth = useAuthStore()
 const system = useSystemStore()
 
 const items = ref<Agent[]>([])
@@ -78,6 +80,12 @@ const degraded = computed(
 )
 const disabled = computed(
   () => stats.value.disabled ?? items.value.filter((item) => !item.enabled).length,
+)
+
+const emptyDescription = computed(() =>
+  auth.isAdmin
+    ? '点击右上角「注册智能体」，先拉取 Agent Card 预览技能，再确认注册。'
+    : '当前没有可查看的智能体；注册入口仅对管理员开放。',
 )
 
 async function load(): Promise<void> {
@@ -167,9 +175,15 @@ onMounted(() => {
     >
       <template #actions>
         <button type="button" class="btn" :disabled="loading" @click="load">刷新列表</button>
-        <button type="button" class="btn primary" @click="registerOpen = true">注册智能体</button>
+        <button v-if="auth.isAdmin" type="button" class="btn primary" @click="registerOpen = true">
+          注册智能体
+        </button>
       </template>
     </PageHeader>
+
+    <p class="permission-note">
+      写操作需要管理员权限；注册、启停、健康检查、刷新与删除仅管理员可用。
+    </p>
 
     <div v-if="system.loaded && !system.enabled('agents')" class="capability-note">
       后端尚未启用远程智能体能力（capabilities.agents=false）；注册与调用需在后端 M2 开启后进行。
@@ -239,7 +253,7 @@ onMounted(() => {
         </el-table-column>
         <el-table-column label="启用" width="76">
           <template #default="{ row }">
-            <span @click.stop>
+            <span v-if="auth.isAdmin" @click.stop>
               <el-switch
                 :model-value="row.enabled"
                 :loading="togglingId === row.id"
@@ -248,6 +262,7 @@ onMounted(() => {
                 @change="onToggle(row, $event)"
               />
             </span>
+            <span v-else class="muted">{{ row.enabled ? '已启用' : '已禁用' }}</span>
           </template>
         </el-table-column>
         <el-table-column label="最近检查" width="150">
@@ -264,6 +279,7 @@ onMounted(() => {
           <template #default="{ row }">
             <span class="row-actions" @click.stop>
               <button
+                v-if="auth.isAdmin"
                 type="button"
                 class="link"
                 :disabled="checkingId === row.id"
@@ -276,10 +292,7 @@ onMounted(() => {
           </template>
         </el-table-column>
         <template #empty>
-          <EmptyState
-            title="还没有匹配的智能体"
-            description="点击右上角「注册智能体」，先拉取 Agent Card 预览技能，再确认注册。"
-          />
+          <EmptyState title="还没有匹配的智能体" :description="emptyDescription" />
         </template>
       </el-table>
     </div>
@@ -289,6 +302,7 @@ onMounted(() => {
     <AgentDetailDrawer
       v-model="detailOpen"
       :agent-id="activeAgentId"
+      :can-manage="auth.isAdmin"
       @changed="onChanged"
       @removed="onRemoved"
     />
@@ -303,6 +317,12 @@ onMounted(() => {
   background: var(--amber-soft);
   color: var(--amber-text);
   font-size: 11px;
+}
+
+.permission-note {
+  color: var(--ink-3);
+  font-size: 11px;
+  line-height: 1.6;
 }
 
 .name-cell {

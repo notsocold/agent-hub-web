@@ -60,11 +60,10 @@ const contentRef = ref<HTMLElement | null>(null)
 
 let scrollContainer: HTMLElement | null = null
 
-const isAdmin = computed(() => auth.user?.role === 'admin')
 const generation = computed(() => system.info?.generation ?? null)
 
 const securityTabs = computed(() =>
-  isAdmin.value
+  auth.isAdmin
     ? [
         { key: 'audit' as const, label: '审计日志' },
         { key: 'secrets' as const, label: '平台密钥' },
@@ -356,7 +355,7 @@ onUnmounted(() => {
           <div class="card">
             <header class="card-head">
               <h2 id="settings-security-heading">安全与审计</h2>
-              <span class="tag mono">{{ isAdmin ? '管理员' : '个人范围' }}</span>
+              <span class="tag mono">{{ auth.isAdmin ? '管理员' : '个人范围' }}</span>
             </header>
             <p class="card-lede">
               审计记录覆盖审批、密钥、智能体、技能、MCP、记忆与安全事件；普通用户只看自己的记录，
@@ -378,8 +377,8 @@ onUnmounted(() => {
               </button>
             </div>
 
-            <AuditPanel v-if="securityTab === 'audit'" :can-view-all="isAdmin" />
-            <SecretPanel v-else-if="isAdmin" :is-admin="isAdmin" />
+            <AuditPanel v-if="securityTab === 'audit'" :can-view-all="auth.isAdmin" />
+            <SecretPanel v-else-if="auth.isAdmin" :is-admin="auth.isAdmin" />
           </div>
         </section>
 

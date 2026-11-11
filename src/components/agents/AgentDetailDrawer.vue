@@ -9,10 +9,15 @@ import { agentsApi } from '@/api/agents'
 import { formatDateTime, formatDuration } from '@/utils/format'
 import type { AgentDetail, AgentHealthStatus } from '@/types'
 
-const props = defineProps<{
-  modelValue: boolean
-  agentId: string | null
-}>()
+const props = withDefaults(
+  defineProps<{
+    modelValue: boolean
+    agentId: string | null
+    /** M7：注册表的写操作仅管理员可见，普通用户只读。 */
+    canManage?: boolean
+  }>(),
+  { canManage: false },
+)
 
 const emit = defineEmits<{
   'update:modelValue': [value: boolean]
@@ -249,7 +254,7 @@ async function removeAgent(): Promise<void> {
         <pre>{{ rawCard }}</pre>
       </details>
 
-      <div class="actions">
+      <div v-if="props.canManage" class="actions">
         <button
           type="button"
           class="btn"

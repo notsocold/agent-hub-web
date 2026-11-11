@@ -56,6 +56,21 @@ describe('auth store', () => {
     expect(storage.getRefreshToken()).toBe('refresh-1')
   })
 
+  it('isAdmin 仅对 admin 角色为 true，user 与未登录均为 false', () => {
+    const auth = useAuthStore()
+
+    expect(auth.isAdmin).toBe(false)
+
+    auth.setUser(user)
+    expect(auth.isAdmin).toBe(false)
+
+    auth.setUser({ ...user, role: 'admin' })
+    expect(auth.isAdmin).toBe(true)
+
+    auth.setUser(null)
+    expect(auth.isAdmin).toBe(false)
+  })
+
   it('restore 失败时清空本地会话', async () => {
     storage.setTokens(tokens)
     vi.mocked(authApi.me).mockRejectedValue(new Error('401'))

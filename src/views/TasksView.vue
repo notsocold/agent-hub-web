@@ -13,12 +13,14 @@ import StatusBadge from '@/components/common/StatusBadge.vue'
 import TaskDetailDrawer from '@/components/tasks/TaskDetailDrawer.vue'
 import { agentsApi } from '@/api/agents'
 import { tasksApi, type TaskListParams } from '@/api/tasks'
+import { useAuthStore } from '@/stores/auth'
 import { formatDateTime, formatDuration } from '@/utils/format'
 import { isRunningState, stateLabel, stateTone } from '@/components/tasks/taskMeta'
 import type { A2aTaskListItem, A2aTaskState, Agent, TaskAction } from '@/types'
 
 const route = useRoute()
 const router = useRouter()
+const auth = useAuthStore()
 
 const PAGE_LIMIT = 20
 const POLL_INTERVAL_MS = 15_000
@@ -338,7 +340,7 @@ onUnmounted(() => {
     <PageHeader
       eyebrow="A2A TASKS"
       title="任务"
-      description="跟踪主智能体发起的远程 A2A 任务；等待输入、需要授权与终态都会反映在同一条状态时间线上。"
+      description="跟踪主智能体发起的远程 A2A 任务；等待输入、需要授权与终态都会反映在同一条状态时间线上。写操作需要管理员权限。"
     >
       <template #actions>
         <button type="button" class="btn" :disabled="loading" @click="load">刷新</button>
@@ -434,7 +436,7 @@ onUnmounted(() => {
           <template #default="{ row }">
             <div class="row-actions" @click.stop>
               <button
-                v-if="hasAction(row, 'resume')"
+                v-if="auth.isAdmin && hasAction(row, 'resume')"
                 type="button"
                 class="link"
                 @click="quickResume(row)"
@@ -442,7 +444,7 @@ onUnmounted(() => {
                 补充
               </button>
               <button
-                v-if="hasAction(row, 'authorize')"
+                v-if="auth.isAdmin && hasAction(row, 'authorize')"
                 type="button"
                 class="link"
                 @click="quickAuthorize(row)"
@@ -450,7 +452,7 @@ onUnmounted(() => {
                 授权
               </button>
               <button
-                v-if="hasAction(row, 'reject')"
+                v-if="auth.isAdmin && hasAction(row, 'reject')"
                 type="button"
                 class="link danger"
                 @click="quickReject(row)"
@@ -458,7 +460,7 @@ onUnmounted(() => {
                 拒绝
               </button>
               <button
-                v-if="hasAction(row, 'cancel')"
+                v-if="auth.isAdmin && hasAction(row, 'cancel')"
                 type="button"
                 class="link danger"
                 @click="quickCancel(row)"
@@ -466,7 +468,7 @@ onUnmounted(() => {
                 取消
               </button>
               <button
-                v-if="!row.available_actions.length"
+                v-if="!auth.isAdmin || !row.available_actions.length"
                 type="button"
                 class="link"
                 @click="openDetail(row)"
@@ -494,6 +496,7 @@ onUnmounted(() => {
     <TaskDetailDrawer
       v-model="detailOpen"
       :task-id="detailTaskId"
+      :can-manage="auth.isAdmin"
       @changed="onDetailChanged"
     />
   </PageShell>
