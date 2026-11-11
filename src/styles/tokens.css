@@ -13,7 +13,7 @@
   --surface-2: #f4f3ec;
   --ink: #141b20;
   --ink-2: #4f5b63;
-  --ink-3: #606b72;
+  --ink-3: #5a656c;
   --line: #d7d5c9;
   --line-2: #e3e1d6;
 
@@ -58,7 +58,18 @@
   --trace-w: 332px;
   --content-max: 880px;
 
+  /* 消息密度：控制对话中相邻消息的垂直间距，默认 cozy。 */
+  --message-gap: 22px;
+
   color-scheme: light;
+}
+
+html[data-density='compact'] {
+  --message-gap: 12px;
+}
+
+html[data-density='comfortable'] {
+  --message-gap: 32px;
 }
 
 html[data-theme='dark'] {

@@ -163,7 +163,7 @@ async function copy(text: string): Promise<void> {
 .turn {
   display: flex;
   flex-direction: column;
-  margin-bottom: 22px;
+  margin-bottom: var(--message-gap);
 }
 
 .turn.role-user {

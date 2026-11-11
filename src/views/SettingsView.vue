@@ -10,22 +10,33 @@ import McpPanel from '@/components/settings/McpPanel.vue'
 import MemoryPanel from '@/components/settings/MemoryPanel.vue'
 import SecretPanel from '@/components/settings/SecretPanel.vue'
 import SkillPanel from '@/components/settings/SkillPanel.vue'
+import { usePreferences } from '@/composables/usePreferences'
+import { useTheme } from '@/composables/useTheme'
 import { useAuthStore } from '@/stores/auth'
 import { useSystemStore } from '@/stores/system'
 import { formatDateTime } from '@/utils/format'
 
 const auth = useAuthStore()
 const system = useSystemStore()
+const { theme, setTheme } = useTheme()
+const { density, setDensity } = usePreferences()
 
-type SectionKey = 'account' | 'capabilities' | 'security' | 'model' | 'about'
+type SectionKey = 'account' | 'capabilities' | 'security' | 'interface' | 'model' | 'about'
 
 const sections: ReadonlyArray<{ key: SectionKey; label: string }> = [
   { key: 'account', label: '账号' },
   { key: 'capabilities', label: '个人能力' },
   { key: 'security', label: '安全与审计' },
+  { key: 'interface', label: '界面' },
   { key: 'model', label: '模型' },
   { key: 'about', label: '关于' },
 ]
+
+const densityOptions = [
+  { value: 'compact', label: '紧凑' },
+  { value: 'cozy', label: '标准' },
+  { value: 'comfortable', label: '宽松' },
+] as const
 
 const active = ref<SectionKey>('capabilities')
 const securityTab = ref<'audit' | 'secrets'>('audit')
@@ -141,6 +152,70 @@ onMounted(() => {
 
             <AuditPanel v-if="securityTab === 'audit'" :can-view-all="isAdmin" />
             <SecretPanel v-else-if="isAdmin" :is-admin="isAdmin" />
+          </section>
+        </template>
+
+        <template v-else-if="active === 'interface'">
+          <section class="card">
+            <header class="card-head">
+              <h2>界面</h2>
+            </header>
+
+            <p class="card-lede">调整外观与对话阅读密度，改动会立即生效。</p>
+
+            <div class="pref-row">
+              <div class="pref-copy">
+                <span class="pref-name">主题</span>
+                <span class="pref-hint">切换浅色或深色外观。</span>
+              </div>
+              <div class="segmented" role="group" aria-label="主题">
+                <button
+                  type="button"
+                  :class="{ 'is-active': theme === 'light' }"
+                  :aria-pressed="theme === 'light'"
+                  @click="setTheme('light')"
+                >
+                  浅色
+                </button>
+                <button
+                  type="button"
+                  :class="{ 'is-active': theme === 'dark' }"
+                  :aria-pressed="theme === 'dark'"
+                  @click="setTheme('dark')"
+                >
+                  深色
+                </button>
+              </div>
+            </div>
+
+            <div class="pref-row">
+              <div class="pref-copy">
+                <span class="pref-name">消息密度</span>
+                <span class="pref-hint">控制对话中相邻消息的间距。</span>
+              </div>
+              <div class="segmented" role="group" aria-label="消息密度">
+                <button
+                  v-for="option in densityOptions"
+                  :key="option.value"
+                  type="button"
+                  :class="{ 'is-active': density === option.value }"
+                  :aria-pressed="density === option.value"
+                  @click="setDensity(option.value)"
+                >
+                  {{ option.label }}
+                </button>
+              </div>
+            </div>
+
+            <div class="pref-row">
+              <div class="pref-copy">
+                <span class="pref-name">语言</span>
+                <span class="pref-hint">多语言将在后续版本评估</span>
+              </div>
+              <span class="pref-value">简体中文（zh-CN）</span>
+            </div>
+
+            <p class="pref-footnote">界面偏好仅保存在本浏览器，不随账号同步。</p>
           </section>
         </template>
 
@@ -285,6 +360,74 @@ onMounted(() => {
 .card-lede {
   color: var(--ink-2);
   font-size: 11.5px;
+  line-height: 1.7;
+}
+
+.pref-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+}
+
+.pref-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.pref-name {
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 550;
+}
+
+.pref-hint {
+  color: var(--ink-3);
+  font-size: 10.5px;
+  line-height: 1.6;
+}
+
+.pref-value {
+  color: var(--ink-2);
+  font-size: 11.5px;
+}
+
+.segmented {
+  display: inline-flex;
+  flex: none;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--surface-2);
+}
+
+.segmented button {
+  padding: 5px 12px;
+  border-radius: 5px;
+  color: var(--ink-2);
+  font-size: 11.5px;
+  font-weight: 550;
+}
+
+.segmented button:hover {
+  color: var(--ink);
+}
+
+.segmented button.is-active {
+  background: var(--surface);
+  color: var(--prussian);
+  box-shadow: var(--shadow-sm);
+}
+
+.pref-footnote {
+  padding-top: 10px;
+  border-top: 1px solid var(--line-2);
+  color: var(--ink-3);
+  font-size: 10.5px;
   line-height: 1.7;
 }
 
