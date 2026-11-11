@@ -84,14 +84,26 @@ function isUnauthorized(error: unknown): error is AxiosError<ApiErrorBody> {
   return axios.isAxiosError(error) && error.response?.status === 401
 }
 
+/**
+ * 统一错误文案（M7）：权限与依赖不可用是全站共用语义，不能每个页面各写一套。
+ * `code` / `details` 原样保留，调用方仍可按 `forbidden` / `replay_too_large` 分支。
+ */
+function normalizeErrorMessage(status: number, code: string, message: string): string {
+  if (status === 403 && code === 'forbidden') return '当前账号无管理员权限'
+  if (status === 503 && (code === 'database_unavailable' || code === 'service_unavailable')) {
+    return '服务暂不可用，请稍后重试'
+  }
+  return message
+}
+
 /** 把后端错误信封转换成带 `details` 的 ApiRequestError。 */
 export function apiErrorFromResponse(status: number, body: unknown): ApiRequestError {
   const envelope = body as ApiErrorBody | null | undefined
   const code = envelope?.error?.code ?? (status === 0 ? 'network_error' : 'unknown_error')
-  const message =
+  const rawMessage =
     envelope?.error?.message ??
     (status === 0 ? '网络异常，请稍后重试' : `请求失败（HTTP ${status}）`)
-  return new ApiRequestError(message, {
+  return new ApiRequestError(normalizeErrorMessage(status, code, rawMessage), {
     code,
     status,
     requestId: envelope?.error?.request_id ?? '',
@@ -228,7 +240,15 @@ export function createHttpClient(options: HttpClientOptions = {}): AxiosInstance
       }
 
       const config = error.config as RetryableConfig | undefined
-      const isRefreshRequest = config?.url?.includes('/auth/refresh')
+      const requestUrl = config?.url ?? ''
+      const isRefreshRequest = requestUrl.includes('/auth/refresh')
+      // 登录/注册的 401 是「邮箱或密码错误」，不是会话过期：
+      // 不能进 refresh 流程、不能触发登出，直接把后端文案交给表单展示。
+      const isCredentialRequest = /\/auth\/(login|register)(\?|$)/.test(requestUrl)
+
+      if (isCredentialRequest) {
+        throw failed
+      }
 
       if (!config || config._retry || isRefreshRequest) {
         handleUnauthorized()

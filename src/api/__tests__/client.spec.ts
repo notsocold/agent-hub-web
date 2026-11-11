@@ -191,3 +191,73 @@ describe('api client', () => {
     expect(getRecentRequests()[0]?.status).toBe(403)
   })
 })
+
+describe('api client 错误文案收口（M7）', () => {
+  function failingClient(
+    status: number,
+    error: { code: string; message: string; details?: Record<string, unknown> },
+  ) {
+    const client = createHttpClient({ baseURL: '/api/v1' })
+    client.defaults.adapter = async (config) => {
+      throw new AxiosError('Request failed', 'ERR_BAD_REQUEST', config, undefined, {
+        data: { error: { ...error, request_id: 'req-m7' } },
+        status,
+        statusText: 'Error',
+        headers: {},
+        config,
+      })
+    }
+    return client
+  }
+
+  it('403 forbidden 统一为管理员权限文案，保留 code 与 required_role', async () => {
+    const client = failingClient(403, {
+      code: 'forbidden',
+      message: '需要管理员权限',
+      details: { required_role: 'admin' },
+    })
+
+    await expect(client.get('/agents')).rejects.toMatchObject({
+      code: 'forbidden',
+      status: 403,
+      message: '当前账号无管理员权限',
+      details: { required_role: 'admin' },
+    })
+  })
+
+  it('503 数据库/服务不可用统一文案', async () => {
+    for (const code of ['database_unavailable', 'service_unavailable']) {
+      const client = failingClient(503, { code, message: '内部细节' })
+      await expect(client.get('/x')).rejects.toMatchObject({
+        code,
+        status: 503,
+        message: '服务暂不可用，请稍后重试',
+      })
+    }
+  })
+
+  it('登录 401 是凭据错误：不 refresh、不登出，展示后端文案', async () => {
+    const refresh = vi.fn(async () => tokens)
+    const onUnauthorized = vi.fn()
+    const client = createHttpClient({ baseURL: '/api/v1', refresh, onUnauthorized })
+    client.defaults.adapter = async (config) => {
+      throw new AxiosError('Unauthorized', 'ERR_BAD_REQUEST', config, undefined, {
+        data: {
+          error: { code: 'invalid_credentials', message: '邮箱或密码错误', request_id: 'req-login' },
+        },
+        status: 401,
+        statusText: 'Unauthorized',
+        headers: {},
+        config,
+      })
+    }
+
+    await expect(client.post('/auth/login', {})).rejects.toMatchObject({
+      code: 'invalid_credentials',
+      message: '邮箱或密码错误',
+      status: 401,
+    })
+    expect(refresh).not.toHaveBeenCalled()
+    expect(onUnauthorized).not.toHaveBeenCalled()
+  })
+})
