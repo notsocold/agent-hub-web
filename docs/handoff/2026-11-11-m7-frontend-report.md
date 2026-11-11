@@ -43,15 +43,16 @@
 
 | 检查 | 结果 |
 |---|---|
-| `pnpm test` | 58 文件 / 317 例通过 |
+| `pnpm test` | 59 文件 / 325 例通过（含审查修复新增的 8 例） |
 | `pnpm type-check` | 通过 |
 | `pnpm lint` | oxlint + eslint 0 error |
 | `pnpm build` | 通过（1.9s） |
 | `pnpm size` | JS 总 gzip 377.1 KB（上限 420）、CSS 38.2 KB（上限 60），通过 |
 | `pnpm e2e` | 28 passed（含 a11y 扫描；轨迹滚动区已加 `tabindex` 修复 `scrollable-region-focusable`） |
-| `pnpm verify:nginx -- --check-deploy` | exit 0；续流 location 7 项指令齐全；完整 `verify:nginx` 对照实测 exit 0 |
+| `node scripts/verify-nginx-sse.mjs --check-deploy` | 2026-11-11 20:31 实测 exit 0（续流 location 7 项指令齐全，`nginx -t` 通过）；最终复验时本机 Docker Desktop 不可用，改跑 `--static-only` exit 0，并自测「宽正则/缺指令」会 exit 1 |
+| `node scripts/verify-nginx-sse.mjs`（完整对照） | 2026-11-11 实测 exit 0（`/sse` 逐帧、`/sse-buffered` 集中到达）；最终复验时 Docker 不可用，未重复运行 |
 | `pnpm smoke:m7` | 48 项通过：登录 → 创建 run（LLM 占位下 `llm_error`，事件仍落库）→ events `event` 字段 → 续流回放 5 帧 seq 严格递增 + 终态关闭 → `after_seq` 无重复 → 普通用户写 agents 403 + `required_role` → 普通用户读 200 |
-| `pnpm test:real` | M7 5 例、M5 3 例通过；`real-m4` 上传入库与 `real-backend` 聊天用例因本机 embedding/LLM key 限制失败（环境性，非 M7 回归） |
+| `pnpm test:real` | M7 5 例、M5 3 例通过（20:29 实测）；`real-m4` 上传入库与 `real-backend` 聊天用例因本机 embedding/LLM key 限制失败（环境性，非 M7 回归）。最终复验时 Docker/后端已不可用，未重复运行 |
 
 真实联调命令（后端 8000 由本机 `.venv/bin/python -m uvicorn app.main:app` 启动）：
 
@@ -67,6 +68,32 @@ pnpm test:real   # vitest.real.config.ts 已包含 scripts/real-m7.spec.ts
 3. **登录 401 文案**：不再进入 refresh 流程，密码错误直接显示后端「邮箱或密码错误」。
 4. **403/503 文案集中收敛**：`apiErrorFromResponse` 统一覆写，页面无需各自判断。
 5. **审批卡**：事件 5 字段可直接渲染，不再需要按审批 id 拉详情；`GET /approvals?run_id=` 仍用于断线补卡与审批对账（每次 `run.interrupted` 一次）。`payload_preview` 是脱敏预览并再做字符串级遮罩，完整 `payload` 仍可展开。
+
+## 5.1 独立审查与修复（2026-11-11）
+
+独立子代理审查（`master...HEAD`）给出 1 Critical / 4 Important / 9 Minor，修复如下：
+
+| 级别 | 问题 | 修复 |
+|---|---|---|
+| Critical | 401 refresh 后未检查 abort，可能重开旧 run 流并污染新会话 | `runsApi.stream`/`connectRunStream`/`mockRunStream` 在 refresh 后与入口均检查 `signal.aborted`；abort 抛 AbortError |
+| Important | 降级轮询不补已落库过程卡 | `enterDegraded` 进入轮询前调用一次 `replayPersistedEvents`（分页接口，seq 去重） |
+| Important | `adoptRun`/回放缺会话代次保护 | `adoptRun` 在 GET/回放后校验 `conversationId`；`refreshHistory` 增加迟到响应守卫 |
+| Important | 审批兜底请求表述不实 | 修正报告与设计：事件 5 字段可直接渲染，`GET /approvals?run_id=` 仍作为断线补卡/对账兜底 |
+| Important | mock `last_run` 取最早 run | 按 `started_at` 取最新 run |
+| Minor | 回放 fixtures 缺 ID 无法建卡 | 补齐 tool.result/approval.required/a2a.task/skill.activated 的 payload |
+| Minor | mock 续流先回放后订阅会丢实时帧 | 改为先订阅再回放，`seq` 去重 |
+| Minor | 普通用户看不到授权链接不可用提示 | 提示不再要求 `canManage` |
+| Minor | Nginx 断言未校验精确正则 | 增加 header 精确匹配与失败自测 |
+| Minor | 文档残留 M7「未开始」 | 同步 roadmap 契约矩阵与设计状态表 |
+| Minor | 降级后「重试发送」会重发消息 | run 未终态时只显示「刷新状态」（走 adoptRun 恢复轮询），不再显示「重试发送」 |
+
+另有 1 个自查修复：收到 `error` 终态事件后停止续流重连（避免回放风暴）。
+
+已知未修（记录为后续项）：
+
+- 回放 `run.started` 会清空 process；若回放中途失败，已清空的卡片要等终态 `refreshHistory`（不补 process）。当前失败概率低，留作后续增强。
+- 非管理员在 `auth_required` 且链接不可用时会看到「联系管理员」提示（已放开），但无操作入口，符合 RBAC。
+- `refreshHistory`/`ChatView` 卸载的存量并发问题已加最小守卫，彻底收敛仍建议后续专项处理。
 
 ## 6. 未做项与限制
 

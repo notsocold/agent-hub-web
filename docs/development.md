@@ -20,7 +20,7 @@
 | `pnpm install` | 安装依赖 |
 | `pnpm dev` | 开发服务器（5173，热更新） |
 | `pnpm build` | 类型检查 + 生产构建 |
-| `pnpm test` | Vitest 单测（317 个用例，无需后端） |
+| `pnpm test` | Vitest 单测（325 个用例，无需后端） |
 | `pnpm test:watch` | Vitest 监听模式 |
 | `pnpm e2e` | Playwright E2E（mock 构建，28 例） |
 | `pnpm size` | 构建产物体积门禁（gzip） |

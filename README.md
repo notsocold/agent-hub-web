@@ -135,7 +135,7 @@ mock 登录：任意邮箱 + 8 位以上密码；密码为 `wrong-password` 时�
 - [x] **F1**：长会话虚拟滚动、⌘K 命令面板、三态统一、可访问性（axe 0 critical/serious）、消息密度偏好、Markdown LRU 缓存
 - [x] **PA-1 第一次原型靠拢**：单侧栏（所有页面含会话，移动端可切换）、删除审批页改为对话内审批、>1180px 运行轨迹常驻右栏、设置页长滚动 + 修改密码、过程摘要/检索与 MCP 色卡/Agent 输出抽屉
 - [x] **M7 契约补齐**：`runsApi.stream` 增量续流（续流优先、400/404/失败回退轮询）、`event` 驱动事件回放补卡、agents/tasks 写入口按管理员显隐、审批 5 字段与脱敏预览、授权链接白名单容错、登录 401 与 403/503 文案、Nginx 续流 location；`smoke:m7` 48 项 + `test:real` M7 5 例
-- [x] `pnpm type-check`、`pnpm test`（317）、`pnpm build`、`pnpm lint`、`pnpm e2e`（28 例）、`pnpm size`、`pnpm verify:nginx` 通过
+- [x] `pnpm type-check`、`pnpm test`（325）、`pnpm build`、`pnpm lint`、`pnpm e2e`（28 例）、`pnpm size`、`pnpm verify:nginx` 通过
 - [x] 真实后端联调：`smoke:real`（M1）、`smoke:m15` 68 项、`smoke:m4`、`smoke:m5` 163 项、`smoke:m7` 48 项、`test:real`（含 M2/M4/M5/M7）；M1/M4 部分用例在本机因 LLM key 占位与 embedding 不可用受限，属环境限制
 
 已立项、未开始（与后端同名同义）：

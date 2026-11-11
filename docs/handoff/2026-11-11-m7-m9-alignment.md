@@ -102,7 +102,7 @@ agents 写接口与 tasks 动作接口改为 `AdminUser`；普通用户 403 `for
 
 | 里程碑 | 启动条件 | 最小验收 |
 |---|---|---|
-| M7 | 后端 M7 handoff/OpenAPI 冻结；类型/mock/纯前端收尾可先做 | **已完成**：续流不重复、400/404 降级、403 文案、审批 5 字段；`pnpm test` 317、`e2e` 28、`smoke:m7` 48 项、`test:real` M7 5 例，详见[M7 前端交付报告](2026-11-11-m7-frontend-report.md) |
+| M7 | 后端 M7 handoff/OpenAPI 冻结；类型/mock/纯前端收尾可先做 | **已完成**：续流不重复、400/404 降级、403 文案、审批 5 字段；`pnpm test` 325、`e2e` 28、`smoke:m7` 48 项、`test:real` M7 5 例，详见[M7 前端交付报告](2026-11-11-m7-frontend-report.md) |
 | M8 | M8 后端契约冻结（依赖 M7-2） | 七页可用；三页只读提示；普通用户 403；axe 0 critical/serious |
 | M9 | M9 spike 通过 + 契约冻结（含五类步骤 schema）+ 后端显式置 `capabilities.workflows=true` | 3 步模板保存运行；`workflow.step` 可见；取消/失败/审批超时语义一致 |
 

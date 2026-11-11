@@ -164,7 +164,7 @@
 - [x] M7-F4 审批字段：`approval.required` 的 5 字段直接渲染；`payload_preview` 缺 payload 时作为脱敏预览展示，两者皆无时明确提示。
 - [x] M7-F5 授权链接：共享 `isSafeAuthorizationUrl`，非法/缺失链接显示「授权链接不可用，请联系管理员」且不渲染可点击按钮。
 - [x] M7-F6 纯前端收尾：登录/注册 401 不进入 refresh、直接展示后端文案；`database_unavailable`/`service_unavailable` 统一 503 文案；管理员入口按角色。
-- [x] M7-F7 契约与门禁：类型/mock/fixtures 同步（含 mock 续流端点与 run 事件落库）；续流/回放/RBAC/文案单测；`test:real` M7 用例；`pnpm test` 317 例全绿。
+- [x] M7-F7 契约与门禁：类型/mock/fixtures 同步（含 mock 续流端点与 run 事件落库）；续流/回放/RBAC/文案单测；`test:real` M7 用例；`pnpm test` 325 例全绿。
 - [x] M7-F8 部署配置：`deploy/nginx.conf` 为正则 location 续流端点增加 SSE 参数；`--check-deploy` 增加 7 项静态断言（含 `/api/` 不得 `^~` 抢占）；`deploy/README.md` 同步。
 
 启动条件：后端 M7 契约冻结（以 handoff/OpenAPI 为准）。**前端可先做**：类型、mock、续流状态机单测、B-1/B-2/B-3 纯前端修复。
@@ -175,7 +175,7 @@
 - `400 replay_too_large` 降级轮询；404 结束恢复并刷新历史；终态关闭并 `refreshHistory()`；
 - 普通用户写 agents/tasks 入口不可见（含详情抽屉）、直接调用 403 文案正确；
 - 审批卡直接用事件字段渲染，`payload_preview` 脱敏展示；
-- 门禁：`pnpm test` 317 例、`type-check`、`lint`、`build`、`size`、`e2e` 28 例、`verify:nginx --check-deploy` 全绿；
+- 门禁：`pnpm test` 325 例、`type-check`、`lint`、`build`、`size`、`e2e` 28 例、`verify:nginx --check-deploy` 全绿；
 - 真实联调：`smoke:m7` 48 项、`test:real` 中 M7 5 例全绿（M4 入库/LLM 相关用例受本地 embedding/key 限制，见交付报告）。
 
 风险：续流端点单实例；排水不拦截新流；生产 Nginx 未给续流端点配 SSE location 会导致逐帧失效或 60s 截断（M7-F8 必须与功能同批交付）；真实 LLM key 占位导致真实增量续流证据受限；续流与旧轮询需状态机互斥。
@@ -282,7 +282,7 @@
 
 ## 7. 变更记录
 
-- **2026-11-11（M7 前端）**：M7 前端适配完成并真实联调：`runsApi.stream` 续流优先重连、事件回放 `event` 补卡、agents/tasks 写入口按管理员显隐、审批 5 字段/预览、授权链接白名单容错、登录 401 与 503 文案、Nginx 续流 location 与静态断言。门禁 `pnpm test` 317 例、`e2e` 28 例、`size`、`verify:nginx` 全绿；真实证据 `smoke:m7` 48 项 + `test:real` M7 5 例；详见[M7 前端交付报告](handoff/2026-11-11-m7-frontend-report.md)。
+- **2026-11-11（M7 前端）**：M7 前端适配完成并真实联调：`runsApi.stream` 续流优先重连、事件回放 `event` 补卡、agents/tasks 写入口按管理员显隐、审批 5 字段/预览、授权链接白名单容错、登录 401 与 503 文案、Nginx 续流 location 与静态断言。门禁 `pnpm test` 325 例、`e2e` 28 例、`size`、`verify:nginx` 全绿；真实证据 `smoke:m7` 48 项 + `test:real` M7 5 例；详见[M7 前端交付报告](handoff/2026-11-11-m7-frontend-report.md)。
 - **2026-11-11（PA-1 原型靠拢）**：第一次向 v7/v8 原型靠拢：单侧栏、删除审批页改为对话内审批、运行轨迹常驻右栏、设置页长滚动 + 修改密码、过程摘要/色卡/Agent 输出抽屉；详见 §3.1。
 - **2026-11-11（M7–M9 对齐）**：后端新增 M7 契约补齐与安全收口、M8 管理台、M9 工作流立项；前端新增 M7 前端适配、M8 管理台（v8 全量，无契约三页只读）、M9 工作流；X1/X2 升级为 M9/M8；原 F2 纯前端收尾并入 M7；M6 后端状态改已完成；文档同步 README/api/pages/architecture/development/handoff；设计见[对齐设计](superpowers/specs/2026-11-11-m7-m9-frontend-alignment-design.md)。
 - **2026-11-11（F1 前端）**：F1 体验与可访问性完成：虚拟滚动、Markdown LRU 缓存、三态统一、⌘K 命令面板、可访问性、消息密度偏好与设置页「界面」分区。本地提交未推送；服务端偏好同步与 v7 像素级视觉还原仍待后续。
