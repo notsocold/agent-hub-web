@@ -615,15 +615,18 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   border-top: 1px solid var(--line-2);
+  /* 固定列总宽超过面板宽度时横向滚动，避免第一列（标题）被挤成 0 宽。 */
+  overflow-x: auto;
 }
 
 .doc-head,
 .doc-row {
   display: grid;
-  grid-template-columns: minmax(0, 1.9fr) 76px 84px 52px 74px 76px 118px 82px;
+  grid-template-columns: minmax(160px, 1.9fr) 76px 84px 52px 74px 76px 118px 82px;
   align-items: center;
   gap: 8px;
   padding: 8px 4px;
+  min-width: 780px;
 }
 
 .doc-head {
