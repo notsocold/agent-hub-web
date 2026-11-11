@@ -52,6 +52,8 @@ async function connectRunStream(
       },
       signal: handlers.signal,
       openWhenHidden: true,
+      // Node 测试环境没有 window.fetch；显式用 globalThis.fetch 保持可测。
+      fetch: ((...args: Parameters<typeof fetch>) => globalThis.fetch(...args)) as typeof fetch,
 
       async onopen(response) {
         if (!response.ok) {

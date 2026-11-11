@@ -40,7 +40,8 @@ async function api(path, { method = 'GET', token, body } = {}) {
       ...(body ? { 'Content-Type': 'application/json' } : {}),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
-    body: body ? JSON.stringify(body) : undefined,
+    // GET 不允许携带 body；oxlint unicorn/no-invalid-fetch-options 会拦截。
+    ...(method !== 'GET' && body ? { body: JSON.stringify(body) } : {}),
   })
   const text = await response.text()
   let data = null

@@ -22,6 +22,7 @@ export default defineConfig({
       'scripts/real-m2.spec.ts',
       'scripts/real-m4.spec.ts',
       'scripts/real-m5.spec.ts',
+      'scripts/real-m7.spec.ts',
     ],
     setupFiles: ['./src/test/setup.ts'],
     testTimeout: 30_000,
