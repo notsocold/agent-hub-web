@@ -78,6 +78,8 @@ export interface MessageError {
   code: string
   message: string
   retryable?: boolean
+  /** SSE error 事件或错误信封里的 request_id，用于排障与复制。 */
+  requestId?: string
 }
 
 /** 服务端消息；前端视图模型见 ChatMessageView。 */

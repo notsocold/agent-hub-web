@@ -706,6 +706,7 @@ export function reduceChat(state: ChatState, event: ChatEventName, raw: unknown)
         code: str(data.code) || 'stream_error',
         message: str(data.message) || '生成失败',
         retryable: data.retryable === true,
+        requestId: str(data.request_id) || undefined,
       }
       next.error = error
       next.streaming = false

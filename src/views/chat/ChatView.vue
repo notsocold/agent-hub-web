@@ -8,6 +8,7 @@ import ConversationSidebar from '@/components/chat/ConversationSidebar.vue'
 import MessageList from '@/components/chat/MessageList.vue'
 import RunRecoveryBanner from '@/components/chat/RunRecoveryBanner.vue'
 import RunTraceDrawer from '@/components/chat/RunTraceDrawer.vue'
+import ErrorState from '@/components/common/ErrorState.vue'
 import { useCapabilitiesStore } from '@/stores/capabilities'
 import { useChatStore } from '@/stores/chat'
 import { useConversationsStore } from '@/stores/conversations'
@@ -254,6 +255,14 @@ function handleRecoveryRefresh(): void {
         @retry="handleRecoveryRetry"
         @refresh="handleRecoveryRefresh"
         @approvals="openApprovals"
+      />
+
+      <ErrorState
+        v-if="chat.state.error && !chat.state.streaming"
+        class="chat-error"
+        :message="chat.state.error.message"
+        :request-id="chat.state.error.requestId"
+        @retry="chat.retry()"
       />
 
       <MessageList
@@ -527,6 +536,11 @@ function handleRecoveryRefresh(): void {
 .rate-limit strong {
   font-family: var(--font-mono);
   font-size: 12px;
+}
+
+.chat-error {
+  flex: none;
+  margin: 10px 32px 0;
 }
 
 .pending-approvals {

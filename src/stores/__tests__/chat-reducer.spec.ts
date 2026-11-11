@@ -236,4 +236,16 @@ describe('chat reducer', () => {
     expect(state.messages[0]?.content).toBe('部分输出')
     expect(state.messages[0]?.status).toBe('failed')
   })
+
+  it('流内 error 透传 request_id', () => {
+    let state = createInitialChatState()
+    state = run(state, 'error', {
+      code: 'llm_error',
+      message: '上游失败',
+      request_id: 'req-err-1',
+      seq: 1,
+    })
+
+    expect(state.error?.requestId).toBe('req-err-1')
+  })
 })
