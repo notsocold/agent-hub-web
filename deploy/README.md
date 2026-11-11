@@ -1,16 +1,16 @@
 # 部署产物：Nginx 配置与 SSE 验证
 
 本目录交付 Agent Hub Web 的生产环境 Nginx 配置，以及一个可在本机 Docker 环境中复跑的
-SSE 行为验证脚本。目标是把「静态资源 + 同源 API 反代 + 聊天流式响应」这一条链路固定下来，
-并用实测时间线证明 SSE 关键指令确实生效。
+SSE 行为验证脚本。目标是把「静态资源 + 同源 API 反代 + 聊天/运行事件流式响应」这一条链路
+固定下来，并用实测时间线证明 SSE 关键指令确实生效。
 
 ## 1. 文件清单
 
-| 文件                               | 作用                                                                                                                                                 |
-| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `deploy/nginx.conf`                | 完整 `nginx.conf`：`upstream`、SPA fallback、`/assets/` 长缓存、`/api/` 基础反代、`/api/v1/chat/stream` 专用 SSE location、`/healthz` `/readyz` 透传 |
-| `scripts/verify-nginx-sse.mjs`     | 在 `dev_nginx` 容器内启动临时 nginx 与假 SSE 源，实测 `/sse` 逐帧、`/sse-buffered` 缓冲两种路径；`--check-deploy` 只校验交付配置语法                 |
-| `package.json` 中的 `verify:nginx` | `node scripts/verify-nginx-sse.mjs`（由仓库根维护，本目录不重复定义）                                                                                |
+| 文件                               | 作用                                                                                                                                                                                       |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `deploy/nginx.conf`                | 完整 `nginx.conf`：`upstream`、SPA fallback、`/assets/` 长缓存、`/api/` 基础反代、`/api/v1/chat/stream` 与 `/api/v1/runs/{run_id}/stream` 两个专用 SSE location、`/healthz` `/readyz` 透传 |
+| `scripts/verify-nginx-sse.mjs`     | 在 `dev_nginx` 容器内启动临时 nginx 与假 SSE 源，实测 `/sse` 逐帧、`/sse-buffered` 缓冲两种路径；`--check-deploy` 校验交付配置语法并静态断言续流 SSE location                              |
+| `package.json` 中的 `verify:nginx` | `node scripts/verify-nginx-sse.mjs`（由仓库根维护，本目录不重复定义）                                                                                                                      |
 
 > `deploy/nginx.conf` 是**完整 nginx.conf**（含 `events` / `http` / `server`），不是
 > `/etc/nginx/conf.d/*.conf` 片段。若部署平台只允许投放 conf.d 片段，请把 `server { ... }`
@@ -24,7 +24,9 @@ flowchart LR
   N -->|"/"| S["dist 静态资源<br/>/usr/share/nginx/html"]
   N -->|"/api/"| A[agent-hub-backend]
   N -->|"/api/v1/chat/stream"| S2["SSE 长连接<br/>proxy_buffering off"]
+  N -->|"/api/v1/runs/{run_id}/stream"| S3["续流 SSE 长连接<br/>先回放后实时<br/>proxy_buffering off"]
   A --> S2
+  A --> S3
 ```
 
 前端生产构建使用同源相对路径 `/api/v1`（`.env.production` 中
@@ -160,21 +162,35 @@ curl --noproxy '*' -sS -o /dev/null -w 'readyz: %{http_code}\n' http://127.0.0.1
 
 ### 4.2 API 与 SSE
 
-`/api/` 走普通反代（`proxy_read_timeout 60s`）。聊天流使用**精确匹配**的
-`location = /api/v1/chat/stream`，覆盖 `/api/` 的前缀匹配：
+`/api/` 走普通反代（`proxy_read_timeout 60s`）。两个流式端点各自使用独立的
+SSE location，覆盖 `/api/` 的前缀匹配：
 
-> **M7 前瞻**：后端立项的 `GET /api/v1/runs/{id}/stream`（增量续流）不在当前配置内。M7 实施时需为它增加同参数的 SSE location（如 `location ~ ^/api/v1/runs/[^/]+/stream$`），并让 `scripts/verify-nginx-sse.mjs` 覆盖该端点；否则会被 `/api/` 的 60s 读超时与默认缓冲影响。当前 M6 交付未包含该端点。
+| 端点                                       | 方法   | Nginx location                                   | 说明                                                                                      |
+| ------------------------------------------ | ------ | ------------------------------------------------ | ----------------------------------------------------------------------------------------- |
+| `/api/v1/chat/stream`                      | `POST` | `location = /api/v1/chat/stream`                 | 聊天首轮流式输出；精确匹配优先于 `/api/`                                                  |
+| `/api/v1/runs/{run_id}/stream?after_seq=N` | `GET`  | `location ~ ^/api/v1/runs/[0-9a-fA-F-]+/stream$` | 运行事件续流：先按 `after_seq` 回放、再实时推送，15s ping 注释帧，终态关闭；正则匹配 UUID |
 
-| 指令                             | 作用                                                                                   |
-| -------------------------------- | -------------------------------------------------------------------------------------- |
-| `proxy_http_version 1.1`         | 与后端使用 HTTP/1.1，支持 chunked/长连接；HTTP/1.0 不适合长流                          |
-| `proxy_set_header Connection ""` | 清除逐跳 `Connection` 头，避免把 `Connection: close` 传给后端，配合 upstream keepalive |
-| `proxy_buffering off`            | 后端每产生一个事件就立即转发，不攒 buffer、不等响应结束；**逐帧流式的关键**            |
-| `proxy_cache off`                | 禁止缓存流式响应，避免中间层缓存半截事件或复用旧流                                     |
-| `gzip off`                       | 压缩器会额外缓冲，破坏事件实时性；SSE 文本很小，压缩收益有限                           |
-| `proxy_read_timeout 3600s`       | 模型可能长时间不产出下一个 chunk；默认 60s 会 504 中断 SSE                             |
-| `proxy_send_timeout 3600s`       | 客户端网络慢时，给 nginx 足够时间写完事件                                              |
-| `proxy_connect_timeout 10s`      | 后端不可用时快速失败，不把连接建立也拖到一小时                                         |
+> **必须为续流配置独立 SSE location**，否则续流会命中 `/api/` 的默认缓冲与
+> `proxy_read_timeout 60s`：轻则事件不再逐帧到达（逐帧失效），重则空闲 60s 后被 504 截断。
+> `run_id` 是 UUID，无法用 `=` 精确匹配，必须使用正则 location。正则 location 优先于
+> 未加 `^~` 的 `/api/` 前缀 location，因此**不要给 `location /api/` 加 `^~`**，否则
+> 续流的专用参数会被 `/api/` 抢占。
+>
+> 续流 location 使用与聊天流完全一致的长连接参数，并由
+> `node scripts/verify-nginx-sse.mjs --check-deploy` 静态断言（见第 5、6.2 节）。
+
+两个 SSE location 共用同一组指令：
+
+| 指令                             | 作用                                                                                     |
+| -------------------------------- | ---------------------------------------------------------------------------------------- |
+| `proxy_http_version 1.1`         | 与后端使用 HTTP/1.1，支持 chunked/长连接；HTTP/1.0 不适合长流                            |
+| `proxy_set_header Connection ""` | 清除逐跳 `Connection` 头，避免把 `Connection: close` 传给后端，配合 upstream keepalive   |
+| `proxy_buffering off`            | 后端每产生一个事件就立即转发，不攒 buffer、不等响应结束；**逐帧流式的关键**              |
+| `proxy_cache off`                | 禁止缓存流式响应，避免中间层缓存半截事件或复用旧流                                       |
+| `gzip off`                       | 压缩器会额外缓冲，破坏事件实时性；SSE 文本很小，压缩收益有限                             |
+| `proxy_read_timeout 3600s`       | 上游可能长时间不产出下一个事件（聊天等模型 / 续流仅 15s ping）；默认 60s 会 504 中断 SSE |
+| `proxy_send_timeout 3600s`       | 客户端网络慢时，给 nginx 足够时间写完事件                                                |
+| `proxy_connect_timeout 10s`      | 后端不可用时快速失败，不把连接建立也拖到一小时                                           |
 
 ### 4.3 健康检查
 
@@ -189,7 +205,8 @@ pnpm verify:nginx
 # 等价于
 node scripts/verify-nginx-sse.mjs
 
-# 仅校验 deploy/nginx.conf 语法（不监听端口、不连接上游）
+# 校验 deploy/nginx.conf 语法 + 续流 SSE location 静态断言
+# （不监听端口、不连接上游）
 pnpm verify:nginx --check-deploy
 # 等价于
 node scripts/verify-nginx-sse.mjs --check-deploy
@@ -217,6 +234,16 @@ node scripts/verify-nginx-sse.mjs --check-deploy
    - `/sse-buffered`：5 帧在 ≤ 1 s 内集中到达，或首帧延迟 ≥ 4 s；
 8. `finally` 清理临时 nginx/nc/serve.sh 子进程与 `/tmp` 目录，并确认端口释放；
 9. 退出码：全部通过 `0`，任一失败 `1`。
+
+`--check-deploy` 除了 `nginx -t`，还会静态断言 `deploy/nginx.conf`：
+
+- 存在匹配 `/api/v1/runs/{run_id}/stream` 的正则 location；
+- 该 location 块内包含 `proxy_http_version 1.1`、`proxy_buffering off`、`proxy_cache off`、
+  `gzip off`、`proxy_read_timeout 3600s`、`proxy_send_timeout 3600s`、
+  `proxy_set_header Connection ""`；
+- `/api/` 前缀 location 未使用 `^~`（否则会抢在正则 location 之前匹配）。
+
+缺失任一项会逐项打印缺项并以退出码 `1` 结束。
 
 ## 6. 验证记录
 
@@ -268,10 +295,25 @@ node scripts/verify-nginx-sse.mjs --check-deploy
 `127.0.0.11:34833`；`/tmp` 无验证残留；宿主 `18088` 恢复连接 reset（主 nginx
 无 server 配置、不监听 80，符合验证前状态）；宿主无 `verify-nginx` / `nc` 验证进程。
 
-### 6.2 `--check-deploy` 语法检查
+### 6.2 `--check-deploy` 语法检查与续流静态断言
 
 - 命令：`node scripts/verify-nginx-sse.mjs --check-deploy`
 - 结果：**exit 0 / PASS**
+- 续流 location 静态断言摘要：
+
+```text
+[静态断言] 续流 SSE location（/api/v1/runs/{run_id}/stream）
+- 找到续流 location（第 170 行）：location ~ ^/api/v1/runs/[0-9a-fA-F-]+/stream$
+  ✓ proxy_http_version 1.1
+  ✓ proxy_buffering off
+  ✓ proxy_cache off
+  ✓ gzip off
+  ✓ proxy_read_timeout 3600s
+  ✓ proxy_send_timeout 3600s
+  ✓ proxy_set_header Connection ""
+[PASS] 续流 location 存在，7 项 SSE 指令齐全，/api/ 未使用 ^~ 抢占
+```
+
 - `nginx -t` 输出摘要：
 
 ```text
@@ -280,19 +322,21 @@ nginx: configuration file /tmp/agent-hub-sse-verify-deploy/deploy-check.conf tes
 ```
 
 - 检查过程摘要：
+  - 先静态断言续流 SSE location 存在、块内 7 项长连接指令齐全、`/api/` 未用 `^~`；
+    缺失任一项会逐项打印并以退出码 `1` 结束；
   - `deploy/nginx.conf` 已是完整 nginx.conf（含 `events/http`）；
   - `upstream agent-hub-backend` 已存在（保留原地址）;
   - `root` 替换为容器内临时目录 `/tmp/agent-hub-sse-verify-deploy/html`，
     避免依赖部署机路径；
-  - 仅执行 `nginx -t`，不监听端口、不连接上游，因此**不验证后端可达性**；
+  - 执行 `nginx -t`，不监听端口、不连接上游，因此**不验证后端可达性**；
   - 清理后容器内临时目录已删除。
 
 ### 6.3 证据边界
 
 - 6.1 验证的是「SSE 关键指令的语义」：同一台 nginx、同一假源、只切换
   `proxy_buffering`，证明关闭缓冲后逐帧到达、默认缓冲时集中到达。
-- 6.2 验证的是「交付配置的语法」，不是 `deploy/nginx.conf` 的运行时行为，
-  也不是真实后端 LLM 长流。
+- 6.2 验证的是「交付配置的语法与续流 location 的静态指令」，不是
+  `deploy/nginx.conf` 的运行时行为，也不是真实后端续流。
 - 真实后端链路仍由仓库的 `smoke:real` / `test:real` 与后端测试覆盖。
 
 ## 7. 回滚
@@ -352,10 +396,11 @@ docker exec dev_nginx sh -c '
    CI 若需要，只应做 `nginx -t` 类语法检查，不要依赖本脚本的运行时断言。
 2. 临时实例监听容器 80。当前主 nginx 没有 server 配置、不监听 80；若以后主 nginx
    配置了 `listen 80`，脚本会在启动前检测并明确报错，不会 kill 主进程。
-3. `--check-deploy` 会把 `root` 替换到容器内临时目录，并假定 `upstream` 地址可在
-   容器内解析；它只证明语法，不证明后端可达、DNS 正确或静态文件存在。
+3. `--check-deploy` 会先做续流 location 静态断言，再把 `root` 替换到容器内临时目录、
+   假定 `upstream` 地址可在容器内解析并执行 `nginx -t`；它证明语法与静态指令齐全，
+   但不证明后端可达、DNS 正确、静态文件存在或真实续流行为正确。
 4. SSE 实验使用 5 帧、每秒 1 帧的假源，覆盖「逐帧 vs 缓冲」的核心语义，但不覆盖
-   真实 LLM 的长时间静默、网络中断、客户端取消等场景；这些由前端重连逻辑与真实
-   后端联调覆盖。
+   真实 LLM/续流的长时间静默（含 15s ping）、网络中断、客户端取消、终态关闭等场景；
+   这些由前端重连逻辑与真实后端联调覆盖。
 5. 本脚本不修改宿主 `/home/zhaodan/work/docker_work/nginx/`，也不修改容器
    `/etc/nginx`；若部署环境使用只读挂载，请按第 3.4 节在镜像/编排层替换配置。

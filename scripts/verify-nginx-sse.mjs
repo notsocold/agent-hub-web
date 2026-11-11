@@ -533,7 +533,7 @@ function printTimeline(result) {
 }
 
 // ---------------------------------------------------------------------------
-// --check-deploy：只校验 deploy/nginx.conf 语法
+// --check-deploy：校验 deploy/nginx.conf 语法 + 续流 SSE location 静态断言
 // ---------------------------------------------------------------------------
 
 function indentBlock(text, spaces) {
@@ -577,16 +577,148 @@ function buildCheckConfig(source) {
   return { config, wrapped, upstreamInjected, rootReplaced, htmlDir }
 }
 
+// ---------------------------------------------------------------------------
+// --check-deploy：续流 SSE location 静态断言
+// ---------------------------------------------------------------------------
+
+const RUN_STREAM_LOCATION_EXPECTED = 'location ~ ^/api/v1/runs/[0-9a-fA-F-]+/stream$'
+
+// 续流端点与聊天流共用同一组长连接参数；缺一项都可能退化为缓冲或 60s 截断。
+const RUN_STREAM_REQUIRED_DIRECTIVES = [
+  { label: 'proxy_http_version 1.1', pattern: /^[ \t]*proxy_http_version[ \t]+1\.1[ \t]*;/m },
+  { label: 'proxy_buffering off', pattern: /^[ \t]*proxy_buffering[ \t]+off[ \t]*;/m },
+  { label: 'proxy_cache off', pattern: /^[ \t]*proxy_cache[ \t]+off[ \t]*;/m },
+  { label: 'gzip off', pattern: /^[ \t]*gzip[ \t]+off[ \t]*;/m },
+  {
+    label: 'proxy_read_timeout 3600s',
+    pattern: /^[ \t]*proxy_read_timeout[ \t]+3600s[ \t]*;/m,
+  },
+  {
+    label: 'proxy_send_timeout 3600s',
+    pattern: /^[ \t]*proxy_send_timeout[ \t]+3600s[ \t]*;/m,
+  },
+  {
+    label: 'proxy_set_header Connection ""',
+    pattern: /^[ \t]*proxy_set_header[ \t]+Connection[ \t]+(?:""|'')[ \t]*;/m,
+  },
+]
+
+// 从 location 的起始花括号开始，按花括号配对截取块内文本（跳过注释与引号）。
+function extractBracedBlock(source, openBraceIndex) {
+  let depth = 0
+  let quote = ''
+  let inComment = false
+  for (let index = openBraceIndex; index < source.length; index += 1) {
+    const char = source[index]
+    if (inComment) {
+      if (char === '\n') inComment = false
+      continue
+    }
+    if (quote) {
+      if (char === quote) quote = ''
+      continue
+    }
+    if (char === '#') {
+      inComment = true
+      continue
+    }
+    if (char === '"' || char === "'") {
+      quote = char
+      continue
+    }
+    if (char === '{') {
+      depth += 1
+    } else if (char === '}') {
+      depth -= 1
+      if (depth === 0) {
+        return { text: source.slice(openBraceIndex + 1, index) }
+      }
+    }
+  }
+  return null
+}
+
+// 只认正则 location（~ / ~*）；prefix 或精确匹配无法覆盖 UUID 路径。
+function findRunStreamLocation(source) {
+  const locationPattern = /^[ \t]*location[ \t]+([^{\n]+?)[ \t]*\{/gm
+  let match
+  while ((match = locationPattern.exec(source)) !== null) {
+    const header = match[1].trim()
+    const tokens = header.split(/\s+/)
+    const isRegex = tokens[0] === '~' || tokens[0] === '~*'
+    const uri = tokens.slice(1).join(' ')
+    if (!isRegex || !uri.includes('/api/v1/runs/') || !uri.includes('/stream')) continue
+
+    const openBraceIndex = match.index + match[0].length - 1
+    const block = extractBracedBlock(source, openBraceIndex)
+    return {
+      header,
+      line: source.slice(0, match.index).split('\n').length,
+      block: block ? block.text : null,
+    }
+  }
+  return null
+}
+
+function checkDeployStaticConfig(source) {
+  const problems = []
+
+  // /api/ 若带 ^~，会先于正则 location 命中，续流就退回 60s 超时与默认缓冲。
+  if (/^[ \t]*location[ \t]+\^~[ \t]+\/api(?:\/|[ \t{])/m.test(source)) {
+    problems.push(
+      '检测到 location ^~ /api/：^~ 前缀会优先于正则 location，续流 SSE 专用参数将不生效；请移除 ^~',
+    )
+  }
+
+  const location = findRunStreamLocation(source)
+  if (!location) {
+    problems.push(
+      `缺少续流 SSE location（期望形如：${RUN_STREAM_LOCATION_EXPECTED} { ... }，且必须是正则 location 才能优先于 /api/）`,
+    )
+    return problems
+  }
+
+  log(`  - 找到续流 location（第 ${location.line} 行）：location ${location.header}`)
+  if (!location.block) {
+    problems.push(`续流 location（第 ${location.line} 行）花括号不匹配，无法解析配置块`)
+    return problems
+  }
+
+  for (const directive of RUN_STREAM_REQUIRED_DIRECTIVES) {
+    if (directive.pattern.test(location.block)) {
+      log(`    ✓ ${directive.label}`)
+    } else {
+      log(`    ✗ ${directive.label}`)
+      problems.push(`续流 location 块内缺少 ${directive.label}`)
+    }
+  }
+
+  return problems
+}
+
 async function checkDeploy() {
-  log('\n==> --check-deploy：只校验 deploy/nginx.conf 的 nginx 配置语法')
+  log('\n==> --check-deploy：校验 deploy/nginx.conf 语法 + 续流 SSE location 静态断言')
   if (!existsSync(DEPLOY_CONF)) {
     fail(`找不到交付配置：${DEPLOY_CONF}`)
   }
 
   const source = readFileSync(DEPLOY_CONF, 'utf8')
+  log(`  交付文件：${DEPLOY_CONF}`)
+
+  log('  [静态断言] 续流 SSE location（/api/v1/runs/{run_id}/stream）')
+  const staticProblems = checkDeployStaticConfig(source)
+  if (staticProblems.length > 0) {
+    log('  [FAIL] 静态断言未通过：')
+    for (const problem of staticProblems) log(`    ✗ ${problem}`)
+    fail(`deploy/nginx.conf 静态断言未通过（${staticProblems.length} 项）`)
+  }
+  log(
+    `  [PASS] 续流 location 存在，${RUN_STREAM_REQUIRED_DIRECTIVES.length} 项 SSE 指令齐全，` +
+      '/api/ 未使用 ^~ 抢占',
+  )
+
   const { config, wrapped, upstreamInjected, rootReplaced, htmlDir } = buildCheckConfig(source)
 
-  log(`  交付文件：${DEPLOY_CONF}`)
   log(
     `  - ${wrapped ? '检测到 server 片段，已补 events/http 外壳' : '已是完整 nginx.conf（含 events/http）'}`,
   )
@@ -619,7 +751,10 @@ async function checkDeploy() {
   if (test.status !== 0) {
     fail('deploy/nginx.conf 语法检查未通过')
   }
-  log('\n[PASS] deploy/nginx.conf 语法检查通过（仅语法；不监听端口、不连接上游）')
+  log(
+    '\n[PASS] deploy/nginx.conf 语法检查通过，续流 SSE location 静态断言通过' +
+      '（不监听端口、不连接上游）',
+  )
   return 0
 }
 
