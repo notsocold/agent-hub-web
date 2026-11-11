@@ -125,7 +125,7 @@ function disabledHint(item: NavItem): string {
     </div>
 
     <nav class="sb-nav">
-      <button type="button" class="sb-nav-item sb-search" @click="emit('search')">
+      <button type="button" class="sb-nav-item sb-search" aria-label="搜索 ⌘K" @click="emit('search')">
         <svg class="ic" viewBox="0 0 24 24" aria-hidden="true">
           <circle cx="11" cy="11" r="6" />
           <path d="m15.5 15.5 4.5 4.5" />

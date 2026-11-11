@@ -5,11 +5,14 @@ import 'element-plus/theme-chalk/dark/css-vars.css'
 import '@/styles/index.css'
 
 import App from './App.vue'
+import { initPreferences } from '@/composables/usePreferences'
 import { apiClient, setUnauthorizedHandler } from '@/api/client'
 import router from './router'
 import { useAuthStore } from '@/stores/auth'
 
 async function bootstrap(): Promise<void> {
+  // F1：偏好（消息密度）必须在首屏生效，不能等设置页懒加载后才应用。
+  initPreferences()
   // 生产构建已在构建期拦截 mock；这里再兜一层，防止 e2e 产物被误部署后连假数据。
   // 用 MODE 而不是 PROD：vite build --mode e2e 的产物 PROD 仍为 true。
   if (import.meta.env.MODE === 'production' && import.meta.env.VITE_USE_MOCK === 'true') {

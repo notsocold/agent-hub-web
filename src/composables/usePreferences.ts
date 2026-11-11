@@ -46,6 +46,15 @@ export function usePreferences(): {
   return { density, setDensity: applyDensity }
 }
 
-if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+/**
+ * 入口级初始化：偏好必须在应用启动时应用，
+ * 否则只访问聊天页（设置页懒加载）时已保存的密度不会生效。
+ */
+export function initPreferences(): void {
+  if (typeof window === 'undefined' || typeof document === 'undefined') return
   applyDensity(readInitial())
+}
+
+if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+  initPreferences()
 }

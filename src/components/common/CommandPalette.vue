@@ -5,6 +5,7 @@ import { useRoute, useRouter } from 'vue-router'
 import EmptyState from '@/components/common/EmptyState.vue'
 import ErrorState from '@/components/common/ErrorState.vue'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
+import { ApiRequestError } from '@/api/client'
 import { conversationsApi } from '@/api/conversations'
 import { useChatStore } from '@/stores/chat'
 import { filterPalettePages, matchMessages, type PalettePage } from '@/utils/commandPalette'
@@ -27,6 +28,8 @@ const activeIndex = ref(0)
 const conversations = ref<Conversation[]>([])
 const conversationLoading = ref(false)
 const conversationError = ref<string | null>(null)
+const conversationErrorCode = ref<string | null>(null)
+const conversationErrorRequestId = ref<string | null>(null)
 
 let debounceTimer: ReturnType<typeof setTimeout> | null = null
 let searchSeq = 0
@@ -46,6 +49,16 @@ const messages = computed(() => {
   if (route.name !== 'chat' || !chat.state.conversationId) return []
   return matchMessages(chat.messages, query.value)
 })
+
+/** 结果项展示命中关键词附近的片段，而不是固定截取开头（关键词常常不在开头）。 */
+function messageSnippet(content: string, keyword: string): string {
+  const compact = (text: string): string => text.replace(/\s+/g, ' ').trim()
+  const index = keyword ? content.toLowerCase().indexOf(keyword.toLowerCase()) : -1
+  if (index < 0) return compact(content).slice(0, 60)
+  const start = Math.max(0, index - 18)
+  const end = Math.min(content.length, index + 42)
+  return `${start > 0 ? '…' : ''}${compact(content.slice(start, end))}${end < content.length ? '…' : ''}`
+}
 
 const items = computed<PaletteItem[]>(() => {
   const list: PaletteItem[] = []
@@ -71,7 +84,7 @@ const items = computed<PaletteItem[]>(() => {
     list.push({
       id: `message-${message.id}`,
       group: 'message',
-      label: message.content.replace(/\s+/g, ' ').slice(0, 60),
+      label: messageSnippet(message.content, query.value.trim()),
       hint: message.role === 'user' ? '我' : '助手',
       run: () => goMessage(message.id),
     })
@@ -108,12 +121,19 @@ watch(items, (list) => {
 watch(
   () => props.open,
   async (open) => {
-    if (!open) return
+    if (!open) {
+      const target = lastFocused
+      lastFocused = null
+      if (target) void nextTick(() => target.focus())
+      return
+    }
     query.value = ''
     activeIndex.value = 0
     conversations.value = []
     conversationError.value = null
     conversationLoading.value = false
+    conversationErrorCode.value = null
+    conversationErrorRequestId.value = null
     lastFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null
     await nextTick()
     inputRef.value?.focus()
@@ -135,6 +155,8 @@ watch(query, (value) => {
     return
   }
   conversationLoading.value = true
+  // 关键词变化立即丢弃旧结果：防抖窗口内按 Enter 不能打开不匹配的会话。
+  conversations.value = []
   const seq = ++searchSeq
   debounceTimer = setTimeout(() => {
     debounceTimer = null
@@ -150,16 +172,16 @@ async function searchConversations(keyword: string, seq: number): Promise<void> 
   } catch (error) {
     if (seq !== searchSeq) return
     conversationError.value = error instanceof Error ? error.message : '会话搜索失败'
+    conversationErrorCode.value = error instanceof ApiRequestError ? error.code : null
+    conversationErrorRequestId.value = error instanceof ApiRequestError ? error.requestId : null
   } finally {
     if (seq === searchSeq) conversationLoading.value = false
   }
 }
 
 function close(): void {
-  const target = lastFocused
-  lastFocused = null
+  // 焦点恢复统一交给 open=false 的 watcher，覆盖 Esc / 点击 / Ctrl+K 再次触发。
   emit('close')
-  if (target) void nextTick(() => target.focus())
 }
 
 function move(step: number): void {
@@ -184,6 +206,8 @@ function select(index: number): void {
 }
 
 function onInputKeydown(event: KeyboardEvent): void {
+  // 中文输入法组合中（拼音候选）的回车/方向键/Escape 交给输入法。
+  if (event.isComposing || event.keyCode === 229) return
   if (event.key === 'Escape') {
     event.preventDefault()
     close()
@@ -197,6 +221,14 @@ function onInputKeydown(event: KeyboardEvent): void {
     event.preventDefault()
     execute()
   }
+}
+
+function retrySearch(): void {
+  const keyword = query.value.trim()
+  if (!keyword) return
+  conversationError.value = null
+  conversationLoading.value = true
+  void searchConversations(keyword, ++searchSeq)
 }
 
 function goPage(page: PalettePage): void {
@@ -226,7 +258,14 @@ onBeforeUnmount(() => {
 
 <template>
   <div v-if="open" class="palette-backdrop" @click.self="close">
-    <div class="palette" role="dialog" aria-modal="true" aria-label="全局搜索">
+    <div
+      class="palette"
+      role="dialog"
+      aria-modal="true"
+      aria-label="全局搜索"
+      @keydown.esc="close"
+      @keydown.tab.prevent
+    >
       <div class="palette-head">
         <svg class="search-icon" viewBox="0 0 24 24" aria-hidden="true">
           <circle cx="11" cy="11" r="6.5" />
@@ -254,8 +293,10 @@ onBeforeUnmount(() => {
       <ErrorState
         v-else-if="conversationError"
         :message="conversationError"
-        :retryable="false"
+        :code="conversationErrorCode ?? undefined"
+        :request-id="conversationErrorRequestId ?? undefined"
         class="palette-error"
+        @retry="retrySearch"
       />
 
       <div
@@ -273,6 +314,7 @@ onBeforeUnmount(() => {
             :key="row.item.id"
             type="button"
             role="option"
+            tabindex="-1"
             class="palette-item"
             :class="{ 'is-active': row.index === activeIndex }"
             :aria-selected="row.index === activeIndex"
@@ -305,7 +347,7 @@ onBeforeUnmount(() => {
 .palette-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 60;
+  z-index: 3000;
   display: flex;
   justify-content: center;
   padding: 12vh 16px 16px;

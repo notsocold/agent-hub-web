@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { VList } from 'virtua/vue'
 
 import MessageBubble from './MessageBubble.vue'
@@ -33,6 +33,9 @@ const listRef = ref<InstanceType<typeof VList> | null>(null)
 const pinned = ref(true)
 let resizeRaf: number | null = null
 
+/** 加载更早前的滚动快照；virtua 的 shift 只适用于纯头部增删，聊天是混合方向，用手动补偿。 */
+let prependAnchor: { size: number; offset: number } | null = null
+
 const rows = computed(() =>
   buildMessageRows(props.messages, props.process, props.currentRunId ?? null),
 )
@@ -48,7 +51,7 @@ const lastAssistant = computed<ChatMessageView | null>(() => {
 
 /**
  * 本次挂载是否见过流式状态。
- * 打开历史会话时消息本身就是 completed，不应误播报成「回复完成」。
+ * 打开历史会话时消息本身就是 completed / failed，不应误播报成本轮结果。
  */
 const hasStreamed = ref(props.streaming)
 watch(
@@ -57,7 +60,6 @@ watch(
     if (streaming) hasStreamed.value = true
   },
 )
-// 切换会话时重置：新会话的历史完成态不应沿用上一个会话的流式经历。
 watch(
   () => props.conversationId,
   () => {
@@ -73,7 +75,7 @@ const liveStatus = computed<LiveStatus>(() => {
     return 'waiting_approval'
   }
   const assistant = lastAssistant.value
-  if (!props.streaming && assistant?.status === 'failed') return 'failed'
+  if (!props.streaming && hasStreamed.value && assistant?.status === 'failed') return 'failed'
   if (props.streaming) return 'started'
   if (hasStreamed.value && assistant?.status === 'completed') return 'completed'
   return 'idle'
@@ -94,6 +96,13 @@ function canScroll(): boolean {
   return rows.value.length > 0
 }
 
+function cancelResizeRaf(): void {
+  if (resizeRaf != null) {
+    window.cancelAnimationFrame(resizeRaf)
+    resizeRaf = null
+  }
+}
+
 function scrollToBottom(smooth = false): void {
   const list = listRef.value
   if (!list || !canScroll()) return
@@ -105,14 +114,11 @@ function scrollToMessage(id: string): boolean {
   const list = listRef.value
   const index = rows.value.findIndex((row) => row.id === id)
   if (!list || index < 0) return false
+  // 定位历史消息即离开贴底，并取消已排队的贴底，避免随后一次 resize 把视口拽回底部。
+  pinned.value = false
+  cancelResizeRaf()
   list.scrollToIndex(index, { align: 'center' })
   return true
-}
-
-/** F1：消息密度等外部变化导致行高变化时，让虚拟列表重测并保持贴底。 */
-function refresh(): void {
-  pinned.value = true
-  void nextTick(() => scrollToBottom())
 }
 
 function onScroll(offset: number): void {
@@ -122,23 +128,63 @@ function onScroll(offset: number): void {
 }
 
 function onResize(): void {
-  // 流式消息会持续增高：同一帧只贴底一次，避免 ResizeObserver 连环触发。
+  // 流式消息会持续增高：同一帧只贴底一次，且回调执行时再确认用户仍贴底。
   if (!pinned.value || resizeRaf != null) return
   resizeRaf = window.requestAnimationFrame(() => {
     resizeRaf = null
-    scrollToBottom()
+    if (pinned.value) scrollToBottom()
+  })
+}
+
+function requestOlder(): void {
+  const list = listRef.value
+  if (list) prependAnchor = { size: list.scrollSize, offset: list.scrollOffset }
+  emit('loadOlder')
+}
+
+function applyPrependCompensation(): void {
+  const anchor = prependAnchor
+  if (!anchor) return
+  prependAnchor = null
+  void nextTick(() => {
+    window.requestAnimationFrame(() => {
+      const list = listRef.value
+      if (!list) return
+      const delta = list.scrollSize - anchor.size
+      if (delta > 0) list.scrollTo(anchor.offset + delta)
+    })
   })
 }
 
 watch(
+  () => props.messages.length,
+  (next, previous) => {
+    if (next > previous) applyPrependCompensation()
+  },
+)
+
+watch(
+  () => props.loadingOlder,
+  (loading) => {
+    // 已到最早一页时不会再有新消息，丢弃快照避免下次 append 误补偿。
+    if (!loading) {
+      window.setTimeout(() => {
+        prependAnchor = null
+      }, 0)
+    }
+  },
+)
+
+watch(
   () => props.conversationId,
   () => {
+    prependAnchor = null
     pinned.value = true
     void nextTick(() => scrollToBottom())
   },
 )
 
-// 追加新消息（发送、流式首包）且仍贴底时，保持贴底；加载更早只在头部插入，不触发。
+// 追加新消息且仍贴底时保持贴底；用户上滑后不打扰阅读。
 watch(
   () => rows.value.at(-1)?.id,
   (next, previous) => {
@@ -148,13 +194,15 @@ watch(
   },
 )
 
-defineExpose({ scrollToBottom, scrollToMessage, refresh })
+onBeforeUnmount(cancelResizeRaf)
+
+defineExpose({ scrollToBottom, scrollToMessage })
 </script>
 
 <template>
   <div class="message-shell">
     <div v-if="hasMore" class="older-bar">
-      <button type="button" class="load-older" :disabled="loadingOlder" @click="emit('loadOlder')">
+      <button type="button" class="load-older" :disabled="loadingOlder" @click="requestOlder">
         {{ loadingOlder ? '正在加载更早消息…' : '加载更早消息' }}
       </button>
     </div>
@@ -169,7 +217,6 @@ defineExpose({ scrollToBottom, scrollToMessage, refresh })
         ref="listRef"
         class="message-list"
         :data="rows"
-        :shift="true"
         @scroll="onScroll"
         @resize="onResize"
       >

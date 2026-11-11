@@ -69,6 +69,7 @@ async function logout(): Promise<void> {
 
 <template>
   <div class="app-shell" :class="{ 'is-collapsed': collapsed && !isMobile }">
+    <a class="skip-link" href="#main-content">跳到主内容</a>
     <SideNav
       :collapsed="collapsed"
       :mobile="isMobile"
@@ -93,7 +94,6 @@ async function logout(): Promise<void> {
     ></div>
 
     <main class="app-main">
-      <a class="skip-link" href="#main-content">跳到主内容</a>
       <header v-if="isMobile" class="mobile-bar">
         <button class="mobile-menu" type="button" aria-label="打开导航" @click="mobileOpen = true">
           <svg viewBox="0 0 24 24" aria-hidden="true">

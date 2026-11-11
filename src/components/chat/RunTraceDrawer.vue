@@ -385,7 +385,8 @@ h2 {
 }
 
 .kind-tool {
-  color: var(--kind-tool);
+  /* 9px 小字：amber 在 amber-soft 上仅 3.34:1，改用为文字设计的 amber-text。 */
+  color: var(--amber-text);
   background: var(--kind-tool-soft);
 }
 
