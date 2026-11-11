@@ -30,6 +30,13 @@ export interface BuildInfo {
   mock: boolean
 }
 
+/** Web Vitals 摘要：只存指标名、数值与采集时间，不含页面内容。 */
+export interface VitalRecord {
+  name: 'LCP' | 'CLS' | 'INP' | 'TTFB'
+  value: number
+  at: number
+}
+
 interface RuntimeContext {
   runId: string | null
   conversationId: string | null
@@ -39,6 +46,7 @@ const CAPACITY = 20
 
 const requests: RequestRecord[] = []
 const errors: ErrorRecord[] = []
+const vitals: VitalRecord[] = []
 let runtime: RuntimeContext = { runId: null, conversationId: null }
 
 function push<T>(list: T[], item: T): void {
@@ -54,12 +62,22 @@ export function recordError(record: ErrorRecord): void {
   push(errors, record)
 }
 
+/** 由 `src/utils/web-vitals.ts` 写入；容量与请求/错误缓冲一致。 */
+export function recordVital(record: VitalRecord): void {
+  push(vitals, record)
+}
+
 export function getRecentRequests(limit = CAPACITY): RequestRecord[] {
   return requests.slice(0, limit)
 }
 
 export function getRecentErrors(limit = CAPACITY): ErrorRecord[] {
   return errors.slice(0, limit)
+}
+
+/** 新→旧返回，与最近请求/错误保持一致，方便抽屉直接渲染。 */
+export function getWebVitals(limit = CAPACITY): VitalRecord[] {
+  return vitals.slice(0, limit)
 }
 
 export function getBuildInfo(): BuildInfo {
@@ -91,5 +109,6 @@ export function getRuntimeContext(): RuntimeContext {
 export function resetDiagnostics(): void {
   requests.length = 0
   errors.length = 0
+  vitals.length = 0
   runtime = { runId: null, conversationId: null }
 }

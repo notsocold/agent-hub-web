@@ -19,6 +19,7 @@ const emit = defineEmits<{
   toggle: []
   navigate: []
   settings: []
+  diagnostics: []
   'toggle-theme': []
   logout: []
 }>()
@@ -157,6 +158,7 @@ function disabledHint(item: NavItem): string {
         :user="user"
         :theme="theme"
         @settings="emit('settings')"
+        @diagnostics="emit('diagnostics')"
         @theme="emit('toggle-theme')"
         @logout="emit('logout')"
       />

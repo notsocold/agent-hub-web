@@ -57,6 +57,30 @@ describe('SideNav', () => {
     expect(links[5]?.attributes('title')).toBe('知识库')
   })
 
+  it('账号菜单点击诊断信息时向父级透传 diagnostics 事件', async () => {
+    const wrapper = mount(SideNav, {
+      props: {
+        collapsed: false,
+        mobile: false,
+        open: false,
+        user,
+        theme: 'light',
+      },
+      global: {
+        stubs: { RouterLink: RouterLinkStub },
+      },
+    })
+
+    await wrapper.get('button.account').trigger('click')
+    const item = wrapper
+      .findAll('button.menu-item')
+      .find((button) => button.text().includes('诊断信息'))
+    expect(item).toBeTruthy()
+
+    await item!.trigger('click')
+    expect(wrapper.emitted('diagnostics')).toHaveLength(1)
+  })
+
   it('后端能力关闭时对应导航置灰且不可点击', () => {
     const wrapper = mountNav({
       instructions: false,

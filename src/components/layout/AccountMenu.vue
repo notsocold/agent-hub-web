@@ -11,6 +11,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   settings: []
+  diagnostics: []
   theme: []
   logout: []
 }>()
@@ -43,6 +44,11 @@ function onEscape(event: KeyboardEvent): void {
 
 function openSettings(): void {
   emit('settings')
+  close()
+}
+
+function openDiagnostics(): void {
+  emit('diagnostics')
   close()
 }
 
@@ -99,6 +105,9 @@ onUnmounted(() => {
       </div>
       <div class="sep"></div>
       <button type="button" role="menuitem" class="menu-item" @click="openSettings">设置</button>
+      <button type="button" role="menuitem" class="menu-item" @click="openDiagnostics">
+        诊断信息
+      </button>
       <button type="button" role="menuitem" class="menu-item" @click="toggleTheme">
         {{ theme === 'dark' ? '切换到浅色' : '切换到深色' }}
       </button>

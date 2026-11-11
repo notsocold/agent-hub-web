@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onMounted, onUnmounted, ref } from 'vue'
 import { RouterView, useRoute, useRouter } from 'vue-router'
 import { ElMessageBox } from 'element-plus'
 
+import DiagnosticsDrawer from '@/components/common/DiagnosticsDrawer.vue'
 import SideNav from '@/components/layout/SideNav.vue'
 import { useMediaQuery } from '@/composables/useMediaQuery'
 import { useTheme } from '@/composables/useTheme'
+import { startWebVitals } from '@/utils/web-vitals'
 import { useAuthStore } from '@/stores/auth'
 import { useSystemStore } from '@/stores/system'
 
@@ -18,10 +20,19 @@ const isMobile = useMediaQuery('(max-width: 900px)')
 
 const collapsed = ref(false)
 const mobileOpen = ref(false)
+const diagnosticsOpen = ref(false)
+let stopWebVitals: (() => void) | null = null
 
 onMounted(() => {
   // 登录后尽早拉取系统信息，导航按 capabilities 置灰。
   if (auth.isAuthenticated) void system.load()
+  // 布局挂载即开始采集 Web Vitals，卸载时断开 observer。
+  stopWebVitals = startWebVitals()
+})
+
+onUnmounted(() => {
+  stopWebVitals?.()
+  stopWebVitals = null
 })
 
 function openSettings(): void {
@@ -56,6 +67,7 @@ async function logout(): Promise<void> {
       @toggle="collapsed = !collapsed"
       @navigate="mobileOpen = false"
       @settings="openSettings"
+      @diagnostics="diagnosticsOpen = true"
       @toggle-theme="toggle"
       @logout="logout"
     />
@@ -81,6 +93,8 @@ async function logout(): Promise<void> {
         <RouterView />
       </div>
     </main>
+
+    <DiagnosticsDrawer :open="diagnosticsOpen" @close="diagnosticsOpen = false" />
   </div>
 </template>
 
