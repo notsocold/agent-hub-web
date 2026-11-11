@@ -3,7 +3,7 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 
 import ProcessCardShell from './ProcessCardShell.vue'
 import { formatDateTime } from '@/utils/format'
-import { containsSensitiveKey, redactValue } from '@/utils/redact'
+import { containsSensitiveKey, redactText, redactValue } from '@/utils/redact'
 import type { ApprovalProcess } from '@/types'
 
 const props = defineProps<{
@@ -77,6 +77,10 @@ const canDecide = computed(
 )
 
 const payload = computed(() => props.item.payload ?? null)
+// M7：事件已带脱敏预览时不请求详情；预览文本再做一次字符串级遮罩兜底。
+const previewText = computed(() =>
+  props.item.payloadPreview ? redactText(props.item.payloadPreview) : '',
+)
 const hasSensitive = computed(() => containsSensitiveKey(payload.value))
 const payloadJson = computed(() => {
   try {
@@ -129,6 +133,11 @@ const payloadJson = computed(() => {
       </summary>
       <pre class="payload-body mono">{{ payloadJson }}</pre>
     </details>
+    <details v-else-if="previewText" class="payload" open>
+      <summary>参数预览（已脱敏）</summary>
+      <pre class="payload-body mono">{{ previewText }}</pre>
+    </details>
+    <p v-else class="payload-empty">参数预览不可用</p>
 
     <div v-if="canDecide" class="actions">
       <button type="button" class="btn ghost" :disabled="busy" @click="emit('reject')">拒绝</button>
@@ -200,6 +209,12 @@ const payloadJson = computed(() => {
   margin-top: 9px;
   border-top: 1px dashed var(--line);
   padding-top: 8px;
+}
+
+.payload-empty {
+  margin: 9px 0 0;
+  color: var(--ink-3);
+  font-size: 10.5px;
 }
 
 .payload summary {
