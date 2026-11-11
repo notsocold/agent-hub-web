@@ -772,6 +772,13 @@ class MockDb {
     const ranked = this.visibleKnowledgeDocuments()
       .filter((document) => document.status === 'ready')
       .filter((document) => (category ? document.category === category : true))
+      // 真实后端按相似度过滤：查询词无命中时不返回片段（E2E 空态依赖此语义）。
+      .filter((document) => {
+        if (!needle) return true
+        return `${document.title} ${document.category} ${document.source_uri}`
+          .toLowerCase()
+          .includes(needle.toLowerCase())
+      })
       .map((document) => ({
         document,
         relevance: needle
