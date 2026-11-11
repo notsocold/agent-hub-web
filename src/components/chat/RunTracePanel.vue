@@ -132,7 +132,7 @@ function durationOf(item: ProcessItem): string {
 
 <template>
   <div class="trace-panel">
-    <div class="trace-scroll">
+    <div class="trace-scroll" tabindex="0" aria-label="运行轨迹滚动区">
       <section class="summary">
         <p class="conv">{{ conversationTitle || '未命名会话' }}</p>
         <dl>
@@ -218,6 +218,11 @@ function durationOf(item: ProcessItem): string {
   min-height: 0;
   padding: 14px 18px 24px;
   overflow-y: auto;
+}
+
+.trace-scroll:focus-visible {
+  outline: 2px solid var(--prussian);
+  outline-offset: -2px;
 }
 
 .summary {
