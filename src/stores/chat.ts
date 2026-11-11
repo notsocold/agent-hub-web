@@ -445,6 +445,9 @@ export const useChatStore = defineStore('chat', () => {
   function canAutoReconnect(error?: unknown): boolean {
     if (!lastAttempt.value || !state.value.runId) return false
     if (state.value.finishReason !== null || isTerminal(state.value.runStatus)) return false
+    // 后端 `error` 事件即终态：即使 runStatus 还没刷新，也不能再重连，
+    // 否则每次续流都会回放同一 error 并触发一轮新的退避重连。
+    if (state.value.error) return false
     // HITL 等待审批没有活动流，交给审批横幅 + 轮询，不进重连。
     if (state.value.runStatus === 'interrupted') return false
     if (error instanceof ApiRequestError && error.status >= 400 && error.status < 500) return false
@@ -481,6 +484,8 @@ export const useChatStore = defineStore('chat', () => {
   function scheduleReconnect(): void {
     if (!lastAttempt.value || !state.value.runId) return
     if (state.value.finishReason !== null || isTerminal(state.value.runStatus)) return
+    // 已收到 error 终态事件：重连只会回放同一错误，直接收尾。
+    if (state.value.error) return
     if (connection.value === 'degraded') return
     // onerror 与 onclose 可能先后到达；已有定时器时只保留一次调度。
     // 不能把「本次请求在途」也算作重复：catch 里正是请求失败后在排队下一次。
@@ -651,7 +656,11 @@ export const useChatStore = defineStore('chat', () => {
    */
   function onStreamClose(): void {
     flushDeltas()
-    if (state.value.finishReason !== null || isTerminal(state.value.runStatus)) {
+    if (
+      state.value.finishReason !== null ||
+      isTerminal(state.value.runStatus) ||
+      state.value.error !== null
+    ) {
       if (connection.value === 'open') connection.value = 'idle'
       return
     }

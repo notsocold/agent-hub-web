@@ -313,6 +313,38 @@ describe('chat store 断线重连状态机', () => {
     expect(chat.reconnectAttempt).toBe(1)
   })
 
+  it('续流收到 error 终态事件后不再重连（避免回放风暴）', async () => {
+    vi.mocked(openChatStream).mockImplementationOnce(async (_payload, handlers) => {
+      handlers.onOpen?.('run-1')
+      throw new Error('network down')
+    })
+    vi.mocked(runsApi.get).mockResolvedValue(makeRun({ status: 'running' }))
+    vi.mocked(runsApi.stream).mockImplementationOnce(async (_runId, _afterSeq, handlers) => {
+      handlers.onOpen?.('run-1')
+      handlers.onEvent('error', {
+        code: 'llm_error',
+        message: '模型调用失败，请稍后重试',
+        retryable: true,
+        seq: 1,
+      })
+      handlers.onClose?.()
+    })
+
+    const chat = createChatStore()
+    await chat.send('你好')
+    await vi.advanceTimersByTimeAsync(1000)
+
+    expect(runsApi.stream).toHaveBeenCalledTimes(1)
+    expect(chat.state.error?.code).toBe('llm_error')
+    expect(chat.connection).toBe('idle')
+    expect(chat.state.streaming).toBe(false)
+
+    // 错误事件是终态：推进多个退避窗口也不应再次续流。
+    await vi.advanceTimersByTimeAsync(60_000)
+    expect(runsApi.stream).toHaveBeenCalledTimes(1)
+    expect(chat.reconnectAttempt).toBe(1)
+  })
+
   it('续流 400 replay_too_large 时降级轮询，不弹致命错误', async () => {
     vi.mocked(runsApi.get).mockResolvedValue(makeRun({ status: 'running' }))
     vi.mocked(runsApi.stream).mockRejectedValue(
