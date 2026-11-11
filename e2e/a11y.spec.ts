@@ -51,8 +51,7 @@ test.describe('可访问性扫描', () => {
     await waitReady(page)
     expect(describeViolations(await scan(page))).toEqual([])
 
-    // 运行详情抽屉包含 9px 工具徽标，单独覆盖一次。
-    await page.getByRole('button', { name: '运行详情' }).click()
+    // >1180px 时运行轨迹常驻右栏，包含 9px 工具徽标，单独覆盖一次。
     await expect(page.getByRole('complementary', { name: '运行详情' })).toBeVisible({
       timeout: 5_000,
     })
@@ -69,14 +68,6 @@ test.describe('可访问性扫描', () => {
       .getByRole('combobox', { name: '搜索页面、会话或当前会话消息' })
       .fill('设置')
     await expect(page.getByRole('option', { name: /设置/ })).toBeVisible()
-    expect(describeViolations(await scan(page))).toEqual([])
-  })
-
-  test('审批页', async ({ page }) => {
-    await login(page)
-    await page.goto('/approvals')
-    await expect(page.getByRole('heading', { name: '审批', level: 1 })).toBeVisible()
-    await waitReady(page)
     expect(describeViolations(await scan(page))).toEqual([])
   })
 

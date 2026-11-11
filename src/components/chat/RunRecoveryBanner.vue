@@ -12,7 +12,7 @@ const emit = defineEmits<{
   retry: []
   stop: []
   refresh: []
-  approvals: []
+  'focus-approval': []
 }>()
 
 const title = computed(() => {
@@ -64,8 +64,8 @@ const showStop = computed(
       </p>
     </div>
     <div class="recovery-actions">
-      <button v-if="showApprovals" type="button" class="btn primary" :disabled="busy" @click="emit('approvals')">
-        {{ recovery.kind === 'approval_timeout' ? '查看审批记录' : '处理审批' }}
+      <button v-if="showApprovals" type="button" class="btn primary" :disabled="busy" @click="emit('focus-approval')">
+        定位审批卡
       </button>
       <button v-if="showRetry" type="button" class="btn primary" :disabled="busy" @click="emit('retry')">
         重试发送

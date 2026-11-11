@@ -13,9 +13,13 @@ test.describe('审批主链路', () => {
     await page.getByRole('button', { name: '发送' }).click()
 
     // 审批卡出现，等待人工决定。
-    const approve = page.getByRole('button', { name: '批准并继续' })
+    const approve = page.getByRole('button', { name: '批准并执行' })
     await expect(approve).toBeVisible({ timeout: 20_000 })
     await expect(page.getByRole('button', { name: '拒绝' }).first()).toBeVisible()
+
+    // 状态胶囊定位审批卡并聚焦批准按钮（审批只在对话内完成）。
+    await page.getByRole('button', { name: '待审批' }).click()
+    await expect(approve).toBeFocused()
 
     await approve.click()
 
@@ -23,7 +27,7 @@ test.describe('审批主链路', () => {
     await expect(page.getByText('已批准，正在发布到 #support-weekly')).toBeVisible({
       timeout: 20_000,
     })
-    await expect(page.getByRole('button', { name: '批准并继续' })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: '批准并执行' })).toHaveCount(0)
   })
 
   test('拒绝后不执行写操作', async ({ page }) => {
@@ -41,4 +45,10 @@ test.describe('审批主链路', () => {
       timeout: 20_000,
     })
   })
+})
+
+test('审批页已删除，访问 /approvals 显示 404', async ({ page }) => {
+  await login(page)
+  await page.goto('/approvals')
+  await expect(page.getByRole('heading', { name: '页面不存在', level: 1 })).toBeVisible()
 })

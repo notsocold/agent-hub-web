@@ -95,12 +95,13 @@ sequenceDiagram
 - 断线：M6 已实现自动重连（退避 5 次/60s）、重连前 `GET /runs/{id}` 校验并回填 `conversation_id`、`lastSeq` 去重；M7 后端交付后改用 `GET /runs/{id}/stream?after_seq=` 增量续流（已落库事件回放 + 实时增量），失败回退「轮询 + 待审批补卡 + 终态 `refreshHistory()`」；`message.delta` 不落库，断线窗口文本不承诺补齐；事件回放的 `event` 字段用于 reducer 重放（M7）；
 - 未知事件忽略并记录 debug 日志，不中断流。
 
-### 4.1.1 M5 审批与安全页面结构
+### 4.1.1 M5 审批与安全组件结构
 
 | 页面/组件 | 职责 | 数据源 |
 |---|---|---|
-| `ApprovalsView` | 审批中心：统计、Tab、筛选、倒计时、决策、游标分页 | `/approvals`、`/approvals/{id}`、`/approvals/{id}/decision` |
-| `ApprovalCard` | 对话内多审批卡、实时倒计时、payload 遮罩预览 | SSE `approval.required` / `run.interrupted` |
+| `ApprovalCard` | **对话内唯一审批入口**：多审批卡、实时倒计时、payload 遮罩预览、批准并执行/拒绝 | SSE `approval.required` / `run.interrupted`；`GET /approvals?run_id=` 仅兜底补卡 |
+| `AgentOutputDrawer` | 对话内 A2A 输出抽屉：请求/最终结果/产出/错误/任务跳转 | A2A 事件与任务详情 |
+| `RunTracePanel` | 运行轨迹：宽屏常驻右栏，窄屏由 `RunTraceDrawer` 包装 | `GET /runs/{id}`、`GET /runs/{id}/events` |
 | `AuditPanel` | 设置页审计：用户自查 + 管理员全局、动作/资源/时间筛选、详情 | `/audit-logs`、`/admin/audit-logs` |
 | `SecretPanel` | 设置页平台密钥：列表/创建/轮换/启停/删除（仅管理员） | `/admin/secrets` |
 | `RedactedJson` | 审批 payload、审计 detail 的敏感字段默认遮罩 | 本地展示层 |
@@ -144,19 +145,19 @@ sequenceDiagram
 
 | 路径 | 页面 | 布局 |
 |---|---|---|
-| `/chat` | `ChatView` | AppLayout |
-| `/conversations` | `ConversationsView` | AppLayout |
+| `/chat` | `ChatView` | AppLayout（单侧栏 + 对话 + >1180px 常驻运行轨迹） |
 | `/agents` | `AgentsView` | AppLayout |
 | `/tasks` | `TasksView` | AppLayout |
 | `/knowledge` | `KnowledgeView` | AppLayout |
-| `/approvals` | `ApprovalsView` | AppLayout |
 | `/settings` | `SettingsView` | AppLayout |
+| `/approvals` | **已删除**（PA-1：审批只在对话内完成） | — |
 | `/workflows` | `WorkflowsView` | AppLayout；M9 规划，受 `capabilities.workflows` 门控 |
 | `/admin` | `AdminLayout` + 七页 | 独立管理布局；M8 规划，`meta.requiresAdmin` |
 | `/login` | `LoginView`（M1） | 独立布局 |
 
 > 工作流页（M9）在后端契约冻结前保持骨架 + mock，`capabilities.workflows=false` 时导航置灰、路由退回对话页。管理台（M8）有契约页接真实 API，角色权限/菜单/字典三页无契约，只读呈现并明确提示。两者均不伪造写成功。
 
+- 布局为单侧栏：`AppLayout` 提供品牌/新建会话/导航/会话列表/账号菜单（所有页面常驻；折叠为图标栏；≤900px 抽屉）；对话页在 >1180px 增加 280px 运行轨迹右栏，≤1180px 轨迹改为抽屉；
 - 路由级懒加载（`() => import(...)`），首屏只加载布局与当前页；
 - `meta.title` 驱动顶栏与 `document.title`；
 - 路由守卫在 M1 加：未认证访问业务页 → `/login?redirect=...`；

@@ -23,6 +23,13 @@ const SOURCE_LABELS: Record<string, string> = {
 
 const sourceLabel = computed(() => SOURCE_LABELS[props.item.source] ?? props.item.source)
 
+/** 原型把检索与 MCP 画成独立色卡；这里按来源切换卡片色板，数据仍是同一条工具过程。 */
+const cardKind = computed<'tool' | 'vector' | 'mcp'>(() => {
+  if (props.item.source === 'knowledge') return 'vector'
+  if (props.item.source === 'mcp') return 'mcp'
+  return 'tool'
+})
+
 const RISK_LABELS: Record<string, string> = {
   read: '只读',
   write: '写入',
@@ -33,7 +40,7 @@ const RISK_LABELS: Record<string, string> = {
 
 <template>
   <ProcessCardShell
-    kind="tool"
+    :kind="cardKind"
     :title="item.displayName || item.tool"
     :status="item.status"
     :status-label="

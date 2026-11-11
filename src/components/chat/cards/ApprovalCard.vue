@@ -93,6 +93,7 @@ const payloadJson = computed(() => {
     :title="item.toolDisplayName || item.tool"
     :status="item.status"
     :status-label="decidedLabel"
+    :data-approval-id="item.approvalId"
   >
     <p v-if="item.reason" class="reason">{{ item.reason }}</p>
 
@@ -131,8 +132,14 @@ const payloadJson = computed(() => {
 
     <div v-if="canDecide" class="actions">
       <button type="button" class="btn ghost" :disabled="busy" @click="emit('reject')">拒绝</button>
-      <button type="button" class="btn primary" :disabled="busy" @click="emit('approve')">
-        {{ busy ? '处理中…' : '批准并继续' }}
+      <button
+        type="button"
+        class="btn primary"
+        data-approval-approve
+        :disabled="busy"
+        @click="emit('approve')"
+      >
+        {{ busy ? '处理中…' : '批准并执行' }}
       </button>
     </div>
     <p v-else-if="item.decision" class="resolved">

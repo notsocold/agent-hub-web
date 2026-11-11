@@ -1,5 +1,7 @@
 # F1 体验与可访问性设计（2026-11-11）
 
+> **PA-1 后注（2026-11-11）**：本文提到的 `ApprovalsView`/`ApprovalDetailDrawer` 已随审批页删除；对话内审批卡由 `ApprovalCard` 承载。本文作为历史设计记录保留。
+
 > 状态：待用户批准（设计稿）
 >
 > 前序：M6 前端生产化已完成（`docs/handoff/2026-11-11-m6-frontend-report.md`），F1 是其后的纯前端横切工作包。

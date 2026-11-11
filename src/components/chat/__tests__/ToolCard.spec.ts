@@ -73,6 +73,27 @@ describe('ToolCard 知识检索来源', () => {
     expect(first.query?.q).toContain('退货政策')
   })
 
+  it('知识检索用检索色卡，MCP 用 MCP 色卡（原型六类色板）', () => {
+    const knowledge = mount(ToolCard, {
+      props: { item: toolProcess() },
+      global: { stubs: { RouterLink: RouterLinkStub } },
+    })
+    expect(knowledge.find('.pcard').classes()).toContain('kind-vector')
+
+    const mcp = mount(ToolCard, {
+      props: {
+        item: toolProcess({
+          tool: 'conversations.info',
+          displayName: 'MCP slack',
+          source: 'mcp',
+          server: 'slack-mcp',
+        }),
+      },
+      global: { stubs: { RouterLink: RouterLinkStub } },
+    })
+    expect(mcp.find('.pcard').classes()).toContain('kind-mcp')
+  })
+
   it('没有引用时不渲染来源区块', () => {
     const wrapper = mount(ToolCard, {
       props: { item: toolProcess() },

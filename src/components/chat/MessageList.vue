@@ -5,7 +5,7 @@ import { VList } from 'virtua/vue'
 import MessageBubble from './MessageBubble.vue'
 import ProcessTimeline from './ProcessTimeline.vue'
 import { buildMessageRows } from '@/utils/messageRows'
-import type { ChatMessageView, ProcessItem } from '@/types'
+import type { A2aProcess, ChatMessageView, ProcessItem } from '@/types'
 
 const props = defineProps<{
   messages: ChatMessageView[]
@@ -27,6 +27,7 @@ const emit = defineEmits<{
   approve: [id: string]
   reject: [id: string]
   loadOlder: []
+  'open-output': [item: A2aProcess]
 }>()
 
 const listRef = ref<InstanceType<typeof VList> | null>(null)
@@ -39,6 +40,15 @@ let prependAnchor: { size: number; offset: number } | null = null
 const rows = computed(() =>
   buildMessageRows(props.messages, props.process, props.currentRunId ?? null),
 )
+
+/** 本轮思考总时长：只统计当前 run 的消息，避免多轮历史累加。 */
+const reasoningMs = computed(() => {
+  const runId = props.currentRunId
+  const relevant = runId
+    ? props.messages.filter((message) => message.run_id === runId)
+    : props.messages.slice(-1)
+  return relevant.reduce((sum, message) => sum + (message.reasoning?.durationMs ?? 0), 0)
+})
 
 /** 最近一条助手消息：只用于判断状态节点，不读取正文。 */
 const lastAssistant = computed<ChatMessageView | null>(() => {
@@ -227,8 +237,10 @@ defineExpose({ scrollToBottom, scrollToMessage })
               :items="process"
               :busy="resolvingApproval"
               :resolving-approval-id="resolvingApprovalId ?? null"
+              :reasoning-ms="reasoningMs"
               @approve="emit('approve', $event)"
               @reject="emit('reject', $event)"
+              @open-output="emit('open-output', $event)"
             />
             <MessageBubble v-else :message="item.message" />
           </div>

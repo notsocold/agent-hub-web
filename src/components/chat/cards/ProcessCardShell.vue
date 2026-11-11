@@ -4,7 +4,7 @@ import { computed } from 'vue'
 import type { ProcessStatus } from '@/types'
 
 const props = defineProps<{
-  kind: 'skill' | 'tool' | 'a2a' | 'approval' | 'workflow' | 'notice' | 'error'
+  kind: 'skill' | 'tool' | 'vector' | 'a2a' | 'mcp' | 'approval' | 'workflow' | 'notice' | 'error'
   title: string
   status: ProcessStatus
   statusLabel?: string
@@ -16,7 +16,9 @@ const kindLabel = computed(
     ({
       skill: '技能',
       tool: '工具',
+      vector: '检索',
       a2a: 'A2A',
+      mcp: 'MCP',
       approval: '审批',
       workflow: '工作流',
       notice: '提示',
@@ -77,9 +79,19 @@ const statusText = computed(
   --kind-bg: var(--kind-tool-soft);
 }
 
+.kind-vector {
+  --kind-color: var(--kind-vector);
+  --kind-bg: var(--kind-vector-soft);
+}
+
 .kind-a2a {
   --kind-color: var(--kind-a2a);
   --kind-bg: var(--kind-a2a-soft);
+}
+
+.kind-mcp {
+  --kind-color: var(--kind-mcp);
+  --kind-bg: var(--kind-mcp-soft);
 }
 
 .kind-approval {

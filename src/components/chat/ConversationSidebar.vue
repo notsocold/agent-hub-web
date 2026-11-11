@@ -32,13 +32,6 @@ function scheduleSearch(): void {
   }, 300)
 }
 
-async function createConversation(): Promise<void> {
-  const conversation = await store.create()
-  emit('select', conversation.id)
-  keyword.value = ''
-  await store.search('')
-}
-
 async function handleMenu(
   id: string,
   action: 'rename' | 'archive' | 'restore' | 'remove',
@@ -92,18 +85,11 @@ onMounted(() => {
 </script>
 
 <template>
-  <aside class="conversation-sidebar" aria-label="会话列表">
+  <section class="conversation-section" aria-label="会话列表">
     <header class="sidebar-head">
       <span class="label">会话</span>
       <span class="count mono">{{ store.stats.total ?? store.items.length }}</span>
     </header>
-
-    <button class="new-session" type="button" @click="createConversation">
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M12 5v14M5 12h14" />
-      </svg>
-      <span>新建会话</span>
-    </button>
 
     <label class="search">
       <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -156,18 +142,16 @@ onMounted(() => {
         </button>
       </template>
     </div>
-  </aside>
+  </section>
 </template>
 
 <style scoped>
-.conversation-sidebar {
+.conversation-section {
   display: flex;
   flex-direction: column;
-  width: 100%;
   min-height: 0;
-  padding: 10px 8px;
-  background: var(--paper-2);
-  border-right: 1px solid var(--line);
+  height: 100%;
+  padding: 4px 8px 8px;
 }
 
 .sidebar-head {
@@ -187,40 +171,6 @@ onMounted(() => {
 .count {
   color: var(--ink-3);
   font-size: 9.5px;
-}
-
-.new-session {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  height: 34px;
-  margin: 0 2px 8px;
-  padding: 0 10px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: var(--surface);
-  color: var(--ink);
-  font-size: 12.5px;
-  font-weight: 550;
-  white-space: nowrap;
-  box-shadow: var(--shadow-sm);
-  transition:
-    border-color 0.15s,
-    background 0.15s;
-}
-
-.new-session:hover {
-  border-color: var(--ink-3);
-}
-
-.new-session svg {
-  width: 15px;
-  height: 15px;
-  flex: none;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.8;
-  stroke-linecap: round;
 }
 
 .search {

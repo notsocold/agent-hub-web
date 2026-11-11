@@ -1,20 +1,25 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { RouterView, useRoute, useRouter } from 'vue-router'
-import { ElMessageBox } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 
 import DiagnosticsDrawer from '@/components/common/DiagnosticsDrawer.vue'
 import CommandPalette from '@/components/common/CommandPalette.vue'
+import ConversationSidebar from '@/components/chat/ConversationSidebar.vue'
 import SideNav from '@/components/layout/SideNav.vue'
 import { useMediaQuery } from '@/composables/useMediaQuery'
 import { useTheme } from '@/composables/useTheme'
 import { startWebVitals } from '@/utils/web-vitals'
 import { useAuthStore } from '@/stores/auth'
+import { useChatStore } from '@/stores/chat'
+import { useConversationsStore } from '@/stores/conversations'
 import { useSystemStore } from '@/stores/system'
 
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
+const chat = useChatStore()
+const conversations = useConversationsStore()
 const system = useSystemStore()
 const { theme, toggle } = useTheme()
 const isMobile = useMediaQuery('(max-width: 900px)')
@@ -23,6 +28,7 @@ const collapsed = ref(false)
 const mobileOpen = ref(false)
 const diagnosticsOpen = ref(false)
 const paletteOpen = ref(false)
+const activeId = computed(() => (typeof route.query.c === 'string' ? route.query.c : undefined))
 let stopWebVitals: (() => void) | null = null
 
 /** F1：Ctrl/Cmd+K 打开全局搜索；输入框内也允许，便于随时跳转。 */
@@ -30,7 +36,9 @@ function onGlobalKeydown(event: KeyboardEvent): void {
   if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
     event.preventDefault()
     paletteOpen.value = !paletteOpen.value
+    return
   }
+  if (event.key === 'Escape' && mobileOpen.value) mobileOpen.value = false
 }
 
 onMounted(() => {
@@ -52,6 +60,45 @@ function openSettings(): void {
   void router.push({ name: 'settings' })
 }
 
+async function createConversation(): Promise<void> {
+  if (chat.state.streaming) chat.stop()
+  try {
+    const conversation = await conversations.create()
+    mobileOpen.value = false
+    const target = { name: 'chat' as const, query: { c: conversation.id } }
+    if (route.name === 'chat') await router.replace(target)
+    else await router.push(target)
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : '新建会话失败')
+  }
+}
+
+/** 侧栏会话在所有页面常驻；对话页内切换用 replace，跨页用 push。 */
+function selectConversation(id: string): void {
+  // 点击当前会话不应中止正在生成的回复。
+  if (id === activeId.value) {
+    mobileOpen.value = false
+    return
+  }
+  if (chat.state.streaming) chat.stop()
+  mobileOpen.value = false
+  if (route.name === 'chat') {
+    void router.replace({ name: 'chat', query: { ...route.query, c: id } })
+  } else {
+    void router.push({ name: 'chat', query: { c: id } })
+  }
+}
+
+function handleRemoved(id: string): void {
+  if (chat.state.conversationId === id) {
+    if (chat.state.streaming) chat.stop()
+    chat.reset()
+  }
+  if (route.name === 'chat' && route.query.c === id) {
+    void router.replace({ name: 'chat', query: {} })
+  }
+}
+
 async function logout(): Promise<void> {
   try {
     await ElMessageBox.confirm('退出后需要重新登录，未发送的内容不会保留。', '退出登录', {
@@ -71,7 +118,7 @@ async function logout(): Promise<void> {
   <div class="app-shell" :class="{ 'is-collapsed': collapsed && !isMobile }">
     <a class="skip-link" href="#main-content">跳到主内容</a>
     <SideNav
-      :collapsed="collapsed"
+      :collapsed="collapsed && !isMobile"
       :mobile="isMobile"
       :open="mobileOpen"
       :user="auth.user"
@@ -84,7 +131,23 @@ async function logout(): Promise<void> {
       @diagnostics="diagnosticsOpen = true"
       @toggle-theme="toggle"
       @logout="logout"
-    />
+    >
+      <template #new-session>
+        <button type="button" @click="createConversation">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 5v14M5 12h14" />
+          </svg>
+          <span>新建会话</span>
+        </button>
+      </template>
+      <template #sessions>
+        <ConversationSidebar
+          :active-id="activeId"
+          @select="selectConversation"
+          @removed="handleRemoved"
+        />
+      </template>
+    </SideNav>
 
     <div
       v-if="isMobile && mobileOpen"

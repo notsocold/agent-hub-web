@@ -55,7 +55,7 @@ function statusTone(status: string): 'ok' | 'warn' | 'muted' {
 }
 
 function notReady(label: string): void {
-  ElMessage.info(`${label}将在 M5 接入，当前仅展示工作流列表。`)
+  ElMessage.info(`${label}将在 M9 接入，当前仅展示工作流列表。`)
 }
 
 async function load(): Promise<void> {

@@ -34,27 +34,27 @@ function mountNav(capabilities?: SystemCapabilities): ReturnType<typeof mount> {
 }
 
 describe('SideNav', () => {
-  it('渲染六个一级导航与目标路由', () => {
+  it('渲染五个一级导航与目标路由（审批不再是一级入口）', () => {
     const wrapper = mountNav()
     const links = wrapper.findAllComponents(RouterLinkStub)
 
-    expect(links).toHaveLength(6)
-    expect(links.map((link) => link.text())).toEqual(['对话', '审批', '工作流', '智能体', '任务', '知识库'])
+    expect(links).toHaveLength(5)
+    expect(links.map((link) => link.text())).toEqual(['对话', '工作流', '智能体', '任务', '知识库'])
     expect(links.map((link) => link.props('to'))).toEqual([
       { name: 'chat' },
-      { name: 'approvals' },
       { name: 'workflows' },
       { name: 'agents' },
       { name: 'tasks' },
       { name: 'knowledge' },
     ])
+    expect(wrapper.text()).not.toContain('审批')
   })
 
   it('折叠时仍保留可访问的导航标题', () => {
     const wrapper = mountNav()
     const links = wrapper.findAllComponents(RouterLinkStub)
     expect(links[0]?.attributes('title')).toBe('对话')
-    expect(links[5]?.attributes('title')).toBe('知识库')
+    expect(links[4]?.attributes('title')).toBe('知识库')
   })
 
   it('账号菜单点击诊断信息时向父级透传 diagnostics 事件', async () => {
@@ -95,14 +95,13 @@ describe('SideNav', () => {
       tasks: false,
     })
     const links = wrapper.findAllComponents(RouterLinkStub)
-    expect(links).toHaveLength(2)
+    expect(links).toHaveLength(1)
     expect(links[0]?.text()).toBe('对话')
-    expect(links[1]?.text()).toBe('审批')
 
     const disabled = wrapper.findAll('button.sb-nav-item.is-disabled')
     expect(disabled).toHaveLength(4)
     expect(disabled.map((button) => button.text())).toEqual([
-      '工作流M5+',
+      '工作流M9',
       '智能体M2',
       '任务M2',
       '知识库M4',

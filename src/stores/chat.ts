@@ -20,6 +20,7 @@ import {
   reduceChat,
 } from './chat-reducer'
 import type {
+  ApprovalProcess,
   ChatContextSelection,
   ChatEventName,
   ChatMessage,
@@ -190,10 +191,11 @@ export const useChatStore = defineStore('chat', () => {
       .map(
         (id) =>
           state.value.process.find(
-            (item) => item.kind === 'approval' && item.approvalId === id,
+            (item): item is ApprovalProcess =>
+              item.kind === 'approval' && item.approvalId === id,
           ) ?? null,
       )
-      .filter((item): item is NonNullable<typeof item> => item !== null)
+      .filter((item): item is ApprovalProcess => item !== null)
   })
   const rateLimitActive = computed(() => rateLimitRemaining.value > 0)
 
@@ -246,7 +248,7 @@ export const useChatStore = defineStore('chat', () => {
       if (seq !== approvalsSyncSeq || state.value.runId !== runId) return
       state.value = hydrateApprovals(state.value, page.items, { replacePending: true })
     } catch {
-      // 补卡失败不改变主状态；审批中心仍可操作。
+      // 补卡失败不改变主状态；待审批仍可在对话内操作。
     }
   }
 
@@ -1308,7 +1310,11 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
+  /** 快速切换会话时只允许最后一次请求写入 state。 */
+  let loadConversationSeq = 0
+
   async function loadConversation(id: string): Promise<void> {
+    const seq = ++loadConversationSeq
     resetReconnectBudget()
     connection.value = 'idle'
     controller?.abort()
@@ -1326,6 +1332,7 @@ export const useChatStore = defineStore('chat', () => {
         conversationsApi.messages(id, { limit: HISTORY_PAGE_SIZE }),
         conversationsApi.get(id),
       ])
+      if (seq !== loadConversationSeq) return
       const lastRun = conversation.last_run
       const lastRunStatus = normalizeRunStatus(lastRun?.status)
       state.value = {
@@ -1357,8 +1364,11 @@ export const useChatStore = defineStore('chat', () => {
         if (interrupted) void syncPendingApprovals(lastRun.id)
         schedulePolling(lastRun.id)
       }
+    } catch (error) {
+      if (seq !== loadConversationSeq) return
+      throw error
     } finally {
-      loadingHistory.value = false
+      if (seq === loadConversationSeq) loadingHistory.value = false
     }
   }
 

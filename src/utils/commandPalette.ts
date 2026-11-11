@@ -11,13 +11,6 @@ export interface PalettePage {
 
 export const palettePages: PalettePage[] = [
   { id: 'chat', label: '对话', description: '对话工作台与历史会话', route: 'chat' },
-  {
-    id: 'approvals',
-    label: '审批',
-    description: '审批中心与待处理操作',
-    route: 'approvals',
-    capability: 'approvals',
-  },
   { id: 'agents', label: '智能体', description: '远程智能体与 Agent Card', route: 'agents', capability: 'agents' },
   { id: 'tasks', label: '任务', description: 'A2A 任务与执行详情', route: 'tasks', capability: 'tasks' },
   {

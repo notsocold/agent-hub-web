@@ -4,11 +4,11 @@
 
 后端项目：[agent-hub](../../PythonProjects/agent-hub)（FastAPI + LangGraph + A2A + pgvector）。
 
-> **当前状态：前端 M0–M6 已完成，F1 体验与可访问性已完成（2026-11-11）；后端新增的 M7/M8/M9 已进入前端规划，尚未开工。**
-> 已实现登录/注册、路由守卫、应用布局与主题、对话工作台（SSE 流式、工具/技能/A2A/审批过程卡片、停止、历史会话）、运行详情、个人能力（输入栏「+」上下文、附件上传/下载、指令/记忆/技能/MCP 设置页）、智能体与任务、知识库与引用、审批中心/审计/平台密钥，以及 M6 生产化（分包体积门禁、生产 mock 门禁、SSE 自动重连、诊断抽屉与 Web Vitals、Playwright E2E、Nginx SSE 配置）。
+> **当前状态：前端 M0–M6 已完成，F1 体验与可访问性已完成，第一次向 v7/v8 原型靠拢（阶段 1）已完成（2026-11-11）；后端新增的 M7/M8/M9 已进入前端规划，尚未开工。**
+> 已实现登录/注册、路由守卫、应用布局与主题、对话工作台（SSE 流式、工具/技能/A2A/审批过程卡片、停止、历史会话）、单侧栏（导航 + 会话，移动端抽屉）、对话内审批、常驻运行轨迹、个人能力（输入栏「+」上下文、附件上传/下载、指令/记忆/技能/MCP 设置页）、智能体与任务、知识库与引用、审计/平台密钥，以及 M6 生产化（分包体积门禁、生产 mock 门禁、SSE 自动重连、诊断抽屉与 Web Vitals、Playwright E2E、Nginx SSE 配置）。
 > 仓库默认 `.env.development` 开启 `VITE_USE_MOCK=true`，按 `docs/handoff/fixtures.md` 回放 REST 与 SSE；本机联调用 `.env.development.local` 覆盖为 `VITE_USE_MOCK=false` 即走真实接口。真实联调覆盖 M1/M1.5/M2/M4/M5；本机 LLM key 为占位符，真实长流与审批恢复暂无 HTTP 证据。
 > **路线对齐（2026-11-11）**：前端 M 编号与后端 M0–M9 同名同义；**M3「A2A 入站」已取消（需求变更：本服务仅出站 A2A Client）**；M5=审批与安全加固；M7=契约补齐（增量续流/写操作 RBAC/审批字段）、M8=管理台（v8 全量）、M9=工作流（轻量步骤模板）；F1 已完成，原 F2 纯前端收尾并入 M7。详见[路线图](docs/roadmap.md)与[M7–M9 对齐设计](docs/superpowers/specs/2026-11-11-m7-m9-frontend-alignment-design.md)。
-> 单文件 HTML 原型见 [docs/prototypes](docs/prototypes/README.md)；后端交接包见 [docs/handoff](docs/handoff/README.md)。
+> 单文件 HTML 原型见 [docs/prototypes](docs/prototypes/README.md)；后端交接包见 [docs/handoff](docs/handoff/README.md)；第一次原型靠拢规划见 [PA-1](docs/superpowers/plans/2026-11-11-prototype-alignment-phase1.md)。
 
 ## 1. 规划定位
 
@@ -36,7 +36,7 @@
 | SSE | `@microsoft/fetch-event-source` | 已实现，支持 POST + Bearer |
 | Markdown | `marked` + DOMPurify + highlight.js | 已实现 |
 | 时间 | dayjs（zh-cn） | 已实现 |
-| 测试 | Vitest 5 + @vue/test-utils + jsdom + Playwright | 已配置，232 个单测 + E2E 10 例（mock 构建）+ 真实后端联调用例与冒烟脚本 |
+| 测试 | Vitest 5 + @vue/test-utils + jsdom + Playwright | 已配置，281 个单测 + E2E 28 例（mock 构建）+ 真实后端联调用例与冒烟脚本 |
 | 代码质量 | ESLint + Oxlint + Prettier | 已配置 |
 | 包管理 | pnpm | 已使用（项目内 `.npmrc` 指定 store） |
 
@@ -86,7 +86,7 @@ pnpm smoke:real   # 真实后端 M1 协议冒烟（需后端，可走 Vite 代�
 pnpm smoke:m15    # 真实后端 M1.5 能力层冒烟（附件/指令/记忆/技能/MCP/审批 + SSE）
 pnpm smoke:m4     # 真实后端 M4 知识库冒烟（管理员/普通用户）
 pnpm smoke:m5     # 真实后端 M5 审批/审计/密钥/限流冒烟
-pnpm e2e          # Playwright E2E（mock 构建，10 例）
+pnpm e2e          # Playwright E2E（mock 构建，28 例）
 pnpm size         # 构建产物体积门禁（gzip）
 pnpm verify:nginx # Nginx SSE 代理对照验证（需已有 nginx 容器）
 pnpm type-check   # 仅类型检查
@@ -117,7 +117,7 @@ VITE_API_BASE_URL=
 
 mock 登录：任意邮箱 + 8 位以上密码；密码为 `wrong-password` 时返回 401。
 
-## 6. 当前状态（M0–M6 已完成，F1 收口，M7–M9 规划中）
+## 6. 当前状态（M0–M6 + F1 + PA-1 已完成，M7–M9 规划中）
 
 已完成：
 
@@ -130,10 +130,11 @@ mock 登录：任意邮箱 + 8 位以上密码；密码为 `wrong-password` 时�
 - [x] **M1.5**：附件上传/去重/受控下载；输入栏「+」技能/MCP 选择与 chips、`@` 文件选择、发送后清空；技能/指令/记忆/MCP 设置页；事件卡；`smoke:m15` 68 项
 - [x] **M2**：智能体列表/筛选/统计、两段式注册、详情抽屉、健康检查/刷新/启停/删除；任务列表/详情/取消/补充信息/授权/拒绝；对话内 A2A 卡片
 - [x] **M4**：知识库页（上传/拖拽/粘贴、筛选与游标分页、统计、状态轮询、重试/删除、管理员重建）；检索调试；输入栏知识库分类；引用深链
-- [x] **M5**：审批状态机与对话内审批卡、审批中心 `/approvals`、审计查询、平台密钥、429/遮罩/外链等安全 UX；`smoke:m5` 163 项
-- [x] **M6 生产化**：分包与体积门禁、生产 mock 双层门禁、SSE 断线自动重连（回填 + `lastSeq` 去重）、诊断抽屉/Web Vitals、Playwright E2E 10 例 + CI、Nginx SSE 配置与对照验证
+- [x] **M5**：审批状态机与对话内审批卡、审计查询、平台密钥、429/遮罩/外链等安全 UX；`smoke:m5` 163 项。**PA-1 后审批页与 `/approvals` 路由已删除，审批只在对话内完成**
+- [x] **M6 生产化**：分包与体积门禁、生产 mock 双层门禁、SSE 断线自动重连（回填 + `lastSeq` 去重）、诊断抽屉/Web Vitals、Playwright E2E（M6 首版 10 例，当前 28 例）+ CI、Nginx SSE 配置与对照验证
 - [x] **F1**：长会话虚拟滚动、⌘K 命令面板、三态统一、可访问性（axe 0 critical/serious）、消息密度偏好、Markdown LRU 缓存
-- [x] `pnpm type-check`、`pnpm test`（232）、`pnpm build`、`pnpm lint`、`pnpm e2e`、`pnpm size` 通过
+- [x] **PA-1 第一次原型靠拢**：单侧栏（所有页面含会话，移动端可切换）、删除审批页改为对话内审批、>1180px 运行轨迹常驻右栏、设置页长滚动 + 修改密码、过程摘要/检索与 MCP 色卡/Agent 输出抽屉
+- [x] `pnpm type-check`、`pnpm test`（281）、`pnpm build`、`pnpm lint`、`pnpm e2e`（28 例）、`pnpm size` 通过
 - [x] 真实后端联调：`smoke:real`（M1）、`smoke:m15` 68 项、`smoke:m4`、`smoke:m5` 163 项、`test:real`（含 M2/M4/M5）；M1 聊天用例在本机因 LLM key 占位返回 401，属环境限制
 
 已立项、未开始（与后端同名同义）：
@@ -157,6 +158,7 @@ mock 登录：任意邮箱 + 8 位以上密码；密码为 `wrong-password` 时�
 | [M6 生产化设计](docs/superpowers/specs/2026-11-11-m6-frontend-production-design.md) | 分包、门禁、重连、可观测、E2E |
 | [F1 体验与可访问性设计](docs/superpowers/specs/2026-11-11-f1-experience-a11y-design.md) | 虚拟滚动、⌘K、三态、a11y、密度偏好 |
 | [M7–M9 前端对齐设计](docs/superpowers/specs/2026-11-11-m7-m9-frontend-alignment-design.md) | 续流/RBAC/审批字段、管理台 v8 全量、工作流规划 |
+| [第一次原型靠拢规划](docs/superpowers/plans/2026-11-11-prototype-alignment-phase1.md) | PA-1：单侧栏/对话内审批/常驻轨迹/设置页长滚动/对话内还原 |
 | [HTML 原型索引](docs/prototypes/README.md) | v7 工作台 / v7 页面样例 / v8 管理控制台 |
 | [原型自检报告](docs/prototypes/review-2026-11-08.md) | 前后端契约对照、可行性风险、已修复问题 |
 | [后端交接包](docs/handoff/README.md) | 契约增量、工作流/管理端方案、后端工作包与 fixtures |

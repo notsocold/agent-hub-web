@@ -40,18 +40,11 @@ const items: NavItem[] = [
     icon: 'M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v8a2.5 2.5 0 0 1-2.5 2.5H9l-5 3.5V6.5Z',
   },
   {
-    name: 'approvals',
-    label: '审批',
-    icon: 'M12 3 4.5 6v5.5c0 4.6 3.2 7.9 7.5 9.5 4.3-1.6 7.5-4.9 7.5-9.5V6L12 3ZM8.6 12.2l2.2 2.2 4.4-4.6',
-    capability: 'approvals',
-    stage: 'M5',
-  },
-  {
     name: 'workflows',
     label: '工作流',
     icon: 'M4 6h4M4 12h4M4 18h4M8 6h3a3 3 0 0 1 3 3v6a3 3 0 0 0 3 3h3M16 6h4M16 18h4',
     capability: 'workflows',
-    stage: 'M5+',
+    stage: 'M9',
   },
   {
     name: 'agents',
@@ -92,6 +85,8 @@ function disabledHint(item: NavItem): string {
     class="sidebar"
     :class="{ 'is-collapsed': collapsed, 'is-open': open, 'is-mobile': mobile }"
     aria-label="主导航"
+    :inert="mobile && !open"
+    :aria-hidden="mobile && !open ? 'true' : undefined"
   >
     <div class="sb-top">
       <span class="brand">
@@ -122,6 +117,10 @@ function disabledHint(item: NavItem): string {
           <path d="M6 6l12 12M18 6L6 18" />
         </svg>
       </button>
+    </div>
+
+    <div class="sb-new">
+      <slot name="new-session" />
     </div>
 
     <nav class="sb-nav">
@@ -161,6 +160,10 @@ function disabledHint(item: NavItem): string {
         </button>
       </template>
     </nav>
+
+    <div class="sb-sessions">
+      <slot name="sessions" />
+    </div>
 
     <div class="sb-foot">
       <AccountMenu
@@ -258,6 +261,58 @@ function disabledHint(item: NavItem): string {
   margin-top: 6px;
 }
 
+.sb-new {
+  flex: none;
+  padding: 6px 2px 2px;
+}
+
+.sb-new :deep(button) {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 12.5px;
+  font-weight: 550;
+  white-space: nowrap;
+  box-shadow: var(--shadow-sm);
+  transition:
+    border-color 0.15s,
+    background 0.15s;
+}
+
+.sb-new :deep(button:hover) {
+  border-color: var(--ink-3);
+}
+
+.sb-new :deep(svg) {
+  width: 15px;
+  height: 15px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+}
+
+.sb-sessions {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  margin-top: 8px;
+  overflow: hidden;
+}
+
+.sb-sessions > :deep(*) {
+  flex: 1;
+  min-height: 0;
+}
+
 .sb-nav-item {
   display: flex;
   align-items: center;
@@ -349,6 +404,11 @@ html[data-theme='dark'] .sb-nav-item:hover {
 .sidebar.is-collapsed:not(.is-mobile) {
   padding: 6px 0;
   align-items: center;
+}
+
+.sidebar.is-collapsed:not(.is-mobile) .sb-new,
+.sidebar.is-collapsed:not(.is-mobile) .sb-sessions {
+  display: none;
 }
 
 .sidebar.is-collapsed .sb-top {

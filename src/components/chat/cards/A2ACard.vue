@@ -9,6 +9,10 @@ const props = defineProps<{
   item: A2aProcess
 }>()
 
+const emit = defineEmits<{
+  'open-output': []
+}>()
+
 const stateLabel = computed(
   () =>
     ({
@@ -52,13 +56,16 @@ const progressPercent = computed(() =>
     <p v-if="item.error" class="line error">{{ item.error }}</p>
     <p class="line meta mono">
       <span>{{ item.a2aTaskId || item.taskId }}</span>
-      <RouterLink
-        v-if="item.taskId"
-        class="task-link"
-        :to="{ name: 'tasks', query: { task: item.taskId } }"
-      >
-        查看任务
-      </RouterLink>
+      <span class="meta-links">
+        <button type="button" class="meta-link" @click="emit('open-output')">查看输出</button>
+        <RouterLink
+          v-if="item.taskId"
+          class="meta-link"
+          :to="{ name: 'tasks', query: { task: item.taskId } }"
+        >
+          查看任务
+        </RouterLink>
+      </span>
     </p>
   </ProcessCardShell>
 </template>
@@ -84,14 +91,19 @@ const progressPercent = computed(() =>
   color: var(--red);
 }
 
-.task-link {
+.meta-links {
+  display: inline-flex;
   flex: none;
+  gap: 10px;
+}
+
+.meta-link {
   color: var(--prussian);
   font-family: var(--font-sans);
   font-size: 10.5px;
 }
 
-.task-link:hover {
+.meta-link:hover {
   text-decoration: underline;
 }
 

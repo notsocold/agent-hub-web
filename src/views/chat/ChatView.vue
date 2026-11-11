@@ -4,17 +4,19 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 
 import ChatComposer from '@/components/chat/ChatComposer.vue'
+import AgentOutputDrawer from '@/components/chat/AgentOutputDrawer.vue'
 import ConnectionBanner from '@/components/chat/ConnectionBanner.vue'
-import ConversationSidebar from '@/components/chat/ConversationSidebar.vue'
 import MessageList from '@/components/chat/MessageList.vue'
 import RunRecoveryBanner from '@/components/chat/RunRecoveryBanner.vue'
 import RunTraceDrawer from '@/components/chat/RunTraceDrawer.vue'
+import RunTracePanel from '@/components/chat/RunTracePanel.vue'
 import ErrorState from '@/components/common/ErrorState.vue'
+import { useMediaQuery } from '@/composables/useMediaQuery'
 import { useCapabilitiesStore } from '@/stores/capabilities'
 import { useChatStore } from '@/stores/chat'
 import { useConversationsStore } from '@/stores/conversations'
 import { useSystemStore } from '@/stores/system'
-import type { ChatContextSelection, ReasoningEffortId } from '@/types'
+import type { A2aProcess, ApprovalProcess, ChatContextSelection, ReasoningEffortId } from '@/types'
 import { withModelSelection } from '@/utils/chatSelection'
 
 const route = useRoute()
@@ -25,6 +27,10 @@ const system = useSystemStore()
 const capabilityCatalog = useCapabilitiesStore()
 
 const traceOpen = ref(false)
+const agentOutputOpen = ref(false)
+const agentOutputId = ref<string | null>(null)
+/** 原型：>1180px 运行轨迹常驻右栏，窄屏回退为抽屉。 */
+const narrowTrace = useMediaQuery('(max-width: 1180px)')
 const model = ref('')
 const reasoningEffort = ref<ReasoningEffortId>('low')
 const messageListRef = ref<InstanceType<typeof MessageList> | null>(null)
@@ -156,18 +162,6 @@ watch(
   { immediate: true },
 )
 
-function selectConversation(id: string): void {
-  if (chat.state.streaming) chat.stop()
-  void router.replace({ query: { ...route.query, c: id } })
-}
-
-function handleRemoved(id: string): void {
-  if (id !== activeId.value) return
-  if (chat.state.streaming) chat.stop()
-  chat.reset()
-  void router.replace({ query: {} })
-}
-
 const modelSelection = computed(() => ({
   model: model.value,
   reasoningEffort: reasoningEffort.value,
@@ -204,11 +198,57 @@ async function handleApproval(id: string, approve: boolean): Promise<void> {
   }
 }
 
-function openApprovals(): void {
-  const query: Record<string, string> = {}
-  if (chat.state.conversationId) query.conversation_id = chat.state.conversationId
-  void router.push({ name: 'approvals', query })
+/** 审批只在对话内完成：定位到待审批卡（没有 pending 时定位最后一张审批结果卡）。 */
+async function focusPendingApproval(): Promise<void> {
+  const pending = chat.pendingApprovals[0]
+  const fallback = [...chat.processItems]
+    .reverse()
+    .find((item): item is ApprovalProcess => item.kind === 'approval')
+  const approvalId =
+    pending?.approvalId ?? (fallback && 'approvalId' in fallback ? fallback.approvalId : null)
+
+  async function locate(): Promise<boolean> {
+    if (!approvalId) return false
+    const card = document.querySelector<HTMLElement>(`[data-approval-id="${approvalId}"]`)
+    if (!card) return false
+    card.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    card.querySelector<HTMLButtonElement>('[data-approval-approve]')?.focus()
+    return true
+  }
+
+  await nextTick()
+  if (await locate()) return
+
+  // 虚拟滚动下审批卡尚未渲染时，先滚到最近一条消息，让过程区进入视口后再定位。
+  const last = chat.messages[chat.messages.length - 1]
+  if (last) messageListRef.value?.scrollToMessage(last.id)
+  await nextTick()
+  await locate()
 }
+
+const agentOutputItem = computed<A2aProcess | null>(() => {
+  const id = agentOutputId.value
+  if (!id) return null
+  const item = chat.processItems.find((entry) => entry.kind === 'a2a' && entry.id === id)
+  return item?.kind === 'a2a' ? item : null
+})
+
+function openAgentOutput(item: A2aProcess): void {
+  agentOutputId.value = item.id
+  agentOutputOpen.value = true
+}
+
+watch(
+  () => chat.state.conversationId,
+  () => {
+    agentOutputOpen.value = false
+    agentOutputId.value = null
+  },
+)
+
+watch(agentOutputItem, (item) => {
+  if (!item) agentOutputOpen.value = false
+})
 
 function handleRecoveryStop(): void {
   void chat.stop()
@@ -225,14 +265,6 @@ function handleRecoveryRefresh(): void {
 
 <template>
   <div class="chat-view">
-    <div class="chat-sidebar">
-      <ConversationSidebar
-        :active-id="activeId"
-        @select="selectConversation"
-        @removed="handleRemoved"
-      />
-    </div>
-
     <section class="chat-main">
       <header class="chat-head">
         <div class="chat-heading">
@@ -240,11 +272,21 @@ function handleRecoveryRefresh(): void {
           <p class="chat-sub">{{ subtitle }}</p>
         </div>
         <div class="chat-actions">
-          <span class="status-chip" :class="`tone-${status.tone}`">
+          <button
+            v-if="chat.pendingApprovals.length > 0"
+            type="button"
+            class="status-chip is-actionable"
+            :class="`tone-${status.tone}`"
+            @click="focusPendingApproval"
+          >
+            <span class="dot"></span>
+            {{ status.label }}
+          </button>
+          <span v-else class="status-chip" :class="`tone-${status.tone}`">
             <span class="dot"></span>
             {{ status.label }}
           </span>
-          <button type="button" class="trace-btn" @click="traceOpen = true">
+          <button v-if="narrowTrace" type="button" class="trace-btn" @click="traceOpen = true">
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <rect x="3.5" y="4.5" width="17" height="15" rx="2" />
               <path d="M15 4.5v15" />
@@ -260,9 +302,9 @@ function handleRecoveryRefresh(): void {
 
       <div v-if="chat.pendingApprovals.length > 0" class="pending-approvals" role="status">
         <span>
-          有 <strong>{{ chat.pendingApprovals.length }}</strong> 项操作等待审批，批准或拒绝后运行才会继续。
+          有 <strong>{{ chat.pendingApprovals.length }}</strong> 项操作等待你在对话中审批，批准或拒绝后运行才会继续。
         </span>
-        <button type="button" class="pending-link" @click="openApprovals">打开审批中心</button>
+        <button type="button" class="pending-link" @click="focusPendingApproval">定位审批卡</button>
       </div>
 
       <RunRecoveryBanner
@@ -272,7 +314,7 @@ function handleRecoveryRefresh(): void {
         @stop="handleRecoveryStop"
         @retry="handleRecoveryRetry"
         @refresh="handleRecoveryRefresh"
-        @approvals="openApprovals"
+        @focus-approval="focusPendingApproval"
       />
 
       <!-- 仅重连中显示；降级后由 RunRecoveryBanner 接管，避免双横幅。 -->
@@ -309,6 +351,7 @@ function handleRecoveryRefresh(): void {
         @approve="handleApproval($event, true)"
         @reject="handleApproval($event, false)"
         @load-older="chat.loadOlder()"
+        @open-output="openAgentOutput"
       />
 
       <div v-else class="welcome">
@@ -354,7 +397,29 @@ function handleRecoveryRefresh(): void {
       />
     </section>
 
+    <aside v-if="!narrowTrace" class="chat-trace" aria-label="运行详情">
+      <header class="chat-trace-head">
+        <p class="eyebrow mono">TRACE</p>
+        <h2>运行轨迹</h2>
+      </header>
+      <RunTracePanel
+        :items="chat.processItems"
+        :run-id="chat.state.runId"
+        :streaming="chat.state.streaming"
+        :usage="chat.state.usage"
+        :finish-reason="chat.state.finishReason"
+        :conversation-title="title"
+      />
+    </aside>
+
+    <AgentOutputDrawer
+      :open="agentOutputOpen"
+      :item="agentOutputItem"
+      @close="agentOutputOpen = false"
+    />
+
     <RunTraceDrawer
+      v-if="narrowTrace"
       :open="traceOpen"
       :items="chat.processItems"
       :run-id="chat.state.runId"
@@ -371,14 +436,36 @@ function handleRecoveryRefresh(): void {
 <style scoped>
 .chat-view {
   display: grid;
-  grid-template-columns: 272px minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) 280px;
   height: 100%;
   min-height: 0;
 }
 
-.chat-sidebar {
+.chat-trace {
+  display: flex;
+  flex-direction: column;
   min-width: 0;
   min-height: 0;
+  border-left: 1px solid var(--line);
+  background: var(--paper-2);
+}
+
+.chat-trace-head {
+  flex: none;
+  padding: 14px 16px 10px;
+  border-bottom: 1px solid var(--line);
+}
+
+.chat-trace-head .eyebrow {
+  margin-bottom: 3px;
+  color: var(--amber-text);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+}
+
+.chat-trace-head h2 {
+  font-size: 14px;
+  font-weight: 650;
 }
 
 .chat-main {
@@ -442,6 +529,16 @@ function handleRecoveryRefresh(): void {
   color: var(--ink-2);
   font-size: 10.5px;
   white-space: nowrap;
+}
+
+.status-chip.is-actionable {
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.status-chip.is-actionable:hover {
+  border-color: var(--ink-3);
+  color: var(--ink);
 }
 
 .status-chip .dot {
@@ -633,13 +730,15 @@ function handleRecoveryRefresh(): void {
   opacity: 0.55;
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1180px) {
   .chat-view {
     grid-template-columns: minmax(0, 1fr);
   }
+}
 
-  .chat-sidebar {
-    display: none;
+@media (max-width: 900px) {
+  .chat-view {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .chat-head {

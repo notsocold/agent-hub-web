@@ -268,7 +268,7 @@ export function approvalToProcess(approval: Approval): ApprovalProcess {
 }
 
 /**
- * 用服务端审批列表补齐/刷新过程卡片（断线恢复、从审批中心返回时使用）。
+ * 用服务端审批列表补齐/刷新过程卡片（断线恢复、运行中断补卡时使用）。
  * 不改变 run 状态，由调用方决定。
  */
 export function hydrateApprovals(

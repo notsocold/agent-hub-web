@@ -171,6 +171,27 @@ export async function handleMockRequest(req: MockRequest): Promise<MockResult> {
     return ok(null, 204)
   }
 
+  if (method === 'POST' && path === '/auth/change-password') {
+    const unauthorized = requireAuth(req)
+    if (unauthorized) return unauthorized
+    const currentPassword = String(body.current_password ?? '')
+    const newPassword = String(body.new_password ?? '')
+    if (!currentPassword) {
+      return fail(422, 'validation_error', '请输入当前密码')
+    }
+    if (newPassword.length < 8) {
+      return fail(422, 'validation_error', '新密码至少 8 位')
+    }
+    if (newPassword === currentPassword) {
+      return fail(422, 'validation_error', '新密码不能与旧密码相同')
+    }
+    // mock 不保存密码明文：与登录一致，用 `wrong-password` 代表旧密码错误。
+    if (currentPassword === 'wrong-password') {
+      return fail(400, 'invalid_password', '当前密码错误')
+    }
+    return ok(null, 204)
+  }
+
   if (method === 'GET' && path === '/auth/me') {
     const unauthorized = requireAuth(req)
     if (unauthorized) return unauthorized
