@@ -215,7 +215,7 @@ await fetchEventSource('/api/v1/chat/stream', {
 ## 10. 性能
 
 - 路由懒加载；重型依赖（Markdown、代码高亮）按需 import；
-- 长会话消息列表用虚拟滚动（`el-virtual-list` 或自研，F1 评估，M6 前收口）；
+- 长会话消息列表用 `virtua` 的 `VList` 虚拟滚动（F1 已落地：动态高度、`shift` 前置插入锚定、贴底/回到底部）；
 - SSE 增量按帧合并，避免每个 token 触发一次完整重渲染；
 - Markdown 渲染做缓存（按 message_id + content hash）；
 - 图片/附件走缩略图与懒加载。

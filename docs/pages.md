@@ -178,25 +178,34 @@ M5 事件顺序：`approval.required` → `run.interrupted`（非终态，SSE �
 | 账号 | 展示名、邮箱、修改密码、退出登录 |
 | 安全与审计 | 审计日志（普通用户自查；管理员可切全局并额外按 actor/resource_id 筛选）、平台密钥（仅管理员 CRUD/轮换/启停）；详见 M5 |
 | 模型 | 当前模型、温度、超时（只读，来自 `/system/info`）；`reasoning_efforts=[]` 时不渲染推理等级选择器，仅显示默认等级 |
-| 界面 | 主题（浅色/深色，已实现并持久化）；语言、消息密度与偏好同步归 F1 |
+| 界面 | 主题（浅色/深色，localStorage）；消息密度（紧凑/标准/宽松，localStorage）；语言只读展示「简体中文（zh-CN）」。偏好仅保存在本浏览器，不随账号同步（服务端同步待后端接口） |
 | 关于 | 版本、构建时间、文档链接 |
 
-## 9. 响应式与可访问性（F1 横切）
+## 9. 响应式与可访问性（F1 横切，2026-11-11 收口）
 
-- 原型 v7：>1180px 三栏（导航 + 对话 + 运行详情），900–1180px 两栏 + 运行详情抽屉，<900px 导航收为抽屉；
-- 目标规格中的 1280/900 断点可按实际信息密度调整；
-- 键盘可达：所有操作有 focus 样式；发送 `Enter`、换行 `Shift+Enter`、关闭弹层 `Esc`；
-- 颜色对比度 ≥ WCAG AA；状态不只靠颜色表达（配文字/图标）；
-- 流式内容使用 `aria-live="polite"`，避免打断读屏。
+- 原型 v7：>1180px 三栏（导航 + 对话 + 运行详情），900–1180px 两栏 + 运行详情抽屉，<900px 导航收为抽屉；移动端顶栏固定「全局搜索」入口；
+- 键盘可达：所有可聚焦控件有焦点环（移除全部 `outline: none`，统一 `:focus-visible`）；发送 `Enter`、换行 `Shift+Enter`、关闭弹层 `Esc`、全局搜索 `Ctrl/Cmd+K`；`AppLayout` 提供「跳到主内容」skip link；
+- 颜色对比度 ≥ WCAG AA：`--ink-3` 由 `#606b72` 调整为 `#5a656c`（侧栏 `--paper-2` 上由 4.4 提升到 4.82），工具卡 10px 徽标改用 `--amber-text`；Element Plus 变量用 `html:root` 提高特异性，避免按需 CSS 覆盖主色；
+- 状态不只靠颜色表达（配文字/图标）；流式内容不逐字播报，`aria-live="polite"` 区域只播报「开始回复 / 回复完成 / 生成失败 / 等待审批」等状态节点；
+- 对话长列表用 `virtua` 的 `VList` 虚拟滚动（动态高度、前置插入锚定、贴底/回到底部），1000 条消息 E2E 验证 DOM 行数 < 60；
+- Playwright E2E 内置 axe 扫描（登录、对话空态/消息态、命令面板、审批、知识库、设置、智能体、任务），`critical` / `serious` 违规为 0。
+
+### 命令面板（⌘K）
+
+- 入口：桌面侧栏「搜索」按钮、移动端顶栏搜索图标、`Ctrl/Cmd+K`；
+- 三组结果（固定顺序）：页面（按能力开关过滤）、会话（`GET /conversations?q=`，250ms 防抖）、当前会话已加载消息（前端匹配，最多 8 条）；
+- 键盘：`↑/↓` 选择、`Enter` 打开、`Esc` 关闭；`aria-activedescendant` 维护活动项；
+- 跨页选中会话/消息统一 `router.push({ name: 'chat', query: { c } })`；流式中切换会先停止当前 run（与侧栏一致）；消息定位通过 `chat.pendingScrollMessageId` 在对话页加载完成后消费。
 
 ## 10. 通用状态组件
 
 | 组件 | 用途 |
 |---|---|
 | `PagePlaceholder` | 骨架阶段占位（规划，当前未实现） |
-| `EmptyState` | 空列表/空会话 |
-| `ErrorState` | 页面级错误 + 重试 |
-| `LoadingSkeleton` | 列表/详情加载 |
+| `EmptyState` | 空列表/空会话；`size: sm \| md \| lg`（默认 md）、可选 `icon` 插槽 |
+| `ErrorState` | 页面级/区块级错误 + 重试，保留 `code` 与 `request_id` 复制 |
+| `LoadingSkeleton` | 列表/详情首屏加载；`variant: list \| card \| text`、`count` |
+| `LoadingBlock` | 局部/按钮内转圈加载（列表首屏不再使用） |
 | `ConfirmDialog` | 删除/取消等危险操作二次确认 |
 
 ## 11. 个人能力层（M1.5 前端）
