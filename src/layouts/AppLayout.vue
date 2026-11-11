@@ -4,6 +4,7 @@ import { RouterView, useRoute, useRouter } from 'vue-router'
 import { ElMessageBox } from 'element-plus'
 
 import DiagnosticsDrawer from '@/components/common/DiagnosticsDrawer.vue'
+import CommandPalette from '@/components/common/CommandPalette.vue'
 import SideNav from '@/components/layout/SideNav.vue'
 import { useMediaQuery } from '@/composables/useMediaQuery'
 import { useTheme } from '@/composables/useTheme'
@@ -21,18 +22,29 @@ const isMobile = useMediaQuery('(max-width: 900px)')
 const collapsed = ref(false)
 const mobileOpen = ref(false)
 const diagnosticsOpen = ref(false)
+const paletteOpen = ref(false)
 let stopWebVitals: (() => void) | null = null
+
+/** F1：Ctrl/Cmd+K 打开全局搜索；输入框内也允许，便于随时跳转。 */
+function onGlobalKeydown(event: KeyboardEvent): void {
+  if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+    event.preventDefault()
+    paletteOpen.value = !paletteOpen.value
+  }
+}
 
 onMounted(() => {
   // 登录后尽早拉取系统信息，导航按 capabilities 置灰。
   if (auth.isAuthenticated) void system.load()
   // 布局挂载即开始采集 Web Vitals，卸载时断开 observer。
   stopWebVitals = startWebVitals()
+  document.addEventListener('keydown', onGlobalKeydown)
 })
 
 onUnmounted(() => {
   stopWebVitals?.()
   stopWebVitals = null
+  document.removeEventListener('keydown', onGlobalKeydown)
 })
 
 function openSettings(): void {
@@ -66,6 +78,7 @@ async function logout(): Promise<void> {
       :capabilities="system.info?.capabilities"
       @toggle="collapsed = !collapsed"
       @navigate="mobileOpen = false"
+      @search="paletteOpen = true"
       @settings="openSettings"
       @diagnostics="diagnosticsOpen = true"
       @toggle-theme="toggle"
@@ -80,6 +93,7 @@ async function logout(): Promise<void> {
     ></div>
 
     <main class="app-main">
+      <a class="skip-link" href="#main-content">跳到主内容</a>
       <header v-if="isMobile" class="mobile-bar">
         <button class="mobile-menu" type="button" aria-label="打开导航" @click="mobileOpen = true">
           <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -87,12 +101,29 @@ async function logout(): Promise<void> {
           </svg>
         </button>
         <span class="mobile-title">{{ route.meta.title }}</span>
+        <button
+          class="mobile-search"
+          type="button"
+          aria-label="全局搜索"
+          @click="paletteOpen = true"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="11" cy="11" r="6" />
+            <path d="m15.5 15.5 4.5 4.5" />
+          </svg>
+        </button>
       </header>
 
-      <div class="app-content">
+      <div id="main-content" class="app-content" tabindex="-1">
         <RouterView />
       </div>
     </main>
+
+    <CommandPalette
+      :open="paletteOpen"
+      :capabilities="system.info?.capabilities"
+      @close="paletteOpen = false"
+    />
 
     <DiagnosticsDrawer :open="diagnosticsOpen" @close="diagnosticsOpen = false" />
   </div>
@@ -125,6 +156,23 @@ async function logout(): Promise<void> {
   flex: 1;
   min-height: 0;
   overflow: hidden;
+}
+
+.skip-link {
+  position: absolute;
+  top: -48px;
+  left: 12px;
+  z-index: 100;
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: var(--btn-bg);
+  color: var(--btn-fg);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.skip-link:focus {
+  top: 12px;
 }
 
 .mobile-bar {
@@ -161,6 +209,27 @@ async function logout(): Promise<void> {
 .mobile-title {
   font-size: 13px;
   font-weight: 600;
+}
+
+.mobile-search {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  margin-left: auto;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--surface);
+  color: var(--ink-2);
+}
+
+.mobile-search svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
 }
 
 .scrim {

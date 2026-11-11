@@ -18,6 +18,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   toggle: []
   navigate: []
+  search: []
   settings: []
   diagnostics: []
   'toggle-theme': []
@@ -124,6 +125,14 @@ function disabledHint(item: NavItem): string {
     </div>
 
     <nav class="sb-nav">
+      <button type="button" class="sb-nav-item sb-search" @click="emit('search')">
+        <svg class="ic" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="11" cy="11" r="6" />
+          <path d="m15.5 15.5 4.5 4.5" />
+        </svg>
+        <span>搜索</span>
+        <kbd class="sb-kbd">⌘K</kbd>
+      </button>
       <template v-for="item in items" :key="item.name">
         <RouterLink
           v-if="isEnabled(item)"
@@ -311,6 +320,20 @@ html[data-theme='dark'] .sb-nav-item:hover {
   font-size: 8px;
 }
 
+.sb-search {
+  margin-bottom: 4px;
+}
+
+.sb-kbd {
+  margin-left: auto;
+  padding: 1px 4px;
+  border: 1px solid var(--line-2);
+  border-radius: 3px;
+  color: var(--ink-3);
+  font-family: var(--font-mono);
+  font-size: 9px;
+}
+
 .sb-nav-item.router-link-active .ic {
   color: var(--prussian);
 }
@@ -357,6 +380,10 @@ html[data-theme='dark'] .sb-nav-item:hover {
 }
 
 .sidebar.is-collapsed .sb-nav-item .stage {
+  display: none;
+}
+
+.sidebar.is-collapsed .sb-nav-item .sb-kbd {
   display: none;
 }
 

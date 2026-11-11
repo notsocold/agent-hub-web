@@ -1,0 +1,65 @@
+import { expect, test } from '@playwright/test'
+
+import { login } from './fixtures'
+
+test.describe('命令面板', () => {
+  test('Ctrl+K 打开、Esc 关闭并可用键盘跳转页面', async ({ page }) => {
+    await login(page)
+
+    await page.keyboard.press('Control+K')
+    const dialog = page.getByRole('dialog', { name: '全局搜索' })
+    await expect(dialog).toBeVisible()
+
+    const input = page.getByRole('combobox', { name: '搜索页面、会话或当前会话消息' })
+    await input.fill('设置')
+    await page.getByRole('option', { name: /设置/ }).click()
+
+    await expect(page).toHaveURL(/\/settings$/)
+
+    await page.keyboard.press('Control+K')
+    await expect(dialog).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(dialog).toHaveCount(0)
+  })
+
+  test('从非对话页搜索会话并跳转到对话', async ({ page }) => {
+    await login(page)
+    await page.goto('/settings')
+    // goto 是整页加载：等设置页渲染完成，AppLayout 的快捷键监听才一定注册好。
+    await expect(page.getByRole('heading', { name: '设置', level: 1 })).toBeVisible()
+
+    await page.keyboard.press('Control+K')
+    const input = page.getByRole('combobox', { name: '搜索页面、会话或当前会话消息' })
+    await input.fill('Q3')
+
+    // 会话搜索走 250ms 防抖，等结果出现再点。
+    await page.getByRole('option', { name: /Q3 客服工单周报/ }).click()
+    await expect(page).toHaveURL(/\/chat\?c=/)
+    await expect(page.getByRole('heading', { name: 'Q3 客服工单周报', level: 1 })).toBeVisible()
+  })
+
+  test('在当前会话内搜索消息并定位', async ({ page }) => {
+    await login(page)
+    await page.goto('/chat?c=22222222-2222-4222-8222-222222222222')
+    await expect(page.getByRole('heading', { name: 'Q3 客服工单周报', level: 1 })).toBeVisible()
+
+    await page.keyboard.press('Control+K')
+    const input = page.getByRole('combobox', { name: '搜索页面、会话或当前会话消息' })
+    await input.fill('工单')
+
+    const messageOption = page.getByRole('option', { name: /工单/ }).last()
+    await expect(messageOption).toBeVisible()
+    await messageOption.click()
+
+    await expect(page.getByRole('dialog', { name: '全局搜索' })).toHaveCount(0)
+    await expect(page.getByText('工单').first()).toBeVisible()
+  })
+
+  test('移动端顶栏搜索按钮可以打开面板', async ({ page }) => {
+    await login(page)
+    await page.setViewportSize({ width: 390, height: 844 })
+
+    await page.getByRole('button', { name: '全局搜索' }).click()
+    await expect(page.getByRole('dialog', { name: '全局搜索' })).toBeVisible()
+  })
+})

@@ -78,7 +78,7 @@ onUnmounted(() => {
     <button
       class="account"
       type="button"
-      aria-label="账号菜单"
+      data-testid="account-menu"
       aria-haspopup="menu"
       :aria-expanded="open"
       @click="toggle"
