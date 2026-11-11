@@ -36,9 +36,16 @@ const tone = computed(() =>
     : 'info',
 )
 
-const showRetry = computed(
-  () => props.recovery.kind === 'stream_failed' && props.recovery.retryable,
-)
+const TERMINAL_RUN_STATUSES = ['succeeded', 'failed', 'canceled'] as const
+
+const showRetry = computed(() => {
+  if (props.recovery.kind !== 'stream_failed' || !props.recovery.retryable) return false
+  // M7：续流/轮询降级时 run 可能仍在运行，重发消息会新建 run 或撞 409；
+  // 此时只提供“刷新状态”（走 adoptRun 恢复轮询），不显示“重试发送”。
+  if (!props.recovery.runId) return true
+  const status = props.recovery.runStatus
+  return status === null || (TERMINAL_RUN_STATUSES as readonly string[]).includes(status)
+})
 const showApprovals = computed(
   () =>
     props.recovery.kind === 'run_interrupted' ||

@@ -679,6 +679,14 @@ function checkDeployStaticConfig(source) {
   }
 
   log(`  - 找到续流 location（第 ${location.line} 行）：location ${location.header}`)
+  const normalizedHeader = location.header.replace(/[ \t]+/g, ' ').trim()
+  const expectedHeader = RUN_STREAM_LOCATION_EXPECTED.replace(/^location[ \t]+/, '')
+  if (normalizedHeader !== expectedHeader) {
+    problems.push(
+      `续流 location 正则与期望不一致（当前：${location.header}；期望：${expectedHeader}）。` +
+        '必须锚定 ^...$ 且使用 UUID 字符集，过宽/漏锚定会误匹配或漏匹配',
+    )
+  }
   if (!location.block) {
     problems.push(`续流 location（第 ${location.line} 行）花括号不匹配，无法解析配置块`)
     return problems

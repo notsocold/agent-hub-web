@@ -263,7 +263,7 @@
 | M4 | 知识库端点；citations；`knowledge_categories`；能力开关 | 已实现并联调 | 按实际契约消费 |
 | M5 | 审批列表/详情/决定；审计；平台密钥；429；`run.interrupted`/`run.resumed` | 已交付并联调 | 已消费；RBAC 403 移入 M7 |
 | M6 | 无新增业务契约；`/readyz`、Trace ID、503 | 后端已完成；单实例 | 已收口；增量续流移入 M7 |
-| **M7** | `RunEventOut.event`；`GET /runs/{id}/stream?after_seq=`；agents/tasks 写接口 403；`approval.required` 5 字段；`authorization_url` 白名单 | 已立项，契约草案见后端立项 §3 | 先冻结类型/mock；后端 handoff 后联调 |
+| **M7** | `RunEventOut.event`；`GET /runs/{id}/stream?after_seq=`；agents/tasks 写接口 403；`approval.required` 5 字段；`authorization_url` 白名单 | 已完成（2026-11-11） | 已消费并真实联调；`smoke:m7` 48 项 + `test:real` M7 5 例 |
 | **M8** | `/admin/users*`、`/admin/overview`、`/admin/settings/instruction`、`/admin/skills*`、`/admin/mcp/servers*`、`/admin/agents*` | 已立项，未开始；依赖 M7-2 | 无契约页只读；有契约页等 M8 后端 |
 | **M9** | `workflows` CRUD/启停、`workflow_runs`、`chat/stream.workflow_id`、`workflow.step`、`capabilities.workflows=true` | 已立项，未开始；先 spike | 骨架 + mock 保持；契约冻结后再实现 |
 

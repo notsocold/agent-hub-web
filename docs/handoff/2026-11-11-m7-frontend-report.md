@@ -32,7 +32,7 @@
 | M7-F1 续流 | `src/api/runs.ts` 新增 `runsApi.stream(runId, afterSeq, handlers)`（`fetch-event-source` GET + Bearer + 401 单飞重试）；`src/stores/chat.ts` 的 `performReconnect` 改为续流优先，400/404/失败分别降级 |
 | M7-F2 事件回放 | `src/types/run.ts` `RunEvent.event`；`src/stores/chat-reducer.ts` `eventNameOfRunEvent`；`src/stores/chat.ts` `replayPersistedEvents`（分页回放、`seq` 去重、空事件名跳过）；`RunTracePanel` 展示事件名 |
 | M7-F3 权限边界 | `src/stores/auth.ts` `isAdmin`；`AgentsView` / `AgentDetailDrawer` / `TasksView` / `TaskDetailDrawer` 写入口按角色渲染；`SettingsView` 复用 `isAdmin` |
-| M7-F4 审批字段 | `ApprovalCard` 优先渲染事件 5 字段；无 `payload` 时用 `payload_preview`（字符串级脱敏）；两者皆无提示「参数预览不可用」 |
+| M7-F4 审批字段 | `ApprovalCard` 直接渲染事件 5 字段（有完整 `payload` 时展开完整参数，否则展示 `payload_preview` 脱敏预览；两者皆无提示不可用）。`GET /approvals?run_id=` 仍作为断线补卡/对账兜底，每次 `run.interrupted` 会请求一次（复用了 M5 的对账路径，未做「仅缺字段才请求」的收敛） |
 | M7-F5 授权链接 | `src/components/tasks/authorizationUrl.ts` `isSafeAuthorizationUrl`；`TaskDetailDrawer` 无安全链接时提示「授权链接不可用，请联系管理员」且不渲染按钮 |
 | M7-F6 文案 | `src/api/client.ts`：登录/注册 401 不进 refresh、直接展示后端文案；403 `forbidden` 统一「当前账号无管理员权限」；503 统一「服务暂不可用，请稍后重试」 |
 | M7-F7 契约/mock | `src/api/mock/stream.ts` `mockRunStream`；`mockDb` 新增 `appendRunEvent` / `subscribeRunEvents` / `onRunTerminal` / `waitRunTerminal` / `upsertRun` / `setRunStatus`；mock 聊天事件落库（delta 不落库），fixtures 补 `event`；新增续流/回放/降级单测 |
@@ -66,7 +66,7 @@ pnpm test:real   # vitest.real.config.ts 已包含 scripts/real-m7.spec.ts
 2. **普通用户写入口消失**：M7 前普通用户可调用 agents/tasks 写接口（前端只是隐藏入口），后端 M7 后统一 403；前端改为不渲染入口（含两个详情抽屉），并补了「入口不可见 + 直接调用 403」两层回归。
 3. **登录 401 文案**：不再进入 refresh 流程，密码错误直接显示后端「邮箱或密码错误」。
 4. **403/503 文案集中收敛**：`apiErrorFromResponse` 统一覆写，页面无需各自判断。
-5. **审批卡**：有事件字段时不再依赖详情请求；`payload_preview` 是脱敏预览，完整 payload 仍可展开。
+5. **审批卡**：事件 5 字段可直接渲染，不再需要按审批 id 拉详情；`GET /approvals?run_id=` 仍用于断线补卡与审批对账（每次 `run.interrupted` 一次）。`payload_preview` 是脱敏预览并再做字符串级遮罩，完整 `payload` 仍可展开。
 
 ## 6. 未做项与限制
 

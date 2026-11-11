@@ -115,7 +115,7 @@ VITE_API_BASE_URL=
   - `pnpm smoke:m5`：审批列表/详情/stats、审计用户+管理员+过滤、平台密钥 CRUD、聊天 429；最后会触发约 60s 聊天限流窗口。
   - M2 真实联调先启动假 Agent：`uv run python scripts/mock_a2a_agent.py`（在 agent-hub 仓库，默认 127.0.0.1:9100），再执行 `REAL_FAKE_AGENT_URL=http://127.0.0.1:9100 ... pnpm test:real`。
 
-mock 登录：任意邮箱 + 8 位以上密码；密码为 `wrong-password` 时返回 401。
+mock 登录：任意邮箱 + 8 位以上密码；密码为 `wrong-password` 时返回 401。用 `admin@example.com` 登录会得到管理员沙盒账号（agents/tasks 写入口、平台密钥与全局审计可见）。
 
 ## 6. 当前状态（M0–M7 + F1 + PA-1 已完成，M8/M9 待后端）
 

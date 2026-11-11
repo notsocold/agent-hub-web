@@ -57,10 +57,7 @@ const authorizationUrl = computed(() => detail.value?.auth_request?.authorizatio
 /** M7：后端会把非法/内网/超长授权链接置空；前端只渲染安全链接。 */
 const hasSafeAuthorizationUrl = computed(() => isSafeAuthorizationUrl(authorizationUrl.value))
 const showAuthorizationUnavailable = computed(
-  () =>
-    props.canManage &&
-    detail.value?.state === 'auth_required' &&
-    !hasSafeAuthorizationUrl.value,
+  () => detail.value?.state === 'auth_required' && !hasSafeAuthorizationUrl.value,
 )
 const expiresAt = computed(
   () => detail.value?.input_request?.expires_at ?? detail.value?.auth_request?.expires_at ?? null,

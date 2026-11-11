@@ -18,7 +18,7 @@ test.describe('认证与登录态', () => {
     await page.getByPlaceholder('至少 8 位').fill('wrong-password')
     await page.getByRole('button', { name: '登录', exact: true }).click()
 
-    // 登录失败的 401 会被全局拦截器统一转成「登录已过期，请重新登录」，
+    // M7：登录/注册的 401 不再进 refresh/登出流程，直接展示后端「邮箱或密码错误」，
     // 这里只断言「出现可见提示且没有进入对话页」，不把当前文案写死。
     await expect(page.getByRole('alert')).toBeVisible({ timeout: 10_000 })
     await expect(page).toHaveURL(/\/login(?:\?.*)?$/)
