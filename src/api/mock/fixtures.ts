@@ -37,6 +37,33 @@ export const mockUser: User = {
   last_login_at: ago(0, 5),
 }
 
+/**
+ * F1 性能样本会话：1000 条消息，仅存在于 mock 环境。
+ * E2E 用它验证虚拟滚动、前置插入锚定与「加载更早」。
+ */
+export const longConversationId = '22222222-2222-4222-8222-222222222299'
+
+function buildLongConversationMessages(): ChatMessage[] {
+  const rows: ChatMessage[] = []
+  const base = now - 3 * HOUR
+  for (let index = 0; index < 1000; index += 1) {
+    const isUser = index % 2 === 0
+    const turn = Math.floor(index / 2) + 1
+    rows.push(
+      message(
+        `long-${String(index).padStart(4, '0')}`,
+        isUser ? 'user' : 'assistant',
+        isUser
+          ? `第 ${turn} 轮：检查第 ${index} 条工单的字段映射。`
+          : `第 ${turn} 轮回答：第 ${index} 条工单字段映射一致。\n\n\`\`\`json\n{"index": ${index}, "ok": true}\n\`\`\``,
+        new Date(base + index * 60 * 1000).toISOString(),
+        { run_id: `run-long-${Math.floor(index / 2)}` },
+      ),
+    )
+  }
+  return rows
+}
+
 export const mockConversations: Conversation[] = [
   {
     id: '22222222-2222-4222-8222-222222222222',
@@ -114,6 +141,17 @@ export const mockConversations: Conversation[] = [
     pending_approval_count: 0,
     created_at: ago(24 * 15),
     updated_at: ago(24 * 14),
+  },
+  {
+    id: longConversationId,
+    title: '性能样本 · 1000 条消息',
+    status: 'active',
+    message_count: 1000,
+    last_message_preview: '第 500 轮回答：第 999 条工单字段映射一致。',
+    last_message_at: ago(0, 1),
+    pending_approval_count: 0,
+    created_at: ago(3),
+    updated_at: ago(0, 1),
   },
 ]
 
@@ -375,6 +413,7 @@ export const mockMessages: Record<string, ChatMessage[]> = {
     ),
     message('44444444-4444-4444-8444-000000000062', 'user', '很好。', ago(24 * 14)),
   ],
+  [longConversationId]: buildLongConversationMessages(),
 }
 
 const weeklyRunId = '33333333-3333-4333-8333-333333333333'

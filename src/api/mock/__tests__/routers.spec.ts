@@ -34,7 +34,8 @@ describe('mock REST 路由', () => {
     const page = result.data as { items: Array<{ title: string }>; stats: { total: number } }
     expect(page.items).toHaveLength(1)
     expect(page.items[0]?.title).toContain('Q3')
-    expect(page.stats.total).toBe(7)
+    // F1 起 mock 多了「性能样本 · 1000 条消息」会话，总数 7 → 8。
+    expect(page.stats.total).toBe(8)
   })
 
   it('分页返回可用 cursor', async () => {

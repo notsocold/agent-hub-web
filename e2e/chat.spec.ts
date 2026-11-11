@@ -37,3 +37,50 @@ test.describe('对话主链路', () => {
     await expect(page.getByRole('textbox', { name: '输入消息' })).toBeEnabled()
   })
 })
+
+test.describe('长会话虚拟滚动', () => {
+  const LONG_CONVERSATION_ID = '22222222-2222-4222-8222-222222222299'
+
+  test('1000 条消息只渲染可视区域，加载更早不跳视口', async ({ page }) => {
+    await login(page)
+    await page.goto(`/chat?c=${LONG_CONVERSATION_ID}`)
+
+    const rows = page.locator('.message-row')
+    await expect(rows.first()).toBeVisible({ timeout: 20_000 })
+
+    const latest = page.getByText('第 500 轮回答：第 999 条工单字段映射一致。')
+    await expect(latest).toBeVisible({ timeout: 20_000 })
+
+    // 虚拟滚动：DOM 里只保留视口附近的行，而不是整页 100 条。
+    expect(await rows.count()).toBeLessThan(60)
+
+    const before = await latest.boundingBox()
+    const list = page.locator('.message-list')
+    const heightBefore = await list.evaluate((element) => element.scrollHeight)
+    await page.getByRole('button', { name: '加载更早消息' }).click()
+
+    // mock 是内存实现、不发网络请求：以列表总高度增长作为「更早消息已 prepend」的信号。
+    await expect
+      .poll(async () => list.evaluate((element) => element.scrollHeight), { timeout: 10_000 })
+      .toBeGreaterThan(heightBefore)
+
+    // 前置插入后视口内容不应跳动（shift 锚定）。
+    const after = await latest.boundingBox()
+    expect(before && after).toBeTruthy()
+    if (before && after) expect(Math.abs(after.y - before.y)).toBeLessThan(40)
+  })
+
+  test('上滑离开底部后出现回到底部按钮', async ({ page }) => {
+    await login(page)
+    await page.goto(`/chat?c=${LONG_CONVERSATION_ID}`)
+    await expect(page.locator('.message-row').first()).toBeVisible({ timeout: 20_000 })
+
+    await page.locator('.message-list').evaluate((element) => {
+      element.scrollTop = 0
+    })
+    await expect(page.getByRole('button', { name: '回到底部' })).toBeVisible({ timeout: 5_000 })
+
+    await page.getByRole('button', { name: '回到底部' }).click()
+    await expect(page.getByRole('button', { name: '回到底部' })).toHaveCount(0, { timeout: 5_000 })
+  })
+})

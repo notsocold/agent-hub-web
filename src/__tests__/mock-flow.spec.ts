@@ -33,8 +33,9 @@ describe('mock 端到端主链路', () => {
     storage.setTokens(tokens)
 
     const page = await conversationsApi.list()
-    expect(page.items).toHaveLength(7)
-    expect(page.stats?.total).toBe(7)
+    // F1 起 mock 多了「性能样本 · 1000 条消息」会话，总数 7 → 8。
+    expect(page.items).toHaveLength(8)
+    expect(page.stats?.total).toBe(8)
 
     const chat = useChatStore()
     await chat.send('你好')
