@@ -28,6 +28,14 @@ jobs:
       - run: pnpm test
       - run: pnpm build
       - run: pnpm size
+      # 门禁本身的回归测试：生产构建在 VITE_USE_MOCK=true 时必须失败。
+      - name: 验证生产 mock 门禁
+        run: |
+          if VITE_USE_MOCK=true pnpm build; then
+            echo "::error::VITE_USE_MOCK=true 时生产构建未失败，mock 门禁失效"
+            exit 1
+          fi
+          echo "生产 mock 门禁生效（构建按预期失败）"
 
   e2e:
     name: E2E（mock 构建）

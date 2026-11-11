@@ -21,6 +21,27 @@ test.describe('知识库主链路', () => {
     await expect(panel.getByText('退款政策').first()).toBeVisible({ timeout: 15_000 })
   })
 
+  test('粘贴文本上传后出现在文档列表', async ({ page }) => {
+    await login(page)
+    await page.getByRole('link', { name: '知识库' }).click()
+
+    await expect(page.getByRole('region', { name: '文档列表' })).toBeVisible({ timeout: 15_000 })
+    await page.getByRole('button', { name: '上传文档' }).click()
+
+    await page.getByRole('tab', { name: '粘贴文本' }).click()
+    await page
+      .getByRole('textbox', { name: '粘贴知识库文本' })
+      .fill('# 退货说明\n\n退货需保留吊牌，7 天内可退。')
+    await page.getByPlaceholder('留空则用文件名').fill('E2E 退货说明')
+    await page.getByRole('button', { name: '上传并入库' }).click()
+
+    await expect(page.getByText('文档已上传，入库完成')).toBeVisible({ timeout: 20_000 })
+    // 标题按钮与来源路径都包含标题文本，用 role 精确到标题按钮。
+    await expect(
+      page.getByRole('region', { name: '文档列表' }).getByRole('button', { name: 'E2E 退货说明' }),
+    ).toBeVisible({ timeout: 20_000 })
+  })
+
   test('检索无命中时给出空态提示', async ({ page }) => {
     await login(page)
     await page.getByRole('link', { name: '知识库' }).click()

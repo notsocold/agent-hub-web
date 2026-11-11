@@ -14,7 +14,7 @@
 | A 构建与部署产物 | 分包、体积门禁、生产 mock 硬门禁、Nginx 配置、部署文档 | ✅ |
 | B 断线续传 | 自动重连、回填 `conversation_id`、`lastSeq` 去重、降级轮询 | ✅（不做逐字续流，见 §5） |
 | C 可观测 | `request_id` 采集/展示/复制、诊断抽屉、构建信息、Web Vitals | ✅ |
-| D E2E | Playwright + chromium，9 例主链路，CI workflow | ✅ |
+| D E2E | Playwright + chromium，10 例主链路，CI workflow | ✅ |
 | E Nginx SSE | `deploy/nginx.conf` + `verify:nginx` 对照实测 | ✅ |
 
 ## 2. 验证结果（本机 2026-11-11）
@@ -25,9 +25,9 @@
 | `pnpm type-check` | 通过 |
 | `pnpm lint` | 通过（`oxlint --fix` + `eslint --fix --cache`） |
 | `pnpm build` | 通过 |
-| `pnpm size` | 通过：单 chunk 最大 78.1 KB（markdown），JS 总 367.8 KB，CSS 总 37.6 KB |
+| `pnpm size` | 通过：单 chunk 最大 75.7 KB（markdown），JS 总 368.0 KB，CSS 总 37.6 KB |
 | `VITE_USE_MOCK=true pnpm build` | **按预期失败**：`生产构建禁止 mock` exit 1 |
-| `pnpm e2e` | **9 passed**（auth 3 / chat 2 / approval 2 / knowledge 2） |
+| `pnpm e2e` | **10 passed**（auth 3 / chat 2 / approval 2 / knowledge 3） |
 | `pnpm verify:nginx` | exit 0：`/sse` 逐秒到达（999–1002 ms），`/sse-buffered` 集中到达（首帧 5030 ms） |
 | `pnpm verify:nginx --check-deploy` | exit 0：`nginx -t` 语法通过 |
 
@@ -35,7 +35,7 @@
 
 | chunk | 改造前 | 改造后 |
 |---|---|---|
-| ChatView | 118.7 KB | **41.3 KB** |
+| ChatView | 118.7 KB | **43.0 KB** |
 | markdown（marked + DOMPurify + highlight.js） | 与 ChatView 合并 | **75.7 KB（独立按需）** |
 | vue-vendor | 合并 | 36.1 KB |
 | http（axios + fetch-event-source） | 合并 | 21.5 KB |
@@ -77,7 +77,7 @@ proxy_send_timeout 3600s;
 ### 3.4 E2E（D）
 
 - 构建：`vite build --mode e2e --outDir dist-e2e`（mock 产物，不覆盖 `dist`）→ `vite preview`。
-- 用例：登录成功 / 错误密码 / 登出；发送消息流式回复 / 停止生成；发布触发审批并批准 / 拒绝；知识库列表与检索命中 / 无命中空态。
+- 用例：登录成功 / 错误密码 / 登出；发送消息流式回复 / 停止生成；发布触发审批并批准 / 拒绝；知识库列表与检索命中 / 粘贴文本上传 / 无命中空态。
 - 选择器优先 `getByRole` / `getByPlaceholder` / `getByTestId`，无硬等待；chromium 启动加 `--no-proxy-server`。
 - 本机 chromium 缺系统库（libnspr4 / libnss3 / libasound），用 `scripts/setup-e2e-libs.sh` 把 jammy deb 解包到项目内 `.playwright-libs/`，由 `e2e` 脚本注入 `LD_LIBRARY_PATH`；CI 用 `playwright install --with-deps` 不需要该脚本。
 

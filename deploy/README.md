@@ -43,6 +43,21 @@ pnpm build          # 输出 dist/
 确认 `dist/index.html` 与 `dist/assets/*` 存在。生产构建必须关闭 mock
 （`VITE_USE_MOCK=false`），否则构建会按仓库守卫失败。
 
+#### 构建环境变量
+
+| 变量 | 默认 | 作用 |
+| --- | --- | --- |
+| `VITE_API_BASE_URL` | 空（同源 `/api/v1`） | 后端基地址；生产建议留空走 Nginx 同源反代 |
+| `VITE_BASE_PATH` | `/` | 部署到子路径或 CDN 前缀时设置 |
+| `VITE_USE_MOCK` | `false` | 生产必须为 false；为 true 时构建期直接失败 |
+| `VITE_PERF_LOG` | `false` | 开发/联调时在控制台打印 Web Vitals |
+| `VITE_ERROR_REPORT_ENDPOINT` | 空 | 可选错误上报端点，空即关闭；只上报错误码/request_id |
+| `VITE_PERF_ENDPOINT` | 空 | 可选 Web Vitals 上报端点，空即关闭 |
+
+> **只部署 `dist/`**：E2E 用 `vite build --mode e2e --outDir dist-e2e` 生成带 mock 的产物，
+> 该产物 `MODE !== 'production'`，运行期门禁不会拦截，**不能部署到生产**。
+> CI 已校验 `VITE_USE_MOCK=true pnpm build` 必须失败。
+
 ### 3.2 放置静态文件
 
 把 `dist/` 内容放到 `deploy/nginx.conf` 中 `root` 指向的目录，默认：
@@ -292,6 +307,18 @@ nginx -s reload
 
 `/assets/` 使用一年 immutable 缓存，回滚时不要只替换单个 JS 文件；应整体回滚
 `dist/`，并确认 `index.html` 已更新（它本身是 `no-cache`）。
+
+建议用「版本目录 + 原子软链」发布，回滚只切软链：
+
+```bash
+# 发布：新构建放到带时间戳的目录，再原子切换 current
+ln -sfn /var/www/agent-hub/releases/20261111T130000 /var/www/agent-hub/current
+# nginx 的 root 指向 /var/www/agent-hub/current
+
+# 回滚：切回上一版 releases/ 目录即可，不需要拷贝单个文件
+cp -l /var/www/agent-hub/current /var/www/agent-hub/current.prev 2>/dev/null || true
+ln -sfn /var/www/agent-hub/releases/<上一版> /var/www/agent-hub/current
+```
 
 ## 8. 故障排查
 
