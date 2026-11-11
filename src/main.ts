@@ -10,6 +10,12 @@ import router from './router'
 import { useAuthStore } from '@/stores/auth'
 
 async function bootstrap(): Promise<void> {
+  // 生产构建已在构建期拦截 mock；这里再兜一层，防止 e2e 产物被误部署后连假数据。
+  // 用 MODE 而不是 PROD：vite build --mode e2e 的产物 PROD 仍为 true。
+  if (import.meta.env.MODE === 'production' && import.meta.env.VITE_USE_MOCK === 'true') {
+    throw new Error('生产环境禁止 mock：请使用默认构建或移除 VITE_USE_MOCK')
+  }
+
   // mock 仅开发期使用；生产构建不会加载该分包。
   if (import.meta.env.VITE_USE_MOCK === 'true') {
     const { installMockAdapter } = await import('@/api/mock')

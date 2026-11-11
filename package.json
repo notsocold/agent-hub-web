@@ -23,7 +23,8 @@
     "smoke:m5": "node scripts/smoke-m5-backend.mjs",
     "sessions:scan": "node scripts/dsh-session-sanitize.mjs",
     "sessions:sanitize": "node scripts/dsh-session-sanitize.mjs --current-workspace --apply",
-    "sessions:check": "node scripts/dsh-session-sanitize.mjs --staged"
+    "sessions:check": "node scripts/dsh-session-sanitize.mjs --staged",
+    "size": "node scripts/check-bundle-size.mjs"
   },
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.2",
