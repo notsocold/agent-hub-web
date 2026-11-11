@@ -162,6 +162,20 @@ export const useChatStore = defineStore('chat', () => {
       state.value.recovery?.kind !== 'run_in_progress' &&
       state.value.recovery?.kind !== 'run_interrupted',
   )
+  /**
+   * F1：命令面板选中「当前会话消息」后写入，MessageList 就绪时消费并清空。
+   * 跨页导航时保留该值，直到对话页加载完成为止。
+   */
+  const pendingScrollMessageId = ref<string | null>(null)
+
+  function requestScrollToMessage(id: string): void {
+    pendingScrollMessageId.value = id
+  }
+
+  function clearPendingScroll(): void {
+    pendingScrollMessageId.value = null
+  }
+
   const pendingApproval = computed(() => {
     const id = state.value.pendingApprovalId
     if (!id) return null
@@ -1396,6 +1410,9 @@ export const useChatStore = defineStore('chat', () => {
     reconnectAttempt,
     pendingApproval,
     pendingApprovals,
+    pendingScrollMessageId,
+    requestScrollToMessage,
+    clearPendingScroll,
     loadingHistory,
     loadingOlder,
     resolvingApproval,

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 
@@ -27,6 +27,7 @@ const capabilityCatalog = useCapabilitiesStore()
 const traceOpen = ref(false)
 const model = ref('')
 const reasoningEffort = ref<ReasoningEffortId>('low')
+const messageListRef = ref<InstanceType<typeof MessageList> | null>(null)
 
 onUnmounted(() => {
   // 离开对话页只停前端重连，不取消后端 run（约定断线不取消）。
@@ -142,6 +143,17 @@ watch(
       void conversations.load()
     }
   },
+)
+
+// F1：命令面板选中「当前会话消息」后，等历史加载完再定位；定位成功即清空。
+watch(
+  () => [chat.pendingScrollMessageId, chat.state.conversationId, chat.state.messages.length] as const,
+  async ([pendingId, conversationId, messageCount]) => {
+    if (!pendingId || !conversationId || messageCount === 0) return
+    await nextTick()
+    if (messageListRef.value?.scrollToMessage(pendingId)) chat.clearPendingScroll()
+  },
+  { immediate: true },
 )
 
 function selectConversation(id: string): void {
@@ -283,6 +295,7 @@ function handleRecoveryRefresh(): void {
 
       <MessageList
         v-if="!isEmpty"
+        ref="messageListRef"
         :messages="chat.messages"
         :process="chat.processItems"
         :streaming="chat.state.streaming"
@@ -291,6 +304,8 @@ function handleRecoveryRefresh(): void {
         :resolving-approval-id="chat.resolvingApprovalId"
         :has-more="chat.historyHasMore"
         :loading-older="chat.loadingOlder"
+        :current-run-id="chat.state.runId"
+        :conversation-id="chat.state.conversationId ?? activeId ?? null"
         @approve="handleApproval($event, true)"
         @reject="handleApproval($event, false)"
         @load-older="chat.loadOlder()"
