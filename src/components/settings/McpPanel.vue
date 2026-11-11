@@ -4,7 +4,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 
 import EmptyState from '@/components/common/EmptyState.vue'
 import ErrorState from '@/components/common/ErrorState.vue'
-import LoadingBlock from '@/components/common/LoadingBlock.vue'
+import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
 import StatusBadge from '@/components/common/StatusBadge.vue'
 import { mcpApi } from '@/api/mcp'
 import { useCapabilitiesStore } from '@/stores/capabilities'
@@ -319,7 +319,7 @@ async function updateTool(tool: McpTool, patch: { enabled?: boolean; requires_ap
       </div>
 
       <ErrorState v-if="error" :message="error" @retry="load" />
-      <LoadingBlock v-else-if="loading" label="正在加载 MCP 服务器…" />
+      <LoadingSkeleton v-else-if="loading" />
       <EmptyState
         v-else-if="items.length === 0"
         title="暂无 MCP 服务器"
@@ -470,7 +470,7 @@ async function updateTool(tool: McpTool, patch: { enabled?: boolean; requires_ap
         <span v-if="toolsServer" class="mono drawer-slug">{{ toolsServer.slug }}</span>
       </template>
 
-      <LoadingBlock v-if="toolsLoading" label="正在加载工具…" />
+      <LoadingSkeleton v-if="toolsLoading" />
       <ErrorState v-else-if="toolsError" :message="toolsError" @retry="toolsServer && openTools(toolsServer)" />
       <EmptyState v-else-if="tools.length === 0" title="暂无工具" description="该服务器尚未发现任何工具，可尝试「刷新工具」。" />
 

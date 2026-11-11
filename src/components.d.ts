@@ -39,6 +39,7 @@ declare module 'vue' {
     ErrorState: typeof import('./components/common/ErrorState.vue')['default']
     InstructionPanel: typeof import('./components/settings/InstructionPanel.vue')['default']
     LoadingBlock: typeof import('./components/common/LoadingBlock.vue')['default']
+    LoadingSkeleton: typeof import('./components/common/LoadingSkeleton.vue')['default']
     MarkdownView: typeof import('./components/common/MarkdownView.vue')['default']
     McpPanel: typeof import('./components/settings/McpPanel.vue')['default']
     MemoryPanel: typeof import('./components/settings/MemoryPanel.vue')['default']

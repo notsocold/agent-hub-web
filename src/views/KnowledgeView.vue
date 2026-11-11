@@ -8,7 +8,7 @@ import SearchDebugPanel from '@/components/knowledge/SearchDebugPanel.vue'
 import UploadDialog from '@/components/knowledge/UploadDialog.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import ErrorState from '@/components/common/ErrorState.vue'
-import LoadingBlock from '@/components/common/LoadingBlock.vue'
+import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
 import PageHeader from '@/components/common/PageHeader.vue'
 import PageShell from '@/components/common/PageShell.vue'
 import StatCard from '@/components/common/StatCard.vue'
@@ -432,7 +432,7 @@ onUnmounted(() => {
           </div>
 
           <ErrorState v-if="error" :message="error" @retry="load({ reset: true })" />
-          <LoadingBlock v-else-if="loading" label="正在加载知识库…" />
+          <LoadingSkeleton v-else-if="loading" />
           <EmptyState
             v-else-if="items.length === 0"
             title="还没有匹配的文档"

@@ -6,7 +6,7 @@ import AgentDetailDrawer from '@/components/agents/AgentDetailDrawer.vue'
 import AgentRegisterDialog from '@/components/agents/AgentRegisterDialog.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import ErrorState from '@/components/common/ErrorState.vue'
-import LoadingBlock from '@/components/common/LoadingBlock.vue'
+import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
 import PageHeader from '@/components/common/PageHeader.vue'
 import PageShell from '@/components/common/PageShell.vue'
 import StatCard from '@/components/common/StatCard.vue'
@@ -206,7 +206,7 @@ onMounted(() => {
     </div>
 
     <ErrorState v-if="error" :message="error" @retry="load" />
-    <LoadingBlock v-else-if="loading" label="正在加载智能体…" />
+    <LoadingSkeleton v-else-if="loading" />
 
     <div v-else class="table-card">
       <el-table :data="filtered" style="width: 100%" @row-click="openDetail">

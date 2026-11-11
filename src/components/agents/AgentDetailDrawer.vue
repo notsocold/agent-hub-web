@@ -3,7 +3,7 @@ import { computed, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 import ErrorState from '@/components/common/ErrorState.vue'
-import LoadingBlock from '@/components/common/LoadingBlock.vue'
+import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
 import StatusBadge from '@/components/common/StatusBadge.vue'
 import { agentsApi } from '@/api/agents'
 import { formatDateTime, formatDuration } from '@/utils/format'
@@ -166,7 +166,7 @@ async function removeAgent(): Promise<void> {
 
 <template>
   <el-drawer v-model="open" title="智能体详情" size="480px" :append-to-body="true">
-    <LoadingBlock v-if="loading" label="正在加载智能体详情…" />
+    <LoadingSkeleton v-if="loading" variant="card" />
     <ErrorState v-else-if="error" :message="error" @retry="agentId && load(agentId)" />
 
     <div v-else-if="detail" class="detail">

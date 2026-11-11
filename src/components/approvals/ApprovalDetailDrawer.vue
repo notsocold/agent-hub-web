@@ -3,7 +3,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 
 import ErrorState from '@/components/common/ErrorState.vue'
-import LoadingBlock from '@/components/common/LoadingBlock.vue'
+import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
 import RedactedJson from '@/components/common/RedactedJson.vue'
 import StatusBadge from '@/components/common/StatusBadge.vue'
 import { ApiRequestError } from '@/api/client'
@@ -107,7 +107,7 @@ onUnmounted(() => {
 
 <template>
   <el-drawer v-model="open" title="审批详情" :size="drawerSize" :append-to-body="true">
-    <LoadingBlock v-if="loading" label="正在加载审批详情…" />
+    <LoadingSkeleton v-if="loading" variant="card" />
     <ErrorState v-else-if="error" :message="error" @retry="approvalId && load(approvalId)" />
 
     <div v-else-if="detail" class="detail">

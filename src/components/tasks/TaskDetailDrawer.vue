@@ -4,7 +4,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 import ErrorState from '@/components/common/ErrorState.vue'
-import LoadingBlock from '@/components/common/LoadingBlock.vue'
+import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
 import StatusBadge from '@/components/common/StatusBadge.vue'
 import { tasksApi } from '@/api/tasks'
 import { formatDateTime, formatDuration } from '@/utils/format'
@@ -287,7 +287,7 @@ onUnmounted(() => {
 
 <template>
   <el-drawer v-model="open" title="任务详情" :size="drawerSize" :append-to-body="true">
-    <LoadingBlock v-if="loading" label="正在加载任务详情…" />
+    <LoadingSkeleton v-if="loading" variant="card" />
     <ErrorState v-else-if="error" :message="error" @retry="taskId && load(taskId)" />
 
     <div v-else-if="detail" class="detail">

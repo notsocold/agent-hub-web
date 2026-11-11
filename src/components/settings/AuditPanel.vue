@@ -4,7 +4,7 @@ import { ElMessage } from 'element-plus'
 
 import EmptyState from '@/components/common/EmptyState.vue'
 import ErrorState from '@/components/common/ErrorState.vue'
-import LoadingBlock from '@/components/common/LoadingBlock.vue'
+import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
 import RedactedJson from '@/components/common/RedactedJson.vue'
 import { ApiRequestError } from '@/api/client'
 import { auditApi } from '@/api/audit'
@@ -432,7 +432,7 @@ async function copyRequestId(): Promise<void> {
     </form>
 
     <ErrorState v-if="error" :message="error" @retry="load" />
-    <LoadingBlock v-else-if="loading" label="正在加载审计日志…" />
+    <LoadingSkeleton v-else-if="loading" />
     <EmptyState
       v-else-if="items.length === 0"
       title="暂无审计记录"

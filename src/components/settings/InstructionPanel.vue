@@ -3,7 +3,7 @@ import { computed, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 import ErrorState from '@/components/common/ErrorState.vue'
-import LoadingBlock from '@/components/common/LoadingBlock.vue'
+import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
 import { instructionsApi } from '@/api/instructions'
 import { useSystemStore } from '@/stores/system'
 import type { InstructionState } from '@/types'
@@ -103,7 +103,7 @@ async function resetDefault(): Promise<void> {
 
     <CapabilityGate :enabled="enabled" name="指令" hint="后端尚未开启指令能力，无法查看或编辑生效指令。">
       <ErrorState v-if="error" :message="error" @retry="load" />
-      <LoadingBlock v-else-if="loading" label="正在加载指令…" />
+      <LoadingSkeleton v-else-if="loading" variant="text" />
 
       <template v-else-if="state">
         <p class="desc">

@@ -4,7 +4,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 
 import EmptyState from '@/components/common/EmptyState.vue'
 import ErrorState from '@/components/common/ErrorState.vue'
-import LoadingBlock from '@/components/common/LoadingBlock.vue'
+import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
 import StatusBadge from '@/components/common/StatusBadge.vue'
 import { ApiRequestError } from '@/api/client'
 import { secretsApi } from '@/api/secrets'
@@ -275,7 +275,7 @@ async function removeSecret(row: unknown): Promise<void> {
       </div>
 
       <ErrorState v-if="error" :message="error" @retry="load" />
-      <LoadingBlock v-else-if="loading" label="正在加载平台密钥…" />
+      <LoadingSkeleton v-else-if="loading" />
       <EmptyState
         v-else-if="items.length === 0"
         title="暂无平台密钥"

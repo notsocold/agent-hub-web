@@ -4,7 +4,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 
 import EmptyState from '@/components/common/EmptyState.vue'
 import ErrorState from '@/components/common/ErrorState.vue'
-import LoadingBlock from '@/components/common/LoadingBlock.vue'
+import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
 import { skillsApi } from '@/api/skills'
 import { useCapabilitiesStore } from '@/stores/capabilities'
 import { useSystemStore } from '@/stores/system'
@@ -251,7 +251,7 @@ async function removeSkill(): Promise<void> {
       </div>
 
       <ErrorState v-if="error" :message="error" @retry="load" />
-      <LoadingBlock v-else-if="loading" label="正在加载技能…" />
+      <LoadingSkeleton v-else-if="loading" />
       <EmptyState
         v-else-if="items.length === 0"
         title="暂无技能"
@@ -333,7 +333,7 @@ async function removeSkill(): Promise<void> {
     </el-dialog>
 
     <el-drawer v-model="detailOpen" title="技能详情" size="480px" :append-to-body="true">
-      <LoadingBlock v-if="detailLoading" label="正在加载技能详情…" />
+      <LoadingSkeleton v-if="detailLoading" variant="card" />
       <ErrorState v-else-if="detailError" :message="detailError" @retry="detail && openDetail(detail)" />
 
       <div v-else-if="detail" class="detail">
