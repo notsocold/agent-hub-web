@@ -45,14 +45,18 @@ test.describe('命令面板', () => {
 
     await page.keyboard.press('Control+K')
     const input = page.getByRole('combobox', { name: '搜索页面、会话或当前会话消息' })
-    await input.fill('工单')
+    await input.fill('data-analyst')
 
-    const messageOption = page.getByRole('option', { name: /工单/ }).last()
+    // 页面组没有该文本，命中的只可能是当前会话消息；两条消息都提到它，取最近一条。
+    const messageOption = page.getByRole('option', { name: /data-analyst/ }).first()
     await expect(messageOption).toBeVisible()
     await messageOption.click()
 
     await expect(page.getByRole('dialog', { name: '全局搜索' })).toHaveCount(0)
-    await expect(page.getByText('工单').first()).toBeVisible()
+    // 用消息行断言真正滚进了视口，避免被页面标题「Q3 客服工单周报」误判为通过。
+    await expect(
+      page.locator('.message-row', { hasText: 'data-analyst' }).first(),
+    ).toBeInViewport()
   })
 
   test('移动端顶栏搜索按钮可以打开面板', async ({ page }) => {

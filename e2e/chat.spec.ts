@@ -51,8 +51,8 @@ test.describe('长会话虚拟滚动', () => {
     const latest = page.getByText('第 500 轮回答：第 999 条工单字段映射一致。')
     await expect(latest).toBeVisible({ timeout: 20_000 })
 
-    // 虚拟滚动：DOM 里只保留视口附近的行，而不是整页 100 条。
-    expect(await rows.count()).toBeLessThan(60)
+    // 虚拟滚动：DOM 里只保留视口附近的行，而不是整页 100 条（设计阈值 < 50）。
+    expect(await rows.count()).toBeLessThan(50)
 
     const before = await latest.boundingBox()
     const list = page.locator('.message-list')
@@ -68,6 +68,26 @@ test.describe('长会话虚拟滚动', () => {
     const after = await latest.boundingBox()
     expect(before && after).toBeTruthy()
     if (before && after) expect(Math.abs(after.y - before.y)).toBeLessThan(40)
+  })
+
+  test('上滑阅读时发送新消息不拉回底部', async ({ page }) => {
+    await login(page)
+    await page.goto(`/chat?c=${LONG_CONVERSATION_ID}`)
+    await expect(page.locator('.message-row').first()).toBeVisible({ timeout: 20_000 })
+
+    const list = page.locator('.message-list')
+    await list.evaluate((element) => {
+      element.scrollTop = Math.max(0, element.scrollTop - 1200)
+    })
+    const offsetBefore = await list.evaluate((element) => element.scrollTop)
+
+    await page.getByRole('textbox', { name: '输入消息' }).fill('上滑后发送的消息')
+    await page.getByRole('button', { name: '发送' }).click()
+    await expect(page.getByRole('button', { name: '发送' })).toBeVisible({ timeout: 30_000 })
+
+    // append 用户消息、流式 assistant 与执行过程行都不应把正在阅读的视口拉走。
+    const offsetAfter = await list.evaluate((element) => element.scrollTop)
+    expect(Math.abs(offsetAfter - offsetBefore)).toBeLessThan(80)
   })
 
   test('上滑离开底部后出现回到底部按钮', async ({ page }) => {

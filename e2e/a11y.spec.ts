@@ -7,6 +7,15 @@ import { login } from './fixtures'
  * 可访问性门禁：critical / serious 必须为 0。
  * 只扫用户实际会停留的主要界面与高风险新交互（命令面板）。
  */
+/** 等异步数据加载完（骨架屏消失）再扫描，避免只扫到加载态。 */
+async function waitReady(page: Page): Promise<void> {
+  // 骨架屏消失即视为异步数据已就绪（页面本就没有骨架屏时立即通过）。
+  await page
+    .locator('.loading-skeleton')
+    .waitFor({ state: 'detached', timeout: 15_000 })
+    .catch(() => undefined)
+}
+
 async function scan(page: Page) {
   const results = await new AxeBuilder({ page })
     .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
@@ -39,6 +48,14 @@ test.describe('可访问性扫描', () => {
     await page.getByRole('textbox', { name: '输入消息' }).fill('可访问性扫描样本')
     await page.getByRole('button', { name: '发送' }).click()
     await expect(page.getByRole('button', { name: '发送' })).toBeVisible({ timeout: 30_000 })
+    await waitReady(page)
+    expect(describeViolations(await scan(page))).toEqual([])
+
+    // 运行详情抽屉包含 9px 工具徽标，单独覆盖一次。
+    await page.getByRole('button', { name: '运行详情' }).click()
+    await expect(page.getByRole('complementary', { name: '运行详情' })).toBeVisible({
+      timeout: 5_000,
+    })
     expect(describeViolations(await scan(page))).toEqual([])
   })
 
@@ -46,6 +63,12 @@ test.describe('可访问性扫描', () => {
     await login(page)
     await page.keyboard.press('Control+K')
     await expect(page.getByRole('dialog', { name: '全局搜索' })).toBeVisible()
+
+    // 输入关键词让 combobox + option 组合真正出现。
+    await page
+      .getByRole('combobox', { name: '搜索页面、会话或当前会话消息' })
+      .fill('设置')
+    await expect(page.getByRole('option', { name: /设置/ })).toBeVisible()
     expect(describeViolations(await scan(page))).toEqual([])
   })
 
@@ -53,6 +76,7 @@ test.describe('可访问性扫描', () => {
     await login(page)
     await page.goto('/approvals')
     await expect(page.getByRole('heading', { name: '审批', level: 1 })).toBeVisible()
+    await waitReady(page)
     expect(describeViolations(await scan(page))).toEqual([])
   })
 
@@ -60,6 +84,7 @@ test.describe('可访问性扫描', () => {
     await login(page)
     await page.goto('/knowledge')
     await expect(page.getByRole('heading', { name: '知识库', level: 1 })).toBeVisible()
+    await waitReady(page)
     expect(describeViolations(await scan(page))).toEqual([])
   })
 
@@ -67,6 +92,7 @@ test.describe('可访问性扫描', () => {
     await login(page)
     await page.goto('/settings')
     await expect(page.getByRole('heading', { name: '设置', level: 1 })).toBeVisible()
+    await waitReady(page)
     expect(describeViolations(await scan(page))).toEqual([])
   })
 
@@ -75,10 +101,12 @@ test.describe('可访问性扫描', () => {
 
     await page.goto('/agents')
     await expect(page.getByRole('heading', { name: '智能体', level: 1 })).toBeVisible()
+    await waitReady(page)
     expect(describeViolations(await scan(page))).toEqual([])
 
     await page.goto('/tasks')
     await expect(page.getByRole('heading', { name: '任务', level: 1 })).toBeVisible()
+    await waitReady(page)
     expect(describeViolations(await scan(page))).toEqual([])
   })
 })
