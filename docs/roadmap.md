@@ -4,6 +4,8 @@
 >
 > **2026-11-11 后端新增立项**：M7 契约补齐与安全收口、M8 管理台后端、M9 工作流后端。前端按同名同义原则新增 **M7 前端适配**、**M8 前端管理台（v8 全量）**、**M9 前端工作流**；原 X1/X2 不再作为「未立项」保留。
 >
+> **2026-11-11 更新**：后端 M7 已交付，前端 M7 已完成接入并真实联调（续流、事件回放、写操作 RBAC、审批字段、授权链接容错、401/503 文案、Nginx 续流 location）；M8/M9 前端仍待后端契约。
+>
 > 本版（2026-11-11）同时修正了 M6 后端状态（已完成）、F1 收尾状态与测试口径，并把原计划的 F2 纯前端收尾并入 M7 前端。规划详情见[对齐设计](superpowers/specs/2026-11-11-m7-m9-frontend-alignment-design.md)。
 >
 > 历史说明：旧版前端 M3「审批」、M5「体验与可访问性」已作废；M3「A2A 入站」因 2026-11-10 需求变更取消（服务仅出站），保留编号空位。
@@ -29,7 +31,7 @@
 | M4 | 知识库 RAG | 知识库页 + 引用 | 已完成（2026-11-10） | 已联调（2026-11-10） | `smoke:m4` 41/40 项 + `test:real` M4 3 例 |
 | M5 | 审批与安全加固 | 对话内审批 + 权限/安全 UX | 已完成（2026-11-10） | 已联调（2026-11-11） | `smoke:m5` 163 项 + `test:real` M5 3 例 |
 | M6 | 生产化与可观测 | 生产化 + E2E + 断线续传 | 已完成（2026-11-11，582 测试） | 已完成（2026-11-11） | `pnpm size` / `pnpm e2e` / `pnpm verify:nginx` |
-| **M7** | **契约补齐与安全收口** | **续流 + 权限边界 + 安全 UX** | **已立项（2026-11-11），未开始** | **未开始**（可先做契约类型/mock/纯前端收尾） | 单测 + mock 续流 + `test:real` M7 用例 |
+| **M7** | **契约补齐与安全收口** | **续流 + 权限边界 + 安全 UX** | **已完成（2026-11-11）** | **已联调（2026-11-11）** | `smoke:m7` 48 项 + `test:real` M7 5 例 + 续流/回放单测 |
 | **M8** | **管理台后端（原 X2）** | **管理控制台 v8 全量** | **已立项（2026-11-11），未开始** | **未开始**（依赖 M8 后端） | 七页 E2E + `smoke` 管理端用例 |
 | **M9** | **工作流后端（原 X1）** | **工作流管理 + 运行** | **已立项（2026-11-11），未开始（先 spike）** | **未开始**（依赖 M9 spike 与契约） | 3 步模板联调 + `workflow.step` |
 | F1 | —（横切） | 体验与可访问性 | — | 已完成（2026-11-11，本地未推送） | `pnpm test` / `pnpm e2e` / axe |
@@ -150,30 +152,31 @@
 >
 > **2026-11-11 全量证据**：`pnpm test` 44 文件 / 232 用例通过；`pnpm type-check`、`pnpm build`、`pnpm size`、`pnpm e2e` 10 passed、`pnpm verify:nginx` 与 `--check-deploy` exit 0。
 
-### M7 契约补齐与安全收口（后端已立项，前端未开始）
+### M7 契约补齐与安全收口（前后端均已完成，2026-11-11）
 
 后端目标（M7）：`GET /runs/{id}/events` 补 `event` 字段；新增 `GET /runs/{id}/stream?after_seq=` SSE 续流端点；agents/tasks 写接口收紧到管理员（403）；`approval.required` 补 5 个展示字段；A2A `authorization_url` 白名单；契约文档/OpenAPI/handoff 同步。无迁移。
 
 前端范围（详见[对齐设计](superpowers/specs/2026-11-11-m7-m9-frontend-alignment-design.md) §3）：
 
-- [ ] M7-F1 续流：`src/api/runs.ts` 新增 `openRunStream`（fetch + Bearer + `after_seq`）；`chat` store 重连改为「续流优先、失败回退轮询」；`400 replay_too_large` 回退分页。
-- [ ] M7-F2 事件回放：`RunEvent.event` 进入类型与 reducer；支持按事件名重放补卡；按 `seq` 去重。
-- [ ] M7-F3 权限边界：agents/tasks 写入口按 `role=admin` 显隐/禁用；403 `forbidden` 统一文案；管理员入口按角色。
-- [ ] M7-F4 审批字段：`approval.required` 的 `tool_display_name/executor/target/side_effect/payload_preview` 直接渲染；详情请求保留兜底。
-- [ ] M7-F5 授权链接：跟随后端白名单，非法/缺失链接显示「授权链接不可用」；补容错用例。
-- [ ] M7-F6 纯前端收尾：登录 401 文案（不触发 refresh）、全局 503 统一文案、管理员入口（与 F3 合并验收）。
-- [ ] M7-F7 契约与门禁：类型/mock/fixtures/OpenAPI 手写类型同步；单测 + mock 续流 E2E；后端落地后 `test:real` M7 用例。
-- [ ] M7-F8 部署配置：`deploy/nginx.conf` 为 `/api/v1/runs/{id}/stream` 增加 SSE location（`proxy_buffering off` / `proxy_cache off` / `gzip off` / 长读超时），`deploy/README.md` 与 `pnpm verify:nginx` 同步；否则生产续流会被缓冲或 60s 截断。
+- [x] M7-F1 续流：`src/api/runs.ts` 新增 `runsApi.stream`（fetch + Bearer + `after_seq`）；`chat` store 重连改为「续流优先、失败回退轮询」；`400 replay_too_large`/404 回退轮询，不重试同一 `after_seq`。
+- [x] M7-F2 事件回放：`RunEvent.event` 进入类型；`replayPersistedEvents` 按事件名重放补卡；`seq` 单调去重；轨迹面板展示事件名。
+- [x] M7-F3 权限边界：`auth.isAdmin` 驱动 agents/tasks 写入口（含两个详情抽屉）显隐；403 `forbidden` 统一文案「当前账号无管理员权限」。
+- [x] M7-F4 审批字段：`approval.required` 的 5 字段直接渲染；`payload_preview` 缺 payload 时作为脱敏预览展示，两者皆无时明确提示。
+- [x] M7-F5 授权链接：共享 `isSafeAuthorizationUrl`，非法/缺失链接显示「授权链接不可用，请联系管理员」且不渲染可点击按钮。
+- [x] M7-F6 纯前端收尾：登录/注册 401 不进入 refresh、直接展示后端文案；`database_unavailable`/`service_unavailable` 统一 503 文案；管理员入口按角色。
+- [x] M7-F7 契约与门禁：类型/mock/fixtures 同步（含 mock 续流端点与 run 事件落库）；续流/回放/RBAC/文案单测；`test:real` M7 用例；`pnpm test` 317 例全绿。
+- [x] M7-F8 部署配置：`deploy/nginx.conf` 为正则 location 续流端点增加 SSE 参数；`--check-deploy` 增加 7 项静态断言（含 `/api/` 不得 `^~` 抢占）；`deploy/README.md` 同步。
 
 启动条件：后端 M7 契约冻结（以 handoff/OpenAPI 为准）。**前端可先做**：类型、mock、续流状态机单测、B-1/B-2/B-3 纯前端修复。
 
-验收：
+验收（2026-11-11 已完成）：
 
 - 断线后从 `lastSeq` 续流：已落库事件回放 + 实时事件不重复；断线窗口内未落库的 `message.delta` 不承诺补齐，终态 `refreshHistory()` 仍是必需步骤；
-- `400 replay_too_large` 正确降级；终态关闭并 `refreshHistory()`；
-- 普通用户写 agents/tasks 入口不可见、直接调用 403 文案正确；管理员成功；
-- 审批卡直接用事件字段渲染（兜底请求不触发）；
-- `pnpm test` / `type-check` / `lint` / `build` / `e2e`（mock）通过；真实联调待后端 M7 落地。
+- `400 replay_too_large` 降级轮询；404 结束恢复并刷新历史；终态关闭并 `refreshHistory()`；
+- 普通用户写 agents/tasks 入口不可见（含详情抽屉）、直接调用 403 文案正确；
+- 审批卡直接用事件字段渲染，`payload_preview` 脱敏展示；
+- 门禁：`pnpm test` 317 例、`type-check`、`lint`、`build`、`size`、`e2e` 28 例、`verify:nginx --check-deploy` 全绿；
+- 真实联调：`smoke:m7` 48 项、`test:real` 中 M7 5 例全绿（M4 入库/LLM 相关用例受本地 embedding/key 限制，见交付报告）。
 
 风险：续流端点单实例；排水不拦截新流；生产 Nginx 未给续流端点配 SSE location 会导致逐帧失效或 60s 截断（M7-F8 必须与功能同批交付）；真实 LLM key 占位导致真实增量续流证据受限；续流与旧轮询需状态机互斥。
 
@@ -279,6 +282,7 @@
 
 ## 7. 变更记录
 
+- **2026-11-11（M7 前端）**：M7 前端适配完成并真实联调：`runsApi.stream` 续流优先重连、事件回放 `event` 补卡、agents/tasks 写入口按管理员显隐、审批 5 字段/预览、授权链接白名单容错、登录 401 与 503 文案、Nginx 续流 location 与静态断言。门禁 `pnpm test` 317 例、`e2e` 28 例、`size`、`verify:nginx` 全绿；真实证据 `smoke:m7` 48 项 + `test:real` M7 5 例；详见[M7 前端交付报告](handoff/2026-11-11-m7-frontend-report.md)。
 - **2026-11-11（PA-1 原型靠拢）**：第一次向 v7/v8 原型靠拢：单侧栏、删除审批页改为对话内审批、运行轨迹常驻右栏、设置页长滚动 + 修改密码、过程摘要/色卡/Agent 输出抽屉；详见 §3.1。
 - **2026-11-11（M7–M9 对齐）**：后端新增 M7 契约补齐与安全收口、M8 管理台、M9 工作流立项；前端新增 M7 前端适配、M8 管理台（v8 全量，无契约三页只读）、M9 工作流；X1/X2 升级为 M9/M8；原 F2 纯前端收尾并入 M7；M6 后端状态改已完成；文档同步 README/api/pages/architecture/development/handoff；设计见[对齐设计](superpowers/specs/2026-11-11-m7-m9-frontend-alignment-design.md)。
 - **2026-11-11（F1 前端）**：F1 体验与可访问性完成：虚拟滚动、Markdown LRU 缓存、三态统一、⌘K 命令面板、可访问性、消息密度偏好与设置页「界面」分区。本地提交未推送；服务端偏好同步与 v7 像素级视觉还原仍待后续。

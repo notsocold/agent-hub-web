@@ -1,6 +1,6 @@
 # 开发指南
 
-> **当前状态：M0–M6 前端已实现并完成真实联调（M6 为生产化收口），F1 体验与可访问性已收口；M7/M8/M9 已随后端立项进入规划，未开工。开发环境默认使用内置 mock。**
+> **当前状态：M0–M7 前端已实现并完成真实联调（M7 为契约补齐：续流/事件回放/RBAC/审批字段/文案），F1 体验与可访问性已收口；M8 管理台、M9 工作流仍待后端契约。开发环境默认使用内置 mock。**
 > 登录/注册、应用布局（单侧栏）、对话工作台（对话内审批、常驻运行轨迹）、个人能力设置、智能体/任务/知识库页、审计/平台密钥可用；工作流为 M9 骨架 + mock，管理台为 M8 规划页。
 > 后端联调时在 `.env.development.local` 设置 `VITE_USE_MOCK=false`（`.env.development` 会覆盖 `.env.local`）。
 
@@ -20,9 +20,9 @@
 | `pnpm install` | 安装依赖 |
 | `pnpm dev` | 开发服务器（5173，热更新） |
 | `pnpm build` | 类型检查 + 生产构建 |
-| `pnpm test` | Vitest 单测（232 个用例，无需后端） |
+| `pnpm test` | Vitest 单测（317 个用例，无需后端） |
 | `pnpm test:watch` | Vitest 监听模式 |
-| `pnpm e2e` | Playwright E2E（mock 构建，10 例） |
+| `pnpm e2e` | Playwright E2E（mock 构建，28 例） |
 | `pnpm size` | 构建产物体积门禁（gzip） |
 | `pnpm verify:nginx` | Nginx SSE 代理对照验证（需已有 nginx 容器） |
 | `pnpm preview` | 预览构建产物 |
@@ -33,7 +33,8 @@
 | `pnpm smoke:m15` | M1.5 能力层冒烟（附件/指令/记忆/技能/MCP/审批） |
 | `pnpm smoke:m4` | 知识库真实冒烟（需后端 8000 与开发账号） |
 | `pnpm smoke:m5` | 审批/审计/平台密钥/聊天 429 真实冒烟（最后会占用约 60s 聊天限流窗口） |
-| `pnpm test:real` | 真实后端 vitest 联调（M1/M2/M4/M5；需 `VITE_API_BASE_URL`） |
+| `pnpm smoke:m7` | M7 契约冒烟：事件回放 `event`、SSE 续流/after_seq、写操作 403（会注册一个普通 smoke 账号） |
+| `pnpm test:real` | 真实后端 vitest 联调（M1/M2/M4/M5/M7；需 `VITE_API_BASE_URL`） |
 
 首次拉取后建议先跑 `pnpm install && pnpm build`，确认环境正常。
 
@@ -57,6 +58,12 @@ mock 登录：任意邮箱 + 8 位以上密码；输入 `wrong-password` 可测�
 3. 平台密钥与全局审计需要管理员：用后端 `scripts/grant_admin.py <email>` 临时提权；`scripts/seed_dev_account.py` 不会自动提权。
 4. `LLM_API_KEY` 若为占位符，聊天会 401，真实「审批 → 恢复 → 继续输出」无法触发；此时以 mock 流、reducer 单测和后端测试证据为准。
 5. `smoke:m5` 的聊天限流探测会占用约 60s 窗口，建议放在 `test:real` 之后运行。
+
+### M7 联调前置（2026-11-11）
+
+1. 后端为 M7（`GET /runs/{id}/stream?after_seq=`、`RunEventOut.event`、agents/tasks 写操作 `AdminUser`）。
+2. `smoke:m7` 会创建一次聊天 run（LLM key 占位时以 `llm_error` 结束，事件仍落库），并创建一个普通账号 `smoke-m7@example.com` 用于 403 断言；注册受 5 次/小时/IP 限流，已存在则直接登录。
+3. `pnpm test:real` 中的 M7 用例（`scripts/real-m7.spec.ts`）同样需要后端；若登录/注册被限流，先等待窗口恢复或用 `scripts/seed_dev_account.py` 预置账号。
 
 ## 3. 目录与命名
 

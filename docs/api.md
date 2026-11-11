@@ -265,15 +265,21 @@ approval.required ──> run.interrupted(非终态，SSE 保持) ──决定�
 - Markdown 外链：同源/锚点/`mailto:`/`tel:` 直接放行，其他域名二次确认后 `noopener,noreferrer` 新标签打开；
 - 输出打码与注入检测由后端完成，前端不新增假 UI；审计页可检索 `security.injection_suspected` / `security.output_redacted`。
 
-### 12.5 断线续流现状（M7 已立项，未完成）
+### 12.5 断线续流现状（M7 已接入，2026-11-11）
 
-`GET /runs/{id}/events?after_seq=` 的响应目前剔除了 `payload._event` 且 `type` 仅分类（run/message/tool/…），前端无法还原事件名做 reducer 重放。当前断线恢复为：轮询 `GET /runs/{id}` 状态、进入会话时用 `GET /approvals?run_id=&status=pending` 补审批卡、终态后 `refreshHistory()` 拉服务端消息。
+后端 M7 已交付：`RunEventOut` 新增 `event` 字段，并新增 `GET /runs/{id}/stream?after_seq=` SSE 续流端点。前端已按下一节接入：
 
-后端 **M7 已立项**（2026-11-11）：`RunEventOut` 新增 `event` 字段，并新增 `GET /runs/{id}/stream?after_seq=` SSE 续流端点。M7 交付前，前端保持上述轮询降级；交付后按下一节接入增量续流（已落库事件回放 + 实时增量）。
+- 断线重连改为**续流优先**：`GET /runs/{id}` 校验 → `runsApi.stream(runId, lastSeq)` → 回放已落库事件 + 跟随实时；
+- `lastSeq` 单调去重，回放与实时事件走同一个 `reduceChat`；
+- 400 `replay_too_large` / 404 / 连接失败回退「轮询 + 待审批补卡 + 终态 `refreshHistory()`」；
+- `message.delta` 不落库，断线窗口内的逐字文本仍由终态 `refreshHistory()` 补齐，不承诺逐字续传；
+- 进入会话/恢复运行时会用 `GET /runs/{id}/events` 的 `event` 回放补卡（工具/审批/通知等）。
 
-## 13. M7–M9 契约增量（已立项，2026-11-11）
+真实证据：`scripts/smoke-m7-backend.mjs` 48 项（2026-11-11 实测）、`scripts/real-m7.spec.ts`、`pnpm test` 中的续流/回放单测。
 
-> 状态：后端已立项、未开始。以下为前端规划消费的契约草案，落地以后端 handoff 与 OpenAPI 为准；对照设计见 [`superpowers/specs/2026-11-11-m7-m9-frontend-alignment-design.md`](superpowers/specs/2026-11-11-m7-m9-frontend-alignment-design.md)。
+## 13. M7–M9 契约增量（2026-11-11）
+
+> 状态：**M7 后端已落地（2026-11-11），前端已接入并完成真实联调**；M8/M9 仍为已立项、未开始的草案，落地以后端 handoff 与 OpenAPI 为准。对照设计见 [`superpowers/specs/2026-11-11-m7-m9-frontend-alignment-design.md`](superpowers/specs/2026-11-11-m7-m9-frontend-alignment-design.md)。
 
 ### 13.1 事件回放补 `event`
 

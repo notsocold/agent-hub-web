@@ -1,7 +1,7 @@
 # 前端架构
 
 - 项目：Agent Hub Web（`agent-hub-web`）
-- 状态：M0–M6 已完成（M4/M5 已联调，M6 生产化收口）；F1 体验与可访问性已收口；M7/M8/M9 已随后端立项进入规划（未开工）；M3「A2A 入站」已取消（仅出站）
+- 状态：M0–M7 已完成（M7 续流/事件回放/RBAC/审批字段已真实联调）；F1 体验与可访问性已收口；M8 管理台、M9 工作流待后端契约；M3「A2A 入站」已取消（仅出站）
 - 更新时间：2026-11-11
 
 ## 1. 目标
@@ -92,7 +92,7 @@ sequenceDiagram
 - `approval.required` 插入审批卡（一轮可多张），随后 `run.interrupted` 把 run 置为 `interrupted`（**非终态**，SSE 保持连接）；用户决定后后端调度 `Command(resume)`，前端收到 `run.resumed` 再继续消费同一流；中间决定返回 `resumed=false` + `本轮还有其他审批待处理` 属正常；
 - 审批超时：`message.done(finish_reason="canceled", reason="approval_timeout")`，审批卡置为不可操作并提示本轮取消；
 - `message.done` 结束本轮，刷新会话列表的 `last_message_at`；
-- 断线：M6 已实现自动重连（退避 5 次/60s）、重连前 `GET /runs/{id}` 校验并回填 `conversation_id`、`lastSeq` 去重；M7 后端交付后改用 `GET /runs/{id}/stream?after_seq=` 增量续流（已落库事件回放 + 实时增量），失败回退「轮询 + 待审批补卡 + 终态 `refreshHistory()`」；`message.delta` 不落库，断线窗口文本不承诺补齐；事件回放的 `event` 字段用于 reducer 重放（M7）；
+- 断线：M6 实现自动重连（退避 5 次/60s）、重连前 `GET /runs/{id}` 校验并回填 `conversation_id`、`lastSeq` 去重；**M7 起重连改为续流优先**：`GET /runs/{id}/stream?after_seq=` 增量续流（已落库事件回放 + 实时增量），400 `replay_too_large` / 404 / 连接失败回退「轮询 + 待审批补卡 + 终态 `refreshHistory()`」；`message.delta` 不落库，断线窗口文本不承诺补齐；事件回放的 `event` 字段用于 reducer 重放（`replayPersistedEvents`）；
 - 未知事件忽略并记录 debug 日志，不中断流。
 
 ### 4.1.1 M5 审批与安全组件结构
@@ -198,7 +198,7 @@ await fetchEventSource('/api/v1/chat/stream', {
 - 后端默认「断开不取消」；前端重连后按 `run_id` 拉最终状态；
 - 断线重试 5 次 / 总窗口 60s（1/2/4/8/16s ±20%），`message.done` 后不重连（M6）；
 - 重连前 `GET /runs/{id}` 校验 run 并回填 `conversation_id`，用 `lastSeq` 去重；
-- M7 后续流端点 `GET /runs/{id}/stream?after_seq=`：先回放已落库事件再跟随实时，终态关闭；失败或 400 `replay_too_large` 回退轮询；
+- M7 续流端点 `GET /runs/{id}/stream?after_seq=`：先回放已落库事件再跟随实时，终态关闭；`replay_too_large`/404/连接失败回退轮询；续流失败不弹致命错误；
 - 不使用 `Last-Event-ID`；续流用 query `after_seq`（后端 M7 决策）。
 
 ## 8. 样式方案

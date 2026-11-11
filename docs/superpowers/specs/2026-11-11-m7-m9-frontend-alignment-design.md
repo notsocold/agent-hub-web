@@ -1,7 +1,7 @@
 # M7–M9 前端规划对齐设计
 
 - 日期：2026-11-11
-- 状态：**范围已确认，待评审**（本文件只定义前端规划，不代表已实施）
+- 状态：**M7 已实施并真实联调（2026-11-11）**；M8/M9 仍为规划。实施记录见 [M7 前端交付报告](../../handoff/2026-11-11-m7-frontend-report.md) 与 [实施计划](../plans/2026-11-11-m7-frontend-contract.md)。
 - 依据：
   - 后端 [`agent-hub/docs/roadmap.md`](../../../../../PythonProjects/agent-hub/docs/roadmap.md) 的 M7/M8/M9 立项（2026-11-11）
   - 后端 [M7–M9 立项设计](../../../../../PythonProjects/agent-hub/docs/superpowers/specs/2026-11-11-m7-m9-backend-roadmap-design.md)
