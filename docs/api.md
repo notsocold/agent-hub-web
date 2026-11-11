@@ -217,7 +217,7 @@ curl -N -X POST http://localhost:8000/api/v1/chat/stream \
 |---|---|---|
 | M3（已取消） | A2A 入站不实施：Agent Card 发布、JSON-RPC 入站端点、入站任务/会话、API Key 管理 | 服务仅出站；前端已移除设置页入站分区，`system/info.a2a` 不再读取（建议后端移除该字段） |
 | M4（已对齐） | 知识库端点、citations、`knowledge_categories` | 已实现并联调；仅剩「单文档重建 / 分类目录」缺口，前端用 retry 与文档聚合替代 |
-| M7（已立项） | 运行事件回放 `event`；`GET /runs/{id}/stream?after_seq=`；agents/tasks 写操作 403；`approval.required` 5 字段；A2A `authorization_url` 白名单 | 后端 2026-11-11 立项、未开始；前端先冻结类型/mock、修复登录 401/全局 503/管理员入口，后端 handoff 后联调 |
+| M7（已完成） | 运行事件回放 `event`；`GET /runs/{id}/stream?after_seq=`；agents/tasks 写操作 403；`approval.required` 5 字段；A2A `authorization_url` 白名单 | 前后端 2026-11-11 已完成并联调：续流/回放/RBAC/审批字段/授权链接/401/503 文案/Nginx 续流 location；详见 [`handoff/2026-11-11-m7-frontend-report.md`](handoff/2026-11-11-m7-frontend-report.md) |
 | M8（已立项） | 管理端用户/角色、系统指令/技能/MCP/Agent、概览 | 后端已立项、未开始（依赖 M7-2 RBAC）；前端 v8 全量，无契约三页只读 |
 | M9（已立项） | 工作流 `workflows`/`workflow_runs`、`chat/stream.workflow_id`、`workflow.step` | 后端已立项（先 spike）；前端保持骨架 + mock，契约冻结后再升级 |
 
