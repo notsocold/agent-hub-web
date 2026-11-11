@@ -1,5 +1,6 @@
 import type {
   A2aTaskDetail,
+  ChatEventName,
   A2aTaskListItem,
   Agent,
   AgentCreateRequest,
@@ -106,6 +107,45 @@ function paginate<T>(items: T[], query: PageQuery): PageResult<T> {
 }
 
 type ApprovalListener = (id: string, decision: 'approved' | 'rejected') => void
+type RunEventListener = (event: ChatEventName, data: Record<string, unknown>) => void
+type RunTerminalListener = () => void
+
+/** 事件分类：与后端 RunEvent.type 对齐（未知事件按 run 归类）。 */
+function eventTypeOf(event: ChatEventName): RunEvent['type'] {
+  if (event.startsWith('message.') || event.startsWith('reasoning.')) return 'message'
+  if (event.startsWith('skill.')) return 'skill'
+  if (event.startsWith('tool.')) return 'tool'
+  if (event.startsWith('a2a.')) return 'a2a'
+  if (event.startsWith('mcp.')) return 'mcp'
+  if (event.startsWith('approval.')) return 'approval'
+  if (event.startsWith('workflow.')) return 'workflow'
+  if (event === 'error') return 'error'
+  if (event === 'notice' || event === 'memory.saved') return 'notice'
+  if (event === 'run.started' || event === 'run.interrupted' || event === 'run.resumed') {
+    return 'run'
+  }
+  if (event === 'conversation.created') return 'request'
+  return 'run'
+}
+
+/** 事件展示状态：等待审批/等待输入，运行中，错误，其余 ok。 */
+function eventStatusOf(event: ChatEventName): RunEvent['status'] {
+  if (event === 'approval.required' || event === 'run.interrupted') return 'waiting'
+  if (event === 'run.started' || event === 'tool.start' || event === 'a2a.task') return 'running'
+  if (event === 'error') return 'error'
+  return 'ok'
+}
+
+function summarizeData(data: Record<string, unknown>): string {
+  try {
+    const text = JSON.stringify(data, (key, value) =>
+      key === 'seq' || key === 'ts' ? undefined : value,
+    )
+    return text.length > 120 ? `${text.slice(0, 120)}…` : text
+  } catch {
+    return ''
+  }
+}
 
 class MockDb {
   user: User = clone(mockUser)
@@ -135,6 +175,8 @@ class MockDb {
   attachmentContents: Record<string, string> = {}
 
   private approvalListeners = new Set<ApprovalListener>()
+  private runEventListeners = new Map<string, Set<RunEventListener>>()
+  private runTerminalListeners = new Map<string, Set<RunTerminalListener>>()
 
   constructor() {
     this.reset()
@@ -168,6 +210,8 @@ class MockDb {
     this.mcpTools = clone(mockMcpTools)
     this.attachmentContents = clone(mockAttachmentContents)
     this.approvalListeners.clear()
+    this.runEventListeners.clear()
+    this.runTerminalListeners.clear()
   }
 
   listConversations(query: { q?: string; status?: string } & PageQuery): PageResult<Conversation> {
@@ -1526,6 +1570,104 @@ class MockDb {
 
   getSystemInfo(): SystemInfo {
     return this.systemInfo
+  }
+
+  // ---------- M7：mock 运行事件续流基础设施 ----------
+
+  /** mock 聊天开始时登记 run，使 `GET /runs/{id}` 与续流端点可达。 */
+  upsertRun(run: Run): void {
+    this.runs[run.id] = run
+    if (!this.runEvents[run.id]) this.runEvents[run.id] = []
+  }
+
+  setRunStatus(id: string, status: Run['status'], error: Run['error'] = null): void {
+    const run = this.runs[id]
+    if (!run) return
+    run.status = status
+    run.error = error
+    if (status === 'succeeded' || status === 'failed' || status === 'canceled') {
+      run.finished_at = new Date().toISOString()
+      this.notifyRunTerminal(id)
+    }
+  }
+
+  /**
+   * 追加一条已落库事件并广播给续流订阅者。
+   * `message.delta` / `reasoning.delta` 不落库（与后端一致），由调用方跳过。
+   */
+  appendRunEvent(runId: string, event: ChatEventName, data: Record<string, unknown>): void {
+    const run = this.runs[runId]
+    if (!run) return
+    const seq = typeof data.seq === 'number' ? data.seq : this.runEvents[runId]!.length + 1
+    const record: RunEvent = {
+      id: `${runId}:${seq}`,
+      seq,
+      ts: typeof data.ts === 'string' ? data.ts : new Date().toISOString(),
+      type: eventTypeOf(event),
+      event,
+      status: eventStatusOf(event),
+      title: event,
+      subtitle: summarizeData(data),
+      duration_ms: typeof data.duration_ms === 'number' ? data.duration_ms : null,
+      tokens: null,
+      payload: data,
+      error: typeof data.message === 'string' && event === 'error' ? data.message : null,
+    }
+    const list = this.runEvents[runId]!
+    if (list.some((item) => item.seq === record.seq)) return
+    list.push(record)
+    list.sort((left, right) => left.seq - right.seq)
+    for (const listener of this.runEventListeners.get(runId) ?? []) {
+      listener(event, { ...data, seq })
+    }
+  }
+
+  subscribeRunEvents(runId: string, listener: RunEventListener): () => void {
+    const listeners = this.runEventListeners.get(runId) ?? new Set<RunEventListener>()
+    listeners.add(listener)
+    this.runEventListeners.set(runId, listeners)
+    return () => {
+      listeners.delete(listener)
+      if (listeners.size === 0) this.runEventListeners.delete(runId)
+    }
+  }
+
+  onRunTerminal(runId: string, listener: RunTerminalListener): () => void {
+    const listeners = this.runTerminalListeners.get(runId) ?? new Set<RunTerminalListener>()
+    listeners.add(listener)
+    this.runTerminalListeners.set(runId, listeners)
+    return () => {
+      listeners.delete(listener)
+      if (listeners.size === 0) this.runTerminalListeners.delete(runId)
+    }
+  }
+
+  private notifyRunTerminal(runId: string): void {
+    const listeners = this.runTerminalListeners.get(runId)
+    if (!listeners) return
+    this.runTerminalListeners.delete(runId)
+    for (const listener of listeners) listener()
+  }
+
+  /** 等待 run 终态；已终态时立即 resolve。mock 续流测试/实时跟随用。 */
+  waitRunTerminal(runId: string, signal: AbortSignal): Promise<void> {
+    const run = this.runs[runId]
+    if (!run || (run.status !== 'running' && run.status !== 'queued' && run.status !== 'interrupted')) {
+      return Promise.resolve()
+    }
+    return new Promise<void>((resolve, reject) => {
+      const off = this.onRunTerminal(runId, () => {
+        signal.removeEventListener('abort', onAbort)
+        resolve()
+      })
+      function onAbort(): void {
+        off()
+        const error = new Error('Aborted')
+        error.name = 'AbortError'
+        reject(error)
+      }
+      signal.addEventListener('abort', onAbort, { once: true })
+    })
   }
 }
 

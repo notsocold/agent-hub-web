@@ -307,6 +307,16 @@ export interface StreamHandlers {
   signal: AbortSignal
 }
 
+/**
+ * M6/M7：SSE 流处理器。`onClose` 只在服务端正常关闭连接时触发，
+ * 用于识别「静默关流但没收到 message.done」的断线。
+ *
+ * 放在 types 层供 `api/chat.ts` 与 `api/runs.ts` 共用，避免运行时循环依赖。
+ */
+export interface ChatStreamHandlers extends StreamHandlers {
+  onClose?: () => void
+}
+
 export type ProcessStatus = 'running' | 'waiting' | 'ok' | 'error' | 'skipped' | 'canceled'
 
 interface ProcessBase {

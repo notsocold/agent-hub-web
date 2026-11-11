@@ -75,6 +75,11 @@ export interface RunEvent {
   seq: number
   ts: string
   type: RunEventType
+  /**
+   * M7：原始 SSE 事件名（如 `tool.result`、`approval.required`）。
+   * 后端对无法识别的事件返回空串；前端不得猜测事件名。
+   */
+  event: string
   status: RunEventStatus
   title: string
   subtitle: string

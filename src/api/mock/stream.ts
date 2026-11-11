@@ -1,11 +1,15 @@
 import type { ChatEventName, ChatMessage, ChatStreamRequest, Citation } from '@/types'
 
+import { ApiRequestError } from '@/api/client'
+
 import { mockDb } from './db'
 
 export interface MockStreamHandlers {
   onOpen?: (runId: string | null) => void
   onEvent: (event: ChatEventName, data: unknown) => void
   onError: (error: Error) => void
+  /** M7：服务端正常关闭（续流回放完、run 终态）时触发。 */
+  onClose?: () => void
   signal: AbortSignal
 }
 
@@ -707,4 +711,52 @@ export async function mockChatStream(
     if (isAbort(error) || signal.aborted) return
     handlers.onError(error instanceof Error ? error : new Error(String(error)))
   }
+}
+
+const TERMINAL_RUN_STATUSES = new Set(['succeeded', 'failed', 'canceled'])
+
+/**
+ * M7：mock 的运行事件续流端点（`GET /runs/{id}/stream?after_seq=`）。
+ *
+ * 与真实后端语义对齐：run 不存在 → 404；先回放 `seq > afterSeq` 的已落库
+ * 事件（`event` 为空的事件跳过，不猜测事件名）；run 已终态则回放完即关闭，
+ * 未终态时订阅 mock 实时事件直到终态或 abort。
+ */
+export async function mockRunStream(
+  runId: string,
+  afterSeq: number,
+  handlers: MockStreamHandlers,
+  options: MockStreamOptions = {},
+): Promise<void> {
+  const frameDelay = options.frameDelay ?? 30
+  const run = mockDb.getRun(runId)
+  if (!run) {
+    throw new ApiRequestError('运行不存在', { code: 'not_found', status: 404 })
+  }
+
+  handlers.onOpen?.(runId)
+
+  const page = mockDb.listRunEvents(runId, { after_seq: afterSeq, limit: 500 })
+  for (const item of page?.items ?? []) {
+    if (handlers.signal.aborted) throw abortError()
+    if (!item.event) continue
+    await sleep(frameDelay, handlers.signal)
+    // 外层 seq 是事件的权威序号；payload 内即使有 seq 也以它为准去重。
+    handlers.onEvent(item.event as ChatEventName, { ...item.payload, seq: item.seq })
+  }
+
+  if (TERMINAL_RUN_STATUSES.has(run.status)) {
+    handlers.onClose?.()
+    return
+  }
+
+  const unsubscribe = mockDb.subscribeRunEvents(runId, (event, data) => {
+    if (!handlers.signal.aborted) handlers.onEvent(event, data)
+  })
+  try {
+    await mockDb.waitRunTerminal(runId, handlers.signal)
+  } finally {
+    unsubscribe()
+  }
+  handlers.onClose?.()
 }

@@ -8,17 +8,10 @@ import {
   refreshSession,
   resolveBaseUrl,
 } from './client'
-import type { ChatEventName, ChatStreamRequest, StreamHandlers } from '@/types'
+import type { ChatEventName, ChatStreamHandlers, ChatStreamRequest } from '@/types'
 import { storage } from '@/utils/storage'
 
-/**
- * 比通用 `StreamHandlers` 多一个 `onClose`：`fetch-event-source` 的 `onclose`
- * 只在服务端正常关闭连接时触发，用于识别「静默关流但没收到 message.done」
- * 的断线（设计 4.2 B4），交给 store 的重连状态机处理。
- */
-export interface ChatStreamHandlers extends StreamHandlers {
-  onClose?: () => void
-}
+export type { ChatStreamHandlers }
 
 /**
  * SSE 事件白名单。新增 `ChatEventDataMap` 事件时必须同步加入，
@@ -56,7 +49,7 @@ export function isChatEvent(value: string): value is ChatEventName {
   return CHAT_EVENTS.has(value as ChatEventName)
 }
 
-async function readErrorBody(response: Response): Promise<unknown> {
+export async function readErrorBody(response: Response): Promise<unknown> {
   try {
     return await response.json()
   } catch {
