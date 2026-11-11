@@ -653,10 +653,13 @@ async function cleanup() {
 
   log('\n==> 清理临时进程与文件')
 
-  // 1. 临时 nginx
+  // 1. 临时 nginx（只在本次确实启动过时读 pid 文件，避免误杀上一次遗留的进程）
   try {
-    const pid = readRemotePid(state.nginxPidFile)
-    if (pid) {
+    if (!state.startedNginx) {
+      log('  - 本次未启动临时 nginx，跳过')
+    } else {
+      const pid = readRemotePid(state.nginxPidFile)
+      if (pid) {
       killRemotePid(pid, 'TERM')
       let freed = await waitForPortFree(80, 5_000)
       if (!freed) {
@@ -664,27 +667,33 @@ async function cleanup() {
         await sleep(300)
         freed = await waitForPortFree(80, 2_000)
       }
-      if (!freed) problems.push('临时 nginx 已终止但容器 80 端口仍在监听')
-      else log('  - 临时 nginx 已停止，容器 80 端口已释放')
-    } else if (state.startedNginx) {
-      problems.push('临时 nginx 已启动但找不到 pid 文件，无法确认清理')
+        if (!freed) problems.push('临时 nginx 已终止但容器 80 端口仍在监听')
+        else log('  - 临时 nginx 已停止，容器 80 端口已释放')
+      } else {
+        problems.push('临时 nginx 已启动但找不到 pid 文件，无法确认清理')
+      }
     }
   } catch (error) {
     problems.push(`停止临时 nginx 失败：${error.message}`)
   }
 
-  // 2. nc -e 可能派生的 serve.sh 子进程
+  // 2. nc -e 可能派生的 serve.sh 子进程（只在启动过源时存在）
   try {
-    const leftover = killLeftoverServeProcesses()
-    if (leftover > 0) log(`  - 已终止残留 serve.sh 进程 ${leftover} 个`)
+    if (state.startedSource) {
+      const leftover = killLeftoverServeProcesses()
+      if (leftover > 0) log(`  - 已终止残留 serve.sh 进程 ${leftover} 个`)
+    }
   } catch (error) {
     problems.push(`清理 serve.sh 残留进程失败：${error.message}`)
   }
 
-  // 3. 假 SSE 源
+  // 3. 假 SSE 源（同样只清理本次启动的）
   try {
-    const pid = readRemotePid(state.sourcePidFile)
-    if (pid) {
+    if (!state.startedSource) {
+      log(`  - 本次未启动假 SSE 源，跳过`)
+    } else {
+      const pid = readRemotePid(state.sourcePidFile)
+      if (pid) {
       killRemotePid(pid, 'TERM')
       let freed = await waitForPortFree(SOURCE_PORT, 5_000)
       if (!freed) {
@@ -692,10 +701,11 @@ async function cleanup() {
         await sleep(300)
         freed = await waitForPortFree(SOURCE_PORT, 2_000)
       }
-      if (!freed) problems.push(`假 SSE 源已终止但容器 ${SOURCE_PORT} 端口仍在监听`)
-      else log(`  - 假 SSE 源已停止，容器 ${SOURCE_PORT} 端口已释放`)
-    } else if (state.startedSource) {
-      problems.push('假 SSE 源已启动但找不到 pid 文件，无法确认清理')
+        if (!freed) problems.push(`假 SSE 源已终止但容器 ${SOURCE_PORT} 端口仍在监听`)
+        else log(`  - 假 SSE 源已停止，容器 ${SOURCE_PORT} 端口已释放`)
+      } else {
+        problems.push('假 SSE 源已启动但找不到 pid 文件，无法确认清理')
+      }
     }
   } catch (error) {
     problems.push(`停止假 SSE 源失败：${error.message}`)
@@ -784,6 +794,22 @@ async function main() {
     return checkDeploy()
   }
   return runVerify()
+}
+
+// Node 默认收到 SIGINT/SIGTERM 会直接退出、不执行 finally，这里显式清理后再退出。
+let interrupted = false
+for (const signal of ['SIGINT', 'SIGTERM']) {
+  process.once(signal, () => {
+    if (interrupted) return
+    interrupted = true
+    console.error(`\n[中断] 收到 ${signal}，正在清理临时进程与文件...`)
+    void cleanup()
+      .then((problems) => {
+        for (const problem of problems) console.error(`  - ${problem}`)
+      })
+      .catch((error) => console.error(`[WARN] 清理异常：${error?.message ?? error}`))
+      .finally(() => process.exit(130))
+  })
 }
 
 let exitCode = 1

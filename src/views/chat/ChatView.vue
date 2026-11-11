@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 
@@ -27,6 +27,11 @@ const capabilityCatalog = useCapabilitiesStore()
 const traceOpen = ref(false)
 const model = ref('')
 const reasoningEffort = ref<ReasoningEffortId>('low')
+
+onUnmounted(() => {
+  // 离开对话页只停前端重连，不取消后端 run（约定断线不取消）。
+  if (chat.connection === 'reconnecting') chat.stopReconnect()
+})
 
 const suggestions = [
   '整理本周客服工单，生成一份团队周报',
@@ -270,7 +275,9 @@ function handleRecoveryRefresh(): void {
         v-if="chat.state.error && !chat.state.streaming"
         class="chat-error"
         :message="chat.state.error.message"
+        :code="chat.state.error.code"
         :request-id="chat.state.error.requestId"
+        :retryable="chat.state.error.retryable !== false"
         @retry="chat.retry()"
       />
 

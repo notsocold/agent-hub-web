@@ -1,4 +1,4 @@
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { defineStore } from 'pinia'
 
 import { approvalsApi } from '@/api/approvals'
@@ -6,6 +6,7 @@ import { openChatStream } from '@/api/chat'
 import { ApiRequestError, notifyUnauthorized } from '@/api/client'
 import { conversationsApi } from '@/api/conversations'
 import { runsApi } from '@/api/runs'
+import { setRuntimeContext } from '@/utils/diagnostics'
 import { MAX_RECONNECT_ATTEMPTS, RECONNECT_WINDOW_MS, nextReconnectDelay } from '@/utils/retry'
 import {
   clearPendingApproval,
@@ -300,9 +301,12 @@ export const useChatStore = defineStore('chat', () => {
     // 否则服务端「握手成功即断流」会让 5 次上限永远达不到。
     reconnectWindowStartedAt = null
     connection.value = 'open'
+    // 防御：重连若拿到不同的 run（后端违背幂等契约），保留旧 lastSeq 会把新 run
+    // 的 seq 1..N 全部丢弃，因此此时必须重置。
+    const runChanged = runId !== null && state.value.runId !== null && runId !== state.value.runId
     state.value = {
       ...state.value,
-      lastSeq: resetSeq ? 0 : state.value.lastSeq,
+      lastSeq: resetSeq || runChanged ? 0 : state.value.lastSeq,
       runId: runId ?? state.value.runId,
       runStatus: state.value.runStatus ?? 'running',
       streaming: true,
@@ -424,6 +428,8 @@ export const useChatStore = defineStore('chat', () => {
   function canAutoReconnect(error?: unknown): boolean {
     if (!lastAttempt.value || !state.value.runId) return false
     if (state.value.finishReason !== null || isTerminal(state.value.runStatus)) return false
+    // HITL 等待审批没有活动流，交给审批横幅 + 轮询，不进重连。
+    if (state.value.runStatus === 'interrupted') return false
     if (error instanceof ApiRequestError && error.status >= 400 && error.status < 500) return false
     return true
   }
@@ -859,7 +865,12 @@ export const useChatStore = defineStore('chat', () => {
       state.value = {
         ...state.value,
         streaming: false,
-        error: { code: error.code, message: error.message, retryable: false },
+        error: {
+          code: error.code,
+          message: error.message,
+          retryable: false,
+          requestId: error.requestId || undefined,
+        },
         recovery: {
           kind: 'stream_failed',
           code: error.code,
@@ -881,6 +892,7 @@ export const useChatStore = defineStore('chat', () => {
         code: error.code,
         message: error.message,
         retryable: true,
+        requestId: error.requestId || undefined,
       },
       recovery: {
         kind: 'stream_failed',
@@ -896,6 +908,8 @@ export const useChatStore = defineStore('chat', () => {
   async function startStream(attempt: ChatAttempt): Promise<void> {
     if (state.value.streaming || rateLimitActive.value) return
     controller?.abort()
+    // 降级态下用户点「重试发送」时，旧轮询必须停掉，否则会和新流互相覆盖状态。
+    clearPolling()
     resetReconnectBudget()
     connection.value = 'connecting'
     const currentController = new AbortController()
@@ -1362,6 +1376,15 @@ export const useChatStore = defineStore('chat', () => {
       recovery: null,
     }
   }
+
+  // 诊断抽屉的运行时上下文：chat store 是 run/conversation 的唯一来源。
+  watch(
+    () => [state.value.runId, state.value.conversationId] as const,
+    ([runId, conversationId]) => {
+      setRuntimeContext({ runId: runId ?? null, conversationId: conversationId ?? null })
+    },
+    { immediate: true },
+  )
 
   return {
     state,

@@ -1,11 +1,19 @@
 <script setup lang="ts">
 import { ElMessage } from 'element-plus'
 
-const props = defineProps<{
-  message: string
-  /** 后端错误信封里的 request_id；有值时展示并允许复制。 */
-  requestId?: string
-}>()
+const props = withDefaults(
+  defineProps<{
+    message: string
+    /** 错误码（error.code），用于排障与区分业务语义。 */
+    code?: string
+    /** 后端错误信封里的 request_id；有值时展示并允许复制。 */
+    requestId?: string
+    /** 后端标记不可重试时隐藏重试按钮（如 4xx 业务错误）。 */
+    retryable?: boolean
+  }>(),
+  // Vue 的 Boolean prop 缺省会被转成 false，这里显式默认 true。
+  { retryable: true },
+)
 
 const emit = defineEmits<{
   retry: []
@@ -26,14 +34,23 @@ async function copyRequestId(): Promise<void> {
   <div class="error-state" role="alert">
     <div class="body">
       <p>{{ message }}</p>
-      <p v-if="requestId" class="request">
-        <span class="mono">request_id: {{ requestId }}</span>
-        <button type="button" class="copy" aria-label="复制 request_id" @click="copyRequestId">
+      <p v-if="code || requestId" class="request">
+        <span v-if="code" class="mono code">{{ code }}</span>
+        <span v-if="requestId" class="mono">request_id: {{ requestId }}</span>
+        <button
+          v-if="requestId"
+          type="button"
+          class="copy"
+          aria-label="复制 request_id"
+          @click="copyRequestId"
+        >
           复制
         </button>
       </p>
     </div>
-    <button type="button" class="retry" @click="emit('retry')">重试</button>
+    <button v-if="retryable !== false" type="button" class="retry" @click="emit('retry')">
+      重试
+    </button>
   </div>
 </template>
 
@@ -67,6 +84,13 @@ async function copyRequestId(): Promise<void> {
 .mono {
   font-family: var(--mono);
   overflow-wrap: anywhere;
+}
+
+.code {
+  flex: none;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--red) 10%, transparent);
 }
 
 .copy {

@@ -2,10 +2,12 @@ import { createPinia, setActivePinia } from 'pinia'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { approvalsApi } from '@/api/approvals'
+import { ApiRequestError } from '@/api/client'
 import { openChatStream } from '@/api/chat'
 import { conversationsApi } from '@/api/conversations'
 import { runsApi } from '@/api/runs'
 import { useChatStore } from '@/stores/chat'
+import { getRuntimeContext } from '@/utils/diagnostics'
 import type { ConversationDetail, PageResult, Run } from '@/types'
 
 vi.mock('@/api/chat', () => ({ openChatStream: vi.fn() }))
@@ -417,5 +419,57 @@ describe('chat store 断线重连状态机', () => {
     expect(openChatStream).toHaveBeenCalledTimes(1)
     expect(chat.connection).toBe('idle')
     expect(chat.reconnectAttempt).toBe(0)
+  })
+
+  it('degraded 后重试发送会停掉旧轮询，不与新流竞争', async () => {
+    const chat = createChatStore()
+    await chat.send('你好')
+
+    for (const delay of [1000, 2000, 4000, 8000, 16000]) {
+      await vi.advanceTimersByTimeAsync(delay)
+    }
+    expect(chat.connection).toBe('degraded')
+    expect(chat.state.recovery?.kind).toBe('stream_failed')
+    const pollingCalls = vi.mocked(runsApi.get).mock.calls.length
+
+    // 用户点「重试发送」：这次流正常结束。
+    vi.mocked(openChatStream).mockImplementationOnce(async (_payload, handlers) => {
+      handlers.onOpen?.('run-1')
+      handlers.onEvent('message.done', messageDone(1))
+    })
+    await chat.retry()
+    await flushMicrotasks()
+
+    // 旧轮询已停：推进多个轮询周期后不再 GET run，恢复横幅也不会被轮询复活。
+    await vi.advanceTimersByTimeAsync(10_000)
+    expect(vi.mocked(runsApi.get).mock.calls.length).toBe(pollingCalls)
+    expect(chat.state.recovery).toBeNull()
+  })
+
+  it('run 与 conversation 变化同步到诊断运行时上下文', async () => {
+    vi.mocked(openChatStream).mockImplementationOnce(async (_payload, handlers) => {
+      handlers.onOpen?.('run-1')
+      handlers.onEvent('conversation.created', { conversation_id: 'conv-1', seq: 1 })
+    })
+
+    const chat = createChatStore()
+    chat.setConversation('conv-0', '旧会话')
+    await chat.send('你好')
+    await flushMicrotasks()
+
+    expect(getRuntimeContext()).toEqual({ runId: 'run-1', conversationId: 'conv-1' })
+  })
+
+  it('HTTP 5xx 把 request_id 带进错误态', async () => {
+    vi.mocked(openChatStream).mockRejectedValue(
+      new ApiRequestError('上游失败', { code: 'llm_error', status: 500, requestId: 'req-500' }),
+    )
+
+    const chat = createChatStore()
+    await chat.send('你好')
+
+    expect(chat.state.error?.code).toBe('llm_error')
+    expect(chat.state.error?.requestId).toBe('req-500')
+    expect(chat.state.error?.retryable).toBe(true)
   })
 })

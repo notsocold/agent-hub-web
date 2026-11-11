@@ -5,6 +5,7 @@
  * 不引 `web-vitals` 第三方包：规模小、可控，避免把包体积与版本策略绑死。
  */
 import { getWebVitals, recordVital } from '@/utils/diagnostics'
+import { reportVital } from '@/utils/reporting'
 import type { VitalRecord } from '@/utils/diagnostics'
 
 // 计划约定 Web Vitals 的读取入口也挂在 web-vitals 上，抽屉侧仍从 diagnostics 读取。
@@ -45,6 +46,7 @@ export function startWebVitals(): () => void {
   function record(record: VitalRecord): void {
     if (stopped) return
     recordVital(record)
+    reportVital(record)
     if (logEnabled) {
       console.table(getWebVitals().map(({ name, value }) => ({ name, value })))
     }

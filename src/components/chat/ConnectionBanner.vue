@@ -15,7 +15,6 @@ const props = withDefaults(
 
 const emit = defineEmits<{
   stop: []
-  retry: []
 }>()
 
 const online = ref(typeof navigator === 'undefined' ? true : navigator.onLine)
@@ -38,19 +37,15 @@ onUnmounted(() => {
   window.removeEventListener('offline', onOffline)
 })
 
-const visible = computed(
-  () => props.connection === 'reconnecting' || props.connection === 'degraded',
-)
+// 只在重连中展示；降级后由 RunRecoveryBanner 接管，避免双横幅。
+const visible = computed(() => props.connection === 'reconnecting')
 
 /** online 事件立即重试时计数可能还是 0，展示时至少算第 1 次。 */
 const displayAttempt = computed(() => Math.max(1, props.attempt))
 
 const text = computed(() => {
-  if (props.connection === 'reconnecting') {
-    if (!online.value) return '网络已断开，恢复后自动重连'
-    return `连接中断，正在重新连接（第 ${displayAttempt.value}/${props.maxAttempts} 次）`
-  }
-  return '连接已断开，正在通过轮询恢复'
+  if (!online.value) return '网络已断开，恢复后自动重连'
+  return `连接中断，正在重新连接（第 ${displayAttempt.value}/${props.maxAttempts} 次）`
 })
 </script>
 
@@ -64,10 +59,7 @@ const text = computed(() => {
   >
     <span class="text">{{ text }}</span>
     <div class="actions">
-      <button v-if="connection === 'reconnecting'" type="button" class="action" @click="emit('stop')">
-        停止重连
-      </button>
-      <button v-else type="button" class="action" @click="emit('retry')">重新连接</button>
+      <button type="button" class="action" @click="emit('stop')">停止重连</button>
     </div>
   </div>
 </template>
@@ -87,12 +79,6 @@ const text = computed(() => {
   background: var(--amber-soft);
   color: var(--amber-text);
   font-size: 11.5px;
-}
-
-.connection-banner.is-degraded {
-  border-color: var(--line);
-  background: var(--surface-2);
-  color: var(--ink-2);
 }
 
 .text {

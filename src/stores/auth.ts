@@ -3,6 +3,7 @@ import { defineStore } from 'pinia'
 
 import { authApi } from '@/api/auth'
 import type { AuthTokens, RegisterRequest, User } from '@/types'
+import { resetDiagnostics } from '@/utils/diagnostics'
 import { storage } from '@/utils/storage'
 
 export const useAuthStore = defineStore('auth', () => {
@@ -25,6 +26,8 @@ export const useAuthStore = defineStore('auth', () => {
     storage.clearTokens()
     accessToken.value = null
     user.value = null
+    // 同一浏览器换账号后，诊断缓冲里不能残留上一个账号的 request_id / 错误文案。
+    resetDiagnostics()
   }
 
   async function login(email: string, password: string): Promise<User> {

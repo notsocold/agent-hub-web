@@ -2,6 +2,7 @@ import axios, { type AxiosInstance, type InternalAxiosRequestConfig, type AxiosE
 
 import type { ApiErrorBody, AuthTokens } from '@/types'
 import { recordError, recordRequest } from '@/utils/diagnostics'
+import { reportError } from '@/utils/reporting'
 import { storage } from '@/utils/storage'
 
 export class ApiRequestError extends Error {
@@ -211,12 +212,14 @@ export function createHttpClient(options: HttpClientOptions = {}): AxiosInstance
         recordOutcome(error.config, error.response?.status ?? 0, error.response?.headers)
       }
       try {
-        recordError({
+        const record = {
           code: failed.code,
           message: failed.message,
           requestId: failed.requestId,
           at: Date.now(),
-        })
+        }
+        recordError(record)
+        reportError(record)
       } catch {
         // 诊断写入失败不影响业务错误处理。
       }

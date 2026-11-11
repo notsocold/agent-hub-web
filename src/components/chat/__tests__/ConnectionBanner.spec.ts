@@ -13,13 +13,11 @@ describe('ConnectionBanner', () => {
     expect(wrapper.emitted('stop')).toHaveLength(1)
   })
 
-  it('degraded 时提示轮询恢复并可重新连接', async () => {
+  it('degraded 由恢复横幅接管，连接条不渲染', () => {
     const wrapper = mount(ConnectionBanner, {
       props: { connection: 'degraded', attempt: 5, maxAttempts: 5 },
     })
-    expect(wrapper.text()).toContain('通过轮询恢复')
-    await wrapper.get('.action').trigger('click')
-    expect(wrapper.emitted('retry')).toHaveLength(1)
+    expect(wrapper.find('.connection-banner').exists()).toBe(false)
   })
 
   it('idle/open 不渲染', () => {
