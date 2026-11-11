@@ -12,6 +12,15 @@ import type { ChatEventName, ChatStreamRequest, StreamHandlers } from '@/types'
 import { storage } from '@/utils/storage'
 
 /**
+ * 比通用 `StreamHandlers` 多一个 `onClose`：`fetch-event-source` 的 `onclose`
+ * 只在服务端正常关闭连接时触发，用于识别「静默关流但没收到 message.done」
+ * 的断线（设计 4.2 B4），交给 store 的重连状态机处理。
+ */
+export interface ChatStreamHandlers extends StreamHandlers {
+  onClose?: () => void
+}
+
+/**
  * SSE 事件白名单。新增 `ChatEventDataMap` 事件时必须同步加入，
  * 否则真实模式会在 onmessage 里被当作未知事件丢弃（mock 不经过这里）。
  */
@@ -59,7 +68,10 @@ async function readErrorBody(response: Response): Promise<unknown> {
   }
 }
 
-async function connectOnce(payload: ChatStreamRequest, handlers: StreamHandlers): Promise<void> {
+async function connectOnce(
+  payload: ChatStreamRequest,
+  handlers: ChatStreamHandlers,
+): Promise<void> {
   await fetchEventSource(`${resolveBaseUrl()}/chat/stream`, {
     method: 'POST',
     headers: {
@@ -113,12 +125,16 @@ async function connectOnce(payload: ChatStreamRequest, handlers: StreamHandlers)
       handlers.onError(error instanceof Error ? error : new Error(String(error)))
       throw error
     },
+
+    onclose() {
+      handlers.onClose?.()
+    },
   })
 }
 
 export async function openChatStream(
   payload: ChatStreamRequest,
-  handlers: StreamHandlers,
+  handlers: ChatStreamHandlers,
 ): Promise<void> {
   if (isMockEnabled()) {
     const { mockChatStream } = await import('@/api/mock/stream')

@@ -6,6 +6,7 @@ import { openChatStream } from '@/api/chat'
 import { ApiRequestError, notifyUnauthorized } from '@/api/client'
 import { conversationsApi } from '@/api/conversations'
 import { runsApi } from '@/api/runs'
+import { MAX_RECONNECT_ATTEMPTS, RECONNECT_WINDOW_MS, nextReconnectDelay } from '@/utils/retry'
 import {
   clearPendingApproval,
   clearPendingApprovalIds,
@@ -44,6 +45,9 @@ export interface ApprovalOutcome {
   message: string
   resumed: boolean
 }
+
+/** SSE 连接状态（与 `streaming` 解耦，设计 4.2 B1）。 */
+export type ChatConnection = 'idle' | 'connecting' | 'open' | 'reconnecting' | 'degraded'
 
 const HISTORY_PAGE_SIZE = 100
 const RUN_POLL_INTERVAL_MS = 2500
@@ -128,12 +132,21 @@ export const useChatStore = defineStore('chat', () => {
   const historyHasMore = ref(false)
   const historyCursor = ref<string | null>(null)
   const lastAttempt = ref<ChatAttempt | null>(null)
+  /** 连接状态机：idle → connecting → open → reconnecting → degraded。 */
+  const connection = ref<ChatConnection>('idle')
+  /** 本轮自动重连已消耗的次数（0..MAX_RECONNECT_ATTEMPTS），供连接条展示。 */
+  const reconnectAttempt = ref(0)
 
   let controller: AbortController | null = null
   let rafId: number | null = null
   let pollTimer: ReturnType<typeof setInterval> | null = null
   let pollRunId: string | null = null
   let approvalsSyncSeq = 0
+  let reconnectTimer: ReturnType<typeof setTimeout> | null = null
+  let reconnectWindowStartedAt: number | null = null
+  let reconnectInFlight = false
+  let reconnectController: AbortController | null = null
+  let connectivityBound = false
   const pendingDeltas = new Map<string, { text: string; seq: number }>()
 
   const messages = computed(() => state.value.messages)
@@ -275,15 +288,26 @@ export const useChatStore = defineStore('chat', () => {
     })
   }
 
-  function onOpen(runId: string | null): void {
-    // 新连接（含幂等回放）的 seq 从 1 开始，先重置去重基线；
-    // 否则同 run 的重复请求会被旧 lastSeq 全部丢弃。
+  /**
+   * 流建立时调用。`resetSeq` 区分首次连接（重置 lastSeq 去重基线）与重连
+   * （保留 lastSeq，回放的已处理事件必须继续被丢弃，设计 4.2 B4）。
+   */
+  function onOpen(runId: string | null, resetSeq = true): void {
+    clearReconnectTimer()
+    unbindConnectivityListeners()
+    if (resetSeq) reconnectAttempt.value = 0
+    // 窗口按“本次可跟随的连接”重新计时；重连次数在当前 run 结束或新发送前累计，
+    // 否则服务端「握手成功即断流」会让 5 次上限永远达不到。
+    reconnectWindowStartedAt = null
+    connection.value = 'open'
     state.value = {
       ...state.value,
-      lastSeq: 0,
+      lastSeq: resetSeq ? 0 : state.value.lastSeq,
       runId: runId ?? state.value.runId,
       runStatus: state.value.runStatus ?? 'running',
       streaming: true,
+      error: null,
+      recovery: null,
     }
   }
 
@@ -316,12 +340,16 @@ export const useChatStore = defineStore('chat', () => {
 
   function onError(error: Error): void {
     flushDeltas()
+    // 可自动重连时先不展示错误、也不结束 streaming：交给 catch 里的重连
+    // 调度，避免错误卡片闪一下再被连接条覆盖（设计 4.2 B2）。
+    if (canAutoReconnect(error)) return
     if (state.value.error) return
     state.value = {
       ...state.value,
       streaming: false,
       error: { code: 'stream_error', message: error.message },
     }
+    connection.value = 'idle'
   }
 
   function removeMessage(clientMessageId: string): void {
@@ -337,6 +365,287 @@ export const useChatStore = defineStore('chat', () => {
     state.value = { ...state.value, recovery: recoveryValue }
   }
 
+  function clearReconnectTimer(): void {
+    if (reconnectTimer !== null) {
+      clearTimeout(reconnectTimer)
+      reconnectTimer = null
+    }
+  }
+
+  /** 读取实时状态（回调可能已把它改回 reconnecting，避免被 TS 的窄化误判）。 */
+  function isReconnecting(): boolean {
+    return connection.value === 'reconnecting'
+  }
+
+  function bindConnectivityListeners(): void {
+    if (connectivityBound) return
+    connectivityBound = true
+    window.addEventListener('online', onBrowserOnline)
+    window.addEventListener('offline', onBrowserOffline)
+  }
+
+  function unbindConnectivityListeners(): void {
+    if (!connectivityBound) return
+    connectivityBound = false
+    window.removeEventListener('online', onBrowserOnline)
+    window.removeEventListener('offline', onBrowserOffline)
+  }
+
+  /** 清掉重连定时器与在线监听；重连次数由调用方决定是否重置。 */
+  function clearReconnect(): void {
+    clearReconnectTimer()
+    unbindConnectivityListeners()
+  }
+
+  /** 新一轮恢复开始（首次连接成功/停止/切会话）时重置重连预算。 */
+  function resetReconnectBudget(): void {
+    clearReconnect()
+    reconnectAttempt.value = 0
+    reconnectWindowStartedAt = null
+  }
+
+  function onBrowserOffline(): void {
+    // 离线只暂停退避计时：不降级、不消耗次数，online 后立即重试（设计 4.2 B3）。
+    if (connection.value !== 'reconnecting') return
+    clearReconnectTimer()
+  }
+
+  function onBrowserOnline(): void {
+    if (connection.value !== 'reconnecting') return
+    clearReconnectTimer()
+    // 网络恢复视为新的恢复窗口：立即重试一次并重置计数。
+    reconnectAttempt.value = 0
+    reconnectWindowStartedAt = null
+    if (reconnectInFlight) return
+    void performReconnect()
+  }
+
+  /** 是否满足设计 4.2 B2 的自动重连条件（4xx 业务错误按现有逻辑处理）。 */
+  function canAutoReconnect(error?: unknown): boolean {
+    if (!lastAttempt.value || !state.value.runId) return false
+    if (state.value.finishReason !== null || isTerminal(state.value.runStatus)) return false
+    if (error instanceof ApiRequestError && error.status >= 400 && error.status < 500) return false
+    return true
+  }
+
+  /**
+   * 进入降级：停止自动重连，复用现有恢复横幅 + 轮询路径，
+   * 不新增第二套恢复 UI（设计 4.2 B1/B5）。
+   */
+  function enterDegraded(message: string, runId: string | null = state.value.runId): void {
+    clearReconnect()
+    connection.value = 'degraded'
+    state.value = {
+      ...state.value,
+      streaming: false,
+      error: null,
+      recovery: {
+        kind: 'stream_failed',
+        code: 'stream_failed',
+        message,
+        runId,
+        runStatus: state.value.runStatus,
+        retryable: true,
+      },
+    }
+    if (runId && !isTerminal(state.value.runStatus)) schedulePolling(runId)
+  }
+
+  /**
+   * 调度下一次自动重连：1s/2s/4s/8s/16s ±20%，最多 5 次、总窗口 60s。
+   * 定时器到点只执行一次「GET run 校验 + 重发流」，失败会回到这里累计次数。
+   */
+  function scheduleReconnect(): void {
+    if (!lastAttempt.value || !state.value.runId) return
+    if (state.value.finishReason !== null || isTerminal(state.value.runStatus)) return
+    if (connection.value === 'degraded') return
+    // onerror 与 onclose 可能先后到达；已有定时器时只保留一次调度。
+    // 不能把「本次请求在途」也算作重复：catch 里正是请求失败后在排队下一次。
+    if (connection.value === 'reconnecting' && reconnectTimer !== null) return
+
+    connection.value = 'reconnecting'
+    state.value = { ...state.value, streaming: true, error: null, recovery: null }
+    bindConnectivityListeners()
+
+    // 离线：暂停计时、不消耗次数；online 事件会立即重试。
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      clearReconnectTimer()
+      return
+    }
+
+    if (reconnectAttempt.value >= MAX_RECONNECT_ATTEMPTS) {
+      enterDegraded('连接中断，自动重连已达上限，改为轮询恢复。')
+      return
+    }
+
+    const now = Date.now()
+    if (reconnectWindowStartedAt === null) reconnectWindowStartedAt = now
+    const delay = nextReconnectDelay(reconnectAttempt.value)
+    if (now - reconnectWindowStartedAt + delay > RECONNECT_WINDOW_MS) {
+      enterDegraded('连接中断，重连总时长已超过 60 秒，改为轮询恢复。')
+      return
+    }
+
+    reconnectAttempt.value += 1
+    clearReconnectTimer()
+    reconnectTimer = setTimeout(() => {
+      reconnectTimer = null
+      void performReconnect()
+    }, delay)
+  }
+
+  /**
+   * 执行一次重连：先 `GET /runs/{id}` 回填/校验，再按 run 状态决定
+   * 终态收尾、审批恢复或重发流。不得走 `startStream`（会重置
+   * lastSeq/process/runId，回放事件会被重复应用，设计 4.2 B4）。
+   */
+  async function performReconnect(): Promise<void> {
+    const attempt = lastAttempt.value
+    const runId = state.value.runId
+    if (!attempt || !runId) {
+      enterDegraded('连接已断开，缺少可恢复的运行信息。', null)
+      return
+    }
+    if (reconnectInFlight) return
+    reconnectInFlight = true
+    controller?.abort()
+    const currentController = new AbortController()
+    controller = currentController
+    reconnectController = currentController
+    let settled = false
+
+    try {
+      // 正确性关键：新会话可能「后端已建 run、前端还没收到 conversation.created」，
+      // 必须先用 run.conversation_id 回填，否则重连会被后端当成新会话新建 run。
+      const run = await runsApi.get(runId)
+      if (currentController.signal.aborted) return
+      if (state.value.runId !== runId || run.id !== state.value.runId) {
+        // 用户已切走或 run 已被替换：放弃重连，避免把旧 run 的事件写进当前会话。
+        settled = true
+        enterDegraded('运行状态已变化，已停止自动重连。', null)
+        return
+      }
+
+      state.value = {
+        ...state.value,
+        conversationId: run.conversation_id,
+        runId: run.id,
+        runStatus: run.status,
+      }
+
+      if (isTerminal(run.status)) {
+        // 服务端已经结束：补历史 + 审批对账，不再连流。
+        settled = true
+        resetReconnectBudget()
+        connection.value = 'idle'
+        state.value = { ...state.value, streaming: false }
+        setRecovery(null)
+        void reconcileRunApprovals(run.id, run.status)
+        await refreshHistory().catch(() => undefined)
+        return
+      }
+
+      if (run.status === 'interrupted') {
+        // HITL：没有可跟随的活动流，复用现有 adoptRun 的审批横幅 + 轮询路径。
+        settled = true
+        clearReconnect()
+        connection.value = 'degraded'
+        await adoptRun(run.id)
+        return
+      }
+
+      // running / queued：用回填后的 conversation_id + 原 client_message_id 重发流。
+      await openChatStream(
+        {
+          conversation_id: run.conversation_id,
+          message: attempt.text,
+          client_message_id: attempt.clientMessageId,
+          ...attempt.context,
+        },
+        {
+          signal: currentController.signal,
+          onOpen: (id) => onOpen(id, false),
+          onEvent,
+          onError,
+          onClose: onStreamClose,
+        },
+      )
+
+      if (
+        !currentController.signal.aborted &&
+        state.value.finishReason === null &&
+        !isTerminal(state.value.runStatus)
+      ) {
+        // 流 resolve 但没有 message.done/onClose（自定义实现）：仍按断线处理。
+        scheduleReconnect()
+      }
+    } catch (error) {
+      if (isAbort(error) || currentController.signal.aborted) return
+      if (error instanceof ApiRequestError && error.status >= 400 && error.status < 500) {
+        // 4xx 业务错误不重连：交给现有错误/409 恢复逻辑。
+        settled = true
+        resetReconnectBudget()
+        await handleApiFailure(error, attempt)
+        connection.value = state.value.recovery?.kind === 'run_in_progress' ? 'degraded' : 'idle'
+        return
+      }
+      if (canAutoReconnect(error)) {
+        scheduleReconnect()
+        return
+      }
+      settled = true
+      enterDegraded('连接已断开，自动重连已停止。')
+    } finally {
+      reconnectInFlight = false
+      if (reconnectController === currentController) reconnectController = null
+      if (controller === currentController) controller = null
+      flushDeltas()
+      cancelRaf()
+      if (!settled && !currentController.signal.aborted && !isReconnecting()) {
+        // 只有流真正结束才收尾；重连调度中必须保持 streaming。
+        connection.value = connection.value === 'open' ? 'idle' : connection.value
+        state.value = { ...state.value, streaming: false }
+        await refreshHistory().catch(() => undefined)
+      }
+    }
+  }
+
+  /**
+   * 正常 EOF（fetch-event-source 的 onclose）也按断线处理：
+   * 未收到 message.done 且 run 非终态时调度重连（设计 4.2 B4）。
+   */
+  function onStreamClose(): void {
+    flushDeltas()
+    if (state.value.finishReason !== null || isTerminal(state.value.runStatus)) {
+      if (connection.value === 'open') connection.value = 'idle'
+      return
+    }
+    if (!lastAttempt.value || !state.value.runId) return
+    scheduleReconnect()
+  }
+
+  /** 用户主动停止自动重连：清定时器与在途请求，落回现有恢复横幅路径。 */
+  function stopReconnect(): void {
+    const wasReconnecting = connection.value === 'reconnecting'
+    resetReconnectBudget()
+    reconnectController?.abort()
+    reconnectController = null
+    if (!wasReconnecting) return
+    connection.value = 'degraded'
+    state.value = {
+      ...state.value,
+      streaming: false,
+      recovery: {
+        kind: 'stream_failed',
+        code: 'stream_failed',
+        message: '已停止自动重连，可手动重新连接或刷新状态。',
+        runId: state.value.runId,
+        runStatus: state.value.runStatus,
+        retryable: true,
+      },
+    }
+  }
+
   async function adoptRun(runId: string): Promise<void> {
     clearPolling()
     pollRunId = runId
@@ -350,6 +659,9 @@ export const useChatStore = defineStore('chat', () => {
         streaming: run.status === 'running' || run.status === 'queued',
       }
       if (isTerminal(run.status)) {
+        // 终态即收尾：清理所有重连预算，连接条必须回到 idle。
+        resetReconnectBudget()
+        connection.value = 'idle'
         state.value = { ...state.value, streaming: false }
         setRecovery(null)
         void reconcileRunApprovals(run.id, run.status)
@@ -404,6 +716,9 @@ export const useChatStore = defineStore('chat', () => {
       state.value = { ...state.value, runStatus: run.status }
       if (isTerminal(run.status)) {
         clearPolling()
+        // 轮询到终态也要结束 degraded，否则连接条会永久停留。
+        resetReconnectBudget()
+        connection.value = 'idle'
         state.value = { ...state.value, streaming: false }
         setRecovery(null)
         void reconcileRunApprovals(run.id, run.status)
@@ -581,6 +896,8 @@ export const useChatStore = defineStore('chat', () => {
   async function startStream(attempt: ChatAttempt): Promise<void> {
     if (state.value.streaming || rateLimitActive.value) return
     controller?.abort()
+    resetReconnectBudget()
+    connection.value = 'connecting'
     const currentController = new AbortController()
     controller = currentController
 
@@ -619,16 +936,24 @@ export const useChatStore = defineStore('chat', () => {
         },
         {
           signal: currentController.signal,
-          onOpen,
+          onOpen: (runId) => onOpen(runId, true),
           onEvent,
           onError,
+          onClose: onStreamClose,
         },
       )
     } catch (error) {
       if (isAbort(error) || currentController.signal.aborted) return
       failed = true
+      if (canAutoReconnect(error)) {
+        // 后端已受理（已拿到 runId）后的网络中断/5xx：静默进入自动重连，
+        // 不再展示一次性的 stream_failed 横幅（设计 4.2 B2）。
+        scheduleReconnect()
+        return
+      }
       if (error instanceof ApiRequestError) {
         await handleApiFailure(error, attempt)
+        connection.value = state.value.recovery?.kind === 'run_in_progress' ? 'degraded' : 'idle'
       } else {
         state.value = {
           ...state.value,
@@ -647,12 +972,14 @@ export const useChatStore = defineStore('chat', () => {
             retryable: true,
           },
         }
+        connection.value = 'idle'
       }
     } finally {
       flushDeltas()
       cancelRaf()
       if (controller === currentController) controller = null
-      if (!failed && !currentController.signal.aborted) {
+      if (!failed && !currentController.signal.aborted && !isReconnecting()) {
+        connection.value = 'idle'
         state.value = { ...state.value, streaming: false }
         // 断线/回放时增量可能缺失，以服务端历史为准；同时补齐标题与计数。
         await refreshHistory().catch(() => undefined)
@@ -686,6 +1013,8 @@ export const useChatStore = defineStore('chat', () => {
 
   async function stop(): Promise<void> {
     const runId = state.value.runId
+    resetReconnectBudget()
+    connection.value = 'idle'
     controller?.abort()
     controller = null
     flushDeltas()
@@ -952,6 +1281,8 @@ export const useChatStore = defineStore('chat', () => {
   }
 
   async function loadConversation(id: string): Promise<void> {
+    resetReconnectBudget()
+    connection.value = 'idle'
     controller?.abort()
     controller = null
     cancelRaf()
@@ -1004,6 +1335,8 @@ export const useChatStore = defineStore('chat', () => {
   }
 
   function reset(): void {
+    resetReconnectBudget()
+    connection.value = 'idle'
     controller?.abort()
     controller = null
     cancelRaf()
@@ -1017,6 +1350,10 @@ export const useChatStore = defineStore('chat', () => {
   }
 
   function setConversation(id: string | null, title = ''): void {
+    resetReconnectBudget()
+    connection.value = 'idle'
+    controller?.abort()
+    controller = null
     state.value = {
       ...state.value,
       conversationId: id,
@@ -1032,6 +1369,8 @@ export const useChatStore = defineStore('chat', () => {
     processItems,
     streaming,
     recovery,
+    connection,
+    reconnectAttempt,
     pendingApproval,
     pendingApprovals,
     loadingHistory,
@@ -1046,6 +1385,7 @@ export const useChatStore = defineStore('chat', () => {
     send,
     retry,
     stop,
+    stopReconnect,
     refresh,
     adoptRun,
     resolveApproval,
