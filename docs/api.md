@@ -186,12 +186,12 @@ curl -N -X POST http://localhost:8000/api/v1/chat/stream \
 | 功能 | 接口 | 说明 |
 |---|---|---|
 | 上传 | `POST /knowledge/documents` | multipart：`file` + 可选 `title`/`category`/`scope`；新建 **201**、同内容幂等 **200**、超 10MB **413** `payload_too_large`、扩展名不支持 **422** `validation_error`、`scope=system` 非管理员 **403** `forbidden` |
-| 列表 | `GET /knowledge/documents` | `q`（标题/来源路径）、`category`、`status`、`owner_scope=visible|all`（`all` 仅管理员）、`limit`、`cursor`；返回 `{items,next_cursor,has_more,stats}` |
+| 列表 | `GET /knowledge/documents` | `q`（标题/来源路径）、`category`、`status`、`owner_scope=visible\|all`（`all` 仅管理员）、`limit`、`cursor`；返回 `{items,next_cursor,has_more,stats}` |
 | 详情 | `GET /knowledge/documents/{id}` | 他人私有文档与不存在统一 **404** |
 | 删除 | `DELETE /knowledge/documents/{id}` | **204**；分块级联删除，原文删除失败只记日志 |
 | 重试/重建单篇 | `POST /knowledge/documents/{id}/retry` | 从原文重新入库；不限制原状态，可当作「重建此文档」；系统文档普通用户 **403** |
 | 检索调试 | `POST /knowledge/search` | `{query,top_k?,filters?:{category?}}`；`top_k` 1–20，缺省取服务端配置；Embedding 不可用 **503** `service_unavailable`；库为空返回空 `hits` |
-| 重建索引 | `POST /knowledge/rebuild` | 仅管理员：`{scope: all|system|own}`；`own` = 所有用户的私有文档；返回 `{documents,chunks,failed,elapsed_ms}` |
+| 重建索引 | `POST /knowledge/rebuild` | 仅管理员：`{scope: all\|system\|own}`；`own` = 所有用户的私有文档；返回 `{documents,chunks,failed,elapsed_ms}` |
 
 形状（与前端冻结类型逐字段一致）：
 
@@ -217,9 +217,9 @@ curl -N -X POST http://localhost:8000/api/v1/chat/stream \
 |---|---|---|
 | M3（已取消） | A2A 入站不实施：Agent Card 发布、JSON-RPC 入站端点、入站任务/会话、API Key 管理 | 服务仅出站；前端已移除设置页入站分区，`system/info.a2a` 不再读取（建议后端移除该字段） |
 | M4（已对齐） | 知识库端点、citations、`knowledge_categories` | 已实现并联调；仅剩「单文档重建 / 分类目录」缺口，前端用 retry 与文档聚合替代 |
-| M5 | 写操作 RBAC 的 403；事件回放的事件名 | 审计/密钥/审批事件已对齐并联调；RBAC 后端未实现，前端不伪造；`/runs/{id}/events` 不含 `_event`，断线只做状态轮询 + 历史补齐 |
-| X1 | 工作流管理（`workflows` / `workflow_runs`，或明确不落地） | 待立项，不做编辑器/执行 |
-| X2 | 管理端用户、角色权限、菜单、字典、审计查询 | 待立项；`/api/v1/admin/*` 实测 404 |
+| M7（已立项） | 运行事件回放 `event`；`GET /runs/{id}/stream?after_seq=`；agents/tasks 写操作 403；`approval.required` 5 字段；A2A `authorization_url` 白名单 | 后端 2026-11-11 立项、未开始；前端先冻结类型/mock、修复登录 401/全局 503/管理员入口，后端 handoff 后联调 |
+| M8（已立项） | 管理端用户/角色、系统指令/技能/MCP/Agent、概览 | 后端已立项、未开始（依赖 M7-2 RBAC）；前端 v8 全量，无契约三页只读 |
+| M9（已立项） | 工作流 `workflows`/`workflow_runs`、`chat/stream.workflow_id`、`workflow.step` | 后端已立项（先 spike）；前端保持骨架 + mock，契约冻结后再升级 |
 
 已由后端补齐、不再列为缺口：附件上传/受控下载、审批列表/详情/决定、会话搜索 `q`、`message_count`、`chat/stream` 的 `model`/`reasoning_effort` 与 reasoning SSE 事件。
 
@@ -227,7 +227,7 @@ curl -N -X POST http://localhost:8000/api/v1/chat/stream \
 
 ## 12. M5 审批与安全加固前端落地（2026-11-11）
 
-> 机器可读契约以后端 [`openapi.json`](../../PythonProjects/agent-hub/docs/openapi.json) 与后端 `docs/api.md` §10 为准；本节记录前端实际消费方式与已验证行为。
+> 机器可读契约以后端 [`openapi.json`](../../../PythonProjects/agent-hub/docs/openapi.json) 与后端 `docs/api.md` §10 为准；本节记录前端实际消费方式与已验证行为。
 
 ### 12.1 审批 SSE 生命周期
 
@@ -265,6 +265,120 @@ approval.required ──> run.interrupted(非终态，SSE 保持) ──决定�
 - Markdown 外链：同源/锚点/`mailto:`/`tel:` 直接放行，其他域名二次确认后 `noopener,noreferrer` 新标签打开；
 - 输出打码与注入检测由后端完成，前端不新增假 UI；审计页可检索 `security.injection_suspected` / `security.output_redacted`。
 
-### 12.5 断线续传现状（未完成项）
+### 12.5 断线续流现状（M7 已立项，未完成）
 
-`GET /runs/{id}/events?after_seq=` 的响应剔除了 `payload._event` 且 `type` 仅分类（run/message/tool/…），前端无法还原事件名做 reducer 重放。当前断线恢复为：轮询 `GET /runs/{id}` 状态、进入会话时用 `GET /approvals?run_id=&status=pending` 补审批卡、终态后 `refreshHistory()` 拉服务端消息。逐字续流需后端在 M6 增加 `event` 字段或流式续接端点。
+`GET /runs/{id}/events?after_seq=` 的响应目前剔除了 `payload._event` 且 `type` 仅分类（run/message/tool/…），前端无法还原事件名做 reducer 重放。当前断线恢复为：轮询 `GET /runs/{id}` 状态、进入会话时用 `GET /approvals?run_id=&status=pending` 补审批卡、终态后 `refreshHistory()` 拉服务端消息。
+
+后端 **M7 已立项**（2026-11-11）：`RunEventOut` 新增 `event` 字段，并新增 `GET /runs/{id}/stream?after_seq=` SSE 续流端点。M7 交付前，前端保持上述轮询降级；交付后按下一节接入增量续流（已落库事件回放 + 实时增量）。
+
+## 13. M7–M9 契约增量（已立项，2026-11-11）
+
+> 状态：后端已立项、未开始。以下为前端规划消费的契约草案，落地以后端 handoff 与 OpenAPI 为准；对照设计见 [`superpowers/specs/2026-11-11-m7-m9-frontend-alignment-design.md`](superpowers/specs/2026-11-11-m7-m9-frontend-alignment-design.md)。
+
+### 13.1 事件回放补 `event`
+
+```http
+GET /api/v1/runs/{run_id}/events?after_seq=0&limit=100
+```
+
+响应元素（`RunEventOut`）新增：
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `event` | string | 原始 SSE 事件名，如 `message.delta`、`approval.required`、`message.done`；未知时 `""` |
+
+- `type` 仍保留分类；`payload` 仍剔除 `_event`；
+- 前端读取 `event` 驱动 reducer；`event` 为空/缺失时按未知事件忽略并记录 `type`/`seq`，不猜测事件名。
+
+### 13.2 SSE 续流端点
+
+```http
+GET /api/v1/runs/{run_id}/stream?after_seq=0
+Authorization: Bearer <token>
+Accept: text/event-stream
+```
+
+- 帧格式与 `POST /chat/stream` 一致：`id: <seq>`、`event: <名称>`、`data: <JSON>`，每 15s `: ping`；
+- 先回放 `seq > after_seq` 的已落库事件，再订阅实时事件；终态事件后关闭；
+- run 已终态：回放完立即关闭；`interrupted`：保持连接等审批恢复；
+- 错误：401 未登录；404 非本人/不存在；400 `replay_too_large`（回放 >1000 条，回退分页或更近的 `after_seq`）；
+- 单实例；不支持 `Last-Event-ID`；
+- 前端用 `@microsoft/fetch-event-source`（GET + Bearer）。
+
+```ts
+import { fetchEventSource } from '@microsoft/fetch-event-source'
+
+const controller = new AbortController()
+let lastSeq = 0
+
+await fetchEventSource(`/api/v1/runs/${runId}/stream?after_seq=${lastSeq}`, {
+  method: 'GET',
+  headers: { Authorization: `Bearer ${token}`, Accept: 'text/event-stream' },
+  signal: controller.signal,
+  openWhenHidden: true,
+  onmessage(ev) {
+    if (!ev.event || ev.event === 'ping') return
+    const seq = Number(ev.id)
+    if (seq <= lastSeq) return // 去重，只前进
+    lastSeq = seq
+    handleEvent(ev.event, JSON.parse(ev.data))
+    if (isTerminal(ev.event)) controller.abort() // message.done 等终态：停止，不再重连
+  },
+  onclose() {
+    // 服务端终态关闭：不重试；需要时由调用方触发 refreshHistory()
+    controller.abort()
+  },
+  onerror(err) {
+    // 400 replay_too_large / 401 / 404：不重试，转轮询或刷新
+    // 网络错误：交给调用方有限重试
+    throw err
+  },
+})
+```
+
+续流失败或 400 时回退现有轮询；收到终态事件后停止续流并 `refreshHistory()`。
+
+### 13.3 agents/tasks 写操作 403
+
+- agents 写接口：`POST /agents`、`PATCH/DELETE /agents/{id}`、`POST /agents/{id}/refresh`、`POST /agents/{id}/health`；
+- tasks 动作接口：`POST /tasks/{id}/cancel|resume|authorize|reject`；
+- 普通用户返回 **403 `forbidden`**，`details.required_role="admin"`；被拒绝的写操作后端记 `security.rbac_denied`；
+- 读接口 `GET /agents*`、`GET /tasks*` 与 `POST /agents/preview` 保持登录用户可用；
+- 前端按 `user.role === 'admin'` 显示写入口；403 文案「当前账号无管理员权限」，不当作登录失效。
+
+### 13.4 `approval.required` 补 5 字段
+
+`approval.required.data` 新增 `tool_display_name`、`executor`、`target`、`side_effect`、`payload_preview`（`payload_preview` ≤500 字符、`target` ≤2000 字符）。前端可直接渲染审批卡，`GET /approvals?run_id=` 保留为字段缺失时的兜底。
+
+### 13.5 A2A 授权 URL 白名单
+
+- 后端只允许 `https`，dev/test 额外允许 `http://localhost`、`http://127.0.0.1`；非法协议、内网/回环（prod）、超长（>2000）置 `authorization_url=null`；
+- 前端已有「仅 https/本地 http」判断；无链接时显示「授权链接不可用，请联系管理员」。
+
+### 13.6 M8 管理台端点（草案）
+
+| 能力 | 端点 |
+|---|---|
+| 概览 | `GET /admin/overview` |
+| 用户 | `GET /admin/users`、`GET /admin/users/{id}`、`PATCH /admin/users/{id}`（不能修改自己的 role、不能禁用/降级最后一个 admin（自己能否改 status 以 M8 handoff 为准）） |
+| 平台指令 | `GET/PUT /admin/settings/instruction` |
+| 系统技能 | `GET /admin/skills`、`PUT /admin/skills/{id}/enabled`、`PUT /admin/skills/{id}/force-disable` |
+| 系统 MCP | `GET/POST/PATCH/DELETE /admin/mcp/servers` |
+| 全局 Agent | `GET/PATCH /admin/agents` |
+| 审计/密钥 | 已有 `GET /admin/audit-logs`、`/admin/secrets` |
+
+> v1 只有 `user`/`admin` 两角色；角色权限、菜单、字典三页无后端契约，前端只读呈现并标注。
+
+### 13.7 M9 工作流端点（草案）
+
+| 能力 | 端点 |
+|---|---|
+| CRUD | `GET/POST /workflows`、`GET/PATCH/DELETE /workflows/{id}` |
+| 启停 | `PUT /workflows/{id}/enabled` |
+| 运行历史 | `GET /workflows/{id}/runs` |
+| 对话运行 | `POST /chat/stream` 带 `workflow_id`；需 `capabilities.workflows=true` |
+| 步骤事件 | SSE `workflow.step`（步骤开始/完成/失败/等待审批） |
+
+> 步骤类型五类：`knowledge_search`、`tool`、`a2a`、`approval`、`answer`；不做 DAG/并行/外部引擎。
+>
+> **待冻结**：五类步骤的参数 schema 尚未定义，以上为前端表单草案；M9 handoff 需同时冻结 `steps` JSONB 结构，并显式把 `capabilities.workflows` 置 `true`（当前恒 `false`）。

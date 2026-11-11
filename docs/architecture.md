@@ -1,8 +1,8 @@
 # 前端架构
 
 - 项目：Agent Hub Web（`agent-hub-web`）
-- 状态：M1.5/M2 已实现并真实联调；M3「A2A 入站」已取消（仅出站），M4 起见路线图
-- 更新时间：2026-11-10
+- 状态：M0–M6 已完成（M4/M5 已联调，M6 生产化收口）；F1 体验与可访问性已收口；M7/M8/M9 已随后端立项进入规划（未开工）；M3「A2A 入站」已取消（仅出站）
+- 更新时间：2026-11-11
 
 ## 1. 目标
 
@@ -92,7 +92,7 @@ sequenceDiagram
 - `approval.required` 插入审批卡（一轮可多张），随后 `run.interrupted` 把 run 置为 `interrupted`（**非终态**，SSE 保持连接）；用户决定后后端调度 `Command(resume)`，前端收到 `run.resumed` 再继续消费同一流；中间决定返回 `resumed=false` + `本轮还有其他审批待处理` 属正常；
 - 审批超时：`message.done(finish_reason="canceled", reason="approval_timeout")`，审批卡置为不可操作并提示本轮取消；
 - `message.done` 结束本轮，刷新会话列表的 `last_message_at`；
-- 断线：轮询 `GET /runs/{id}` 状态；进入会话时用 `GET /approvals?run_id=&status=pending` 补审批卡；终态后重拉历史。`GET /runs/{id}/events` 不含事件名，暂不能逐事件重放（M6 缺口）；
+- 断线：M6 已实现自动重连（退避 5 次/60s）、重连前 `GET /runs/{id}` 校验并回填 `conversation_id`、`lastSeq` 去重；M7 后端交付后改用 `GET /runs/{id}/stream?after_seq=` 增量续流（已落库事件回放 + 实时增量），失败回退「轮询 + 待审批补卡 + 终态 `refreshHistory()`」；`message.delta` 不落库，断线窗口文本不承诺补齐；事件回放的 `event` 字段用于 reducer 重放（M7）；
 - 未知事件忽略并记录 debug 日志，不中断流。
 
 ### 4.1.1 M5 审批与安全页面结构
@@ -105,7 +105,7 @@ sequenceDiagram
 | `SecretPanel` | 设置页平台密钥：列表/创建/轮换/启停/删除（仅管理员） | `/admin/secrets` |
 | `RedactedJson` | 审批 payload、审计 detail 的敏感字段默认遮罩 | 本地展示层 |
 
-安全边界：前端遮罩只是展示层，不替代后端脱敏；密钥接口与审计永不回显明文/密文；写操作 RBAC 仍待后端实现，前端不伪造角色禁用。
+安全边界：前端遮罩只是展示层，不替代后端脱敏；密钥接口与审计永不回显明文/密文；写操作 RBAC 归 M7（后端立项），落地前前端只隐藏入口，不伪造角色禁用、不伪造 403。
 
 ### 4.2 认证（M1）
 
@@ -125,12 +125,13 @@ sequenceDiagram
 |---|---|---|
 | `auth` | accessToken、refreshToken、user、isAuthenticated | 已实现 |
 | `chat` | 当前会话、消息时间线、流式状态、工具/任务卡片 | M1 |
+| `chat-reducer` | SSE 事件归约（纯函数） | M1 |
 | `conversations` | 列表、分页游标、筛选条件 | M1 |
-| `agents` | 远程 Agent 列表、健康状态、注册表单 | M2 |
-| `tasks` | A2A 任务列表、筛选、实时更新 | M2 |
-| `knowledge` | 文档列表、上传队列、检索结果 | M4 |
 | `capabilities` | 指令、记忆、技能、MCP 设置与目录 | M1.5 |
-| `workflows` | 工作流列表、编辑器草稿 | X1 待立项（后端未纳入 M0–M6）；当前 mock |
+| `system` | 系统信息、能力开关、模型/推理目录 | M1 |
+| —（无独立 store） | 智能体/任务/知识库页面局部 `ref` + `api/` 模块 | M2/M4 当前实现；不强行抽 store |
+| `workflows` | 工作流列表、步骤草稿、运行历史 | M9 已立项；当前骨架 + mock，契约冻结后接真实 API |
+| `admin` | 管理台概览、用户、系统项 | M8 已立项；有契约页接真实 API，无契约页只读 |
 
 约定：
 
@@ -148,10 +149,13 @@ sequenceDiagram
 | `/agents` | `AgentsView` | AppLayout |
 | `/tasks` | `TasksView` | AppLayout |
 | `/knowledge` | `KnowledgeView` | AppLayout |
+| `/approvals` | `ApprovalsView` | AppLayout |
 | `/settings` | `SettingsView` | AppLayout |
+| `/workflows` | `WorkflowsView` | AppLayout；M9 规划，受 `capabilities.workflows` 门控 |
+| `/admin` | `AdminLayout` + 七页 | 独立管理布局；M8 规划，`meta.requiresAdmin` |
 | `/login` | `LoginView`（M1） | 独立布局 |
 
-> 原型 v7 已增加工作流页与「个人能力」设置分区；`/workflows` 路由已存在但受 `capabilities.workflows` 门控（当前后端恒为 `false`），store 仍用 mock。工作流属 X1 待立项，不随 M4 排期。
+> 工作流页（M9）在后端契约冻结前保持骨架 + mock，`capabilities.workflows=false` 时导航置灰、路由退回对话页。管理台（M8）有契约页接真实 API，角色权限/菜单/字典三页无契约，只读呈现并明确提示。两者均不伪造写成功。
 
 - 路由级懒加载（`() => import(...)`），首屏只加载布局与当前页；
 - `meta.title` 驱动顶栏与 `document.title`；
@@ -191,8 +195,10 @@ await fetchEventSource('/api/v1/chat/stream', {
 
 - `AbortController` 在组件卸载/用户停止时调用；
 - 后端默认「断开不取消」；前端重连后按 `run_id` 拉最终状态；
-- 断线重试最多 3 次，指数退避；`message.done` 后不重连；
-- SSE 事件 `id` 可用于后续 `Last-Event-ID` 断点续传（后端 M6 评估多实例/断线策略；当前用 `after_seq` 回放恢复）。
+- 断线重试 5 次 / 总窗口 60s（1/2/4/8/16s ±20%），`message.done` 后不重连（M6）；
+- 重连前 `GET /runs/{id}` 校验 run 并回填 `conversation_id`，用 `lastSeq` 去重；
+- M7 后续流端点 `GET /runs/{id}/stream?after_seq=`：先回放已落库事件再跟随实时，终态关闭；失败或 400 `replay_too_large` 回退轮询；
+- 不使用 `Last-Event-ID`；续流用 query `after_seq`（后端 M7 决策）。
 
 ## 8. 样式方案
 
@@ -211,6 +217,7 @@ await fetchEventSource('/api/v1/chat/stream', {
 | 错误 | 行内错误条 + 重试按钮；全局 toast 只用于一次性失败 |
 | 流式错误 | 消息气泡内显示错误卡片，保留已生成内容 |
 | 断线 | 顶部提示「连接断开，正在重试」 |
+| 503 | `database_unavailable` / `service_unavailable` 统一「服务暂不可用，请稍后重试」（M7-F6） |
 
 ## 10. 性能
 
@@ -227,7 +234,7 @@ await fetchEventSource('/api/v1/chat/stream', {
 | XSS | Markdown 渲染必须经过 DOMPurify；禁止 `v-html` 直接渲染未清洗内容 |
 | Token 泄露 | 不在日志/URL 中输出 token；生产评估 httpOnly cookie |
 | CSRF | Bearer token 方案天然免疫；若改 cookie 需加 CSRF token |
-| 恶意链接 | 外链 `rel="noopener noreferrer"`，域名白名单提示 |
+| 恶意链接 | 外链 `rel="noopener noreferrer"`，域名白名单提示；A2A `authorization_url` 只允许 https（dev 允许 localhost http），后端 M7 白名单兜底 |
 | 远程内容 | A2A/工具返回内容按不可信渲染，禁止自动执行 |
 
 ## 12. 构建与部署
@@ -238,14 +245,35 @@ pnpm preview     # 本地预览生产构建
 ```
 
 - 静态资源部署到 Nginx/CDN；
-- Nginx 需配置 `/api` 反向代理，SSE 关闭缓冲（本服务只做出站 A2A Client，不需要代理 `/a2a` 入站端点）：
+- Nginx 需配置 `/api` 反向代理；SSE 端点（`POST /api/v1/chat/stream` 与 M7 后新增的 `GET /api/v1/runs/{id}/stream`）必须单独关闭缓冲。**以下为示意，实际以 `deploy/nginx.conf` 为准**（普通 `/api/` 读超时为 60s，聊天流是精确匹配的独立 location）：
 
 ```nginx
 location /api/ {
     proxy_pass http://agent-hub:8000;
     proxy_http_version 1.1;
     proxy_set_header Connection '';
+    proxy_read_timeout 60s;
+}
+
+location = /api/v1/chat/stream {
+    proxy_pass http://agent-hub:8000;
+    proxy_http_version 1.1;
+    proxy_set_header Connection '';
     proxy_buffering off;
+    proxy_cache off;
+    gzip off;
+    proxy_read_timeout 3600s;
+}
+
+# M7 规划：GET /api/v1/runs/{id}/stream 需要同样的 SSE 参数，
+# 否则会被缓冲或被 60s 读超时截断（见 roadmap M7-F8）。
+location ~ ^/api/v1/runs/[^/]+/stream$ {
+    proxy_pass http://agent-hub:8000;
+    proxy_http_version 1.1;
+    proxy_set_header Connection '';
+    proxy_buffering off;
+    proxy_cache off;
+    gzip off;
     proxy_read_timeout 3600s;
 }
 ```

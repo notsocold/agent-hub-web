@@ -1,18 +1,21 @@
 # 前端路线图（与后端 agent-hub 对齐）
 
-> 对齐基线：后端 [`agent-hub/docs/roadmap.md`](../../../PythonProjects/agent-hub/docs/roadmap.md) 的 M0–M6。
+> 对齐基线：后端 [`agent-hub/docs/roadmap.md`](../../../PythonProjects/agent-hub/docs/roadmap.md) 的 M0–M9（2026-11-11）。
 >
-> 本版（2026-11-10）修正了此前前端 M3/M5 与后端**同名不同义**的问题：旧版前端 M3「审批」、M5「体验与可访问性」不再使用。审批归属 M5，体验项移入 F 系列，工作流与完整管理台移入 X 系列（后端未立项）。
+> **2026-11-11 后端新增立项**：M7 契约补齐与安全收口、M8 管理台后端、M9 工作流后端。前端按同名同义原则新增 **M7 前端适配**、**M8 前端管理台（v8 全量）**、**M9 前端工作流**；原 X1/X2 不再作为「未立项」保留。
 >
-> **2026-11-10 需求变更**：本服务只做出站 A2A Client，不提供入站 A2A Server。原 M3「A2A 入站」取消（保留编号空位，避免与后端错位），设置页入站端点分区同步移除。
+> 本版（2026-11-11）同时修正了 M6 后端状态（已完成）、F1 收尾状态与测试口径，并把原计划的 F2 纯前端收尾并入 M7 前端。规划详情见[对齐设计](superpowers/specs/2026-11-11-m7-m9-frontend-alignment-design.md)。
+>
+> 历史说明：旧版前端 M3「审批」、M5「体验与可访问性」已作废；M3「A2A 入站」因 2026-11-10 需求变更取消（服务仅出站），保留编号空位。
 
 ## 0. 对齐规则
 
 1. **M 编号同名同义**：前端 M 编号与后端一一对应，只描述同一里程碑下的前端交付；不再单独定义一套里程碑。
-2. **纯前端横切工作进 F 系列**：体验、可访问性、性能、视觉还原不占用 M 编号；可与 M4–M6 并行，但必须在 M6 验收前收口。
-3. **后端未立项的工作进 X 系列**：不再写「M5+」。只有后端给出表、API、里程碑后，才升级为对应的 M 编号。
+2. **纯前端横切工作进 F 系列**：体验、可访问性、性能、视觉还原不占用 M 编号；F1 已完成，原 F2 收尾项并入 M7，未来纯前端项按需新立 F3+。
+3. **后端已立项的工作升级为 M 编号**：X1 → M9、X2 → M8；历史文档保留 X 编号作为追溯，新文档一律用 M8/M9。
 4. **契约先行，真实联调才算完成**：状态口径为 `未开始` → `契约先行` → `实现中` → `已联调`；mock 通过只算「实现中」。
 5. **状态以证据为准**：后端状态看 `agent-hub/docs/feedback/` 与 OpenAPI；后端 roadmap 的勾选可能滞后，本仓库不替后端维护完成标记。
+6. **不伪造后端能力**：无契约页面只做只读/内置数据呈现并显式提示「后端未提供接口」，不做本地假 CRUD、不显示假成功。
 
 ## 1. 里程碑总览
 
@@ -24,11 +27,14 @@
 | M2 | A2A 出站 | 智能体 + 任务 | 已完成 | 已联调 | 假 Agent + `test:real` |
 | M3 | A2A 入站 | —（已取消） | 取消（需求变更：仅出站） | 取消（设置页入站分区已移除） | 不适用 |
 | M4 | 知识库 RAG | 知识库页 + 引用 | 已完成（2026-11-10） | 已联调（2026-11-10） | `smoke:m4` 41/40 项 + `test:real` M4 3 例 |
-| M5 | 审批与安全加固 | 审批中心 + 权限/安全 UX | 已完成（2026-11-11） | 已联调（2026-11-11） | `smoke:m5` 163 项 + `test:real` M5 3 例 |
-| M6 | 生产化与可观测 | 生产化 + E2E + 断线续传 | 进行中（2026-11-11 设计/计划已出） | 已完成（2026-11-11） | `pnpm size` / `pnpm e2e` / `pnpm verify:nginx` |
+| M5 | 审批与安全加固 | 审批中心 + 权限/安全 UX | 已完成（2026-11-10） | 已联调（2026-11-11） | `smoke:m5` 163 项 + `test:real` M5 3 例 |
+| M6 | 生产化与可观测 | 生产化 + E2E + 断线续传 | 已完成（2026-11-11，582 测试） | 已完成（2026-11-11） | `pnpm size` / `pnpm e2e` / `pnpm verify:nginx` |
+| **M7** | **契约补齐与安全收口** | **续流 + 权限边界 + 安全 UX** | **已立项（2026-11-11），未开始** | **未开始**（可先做契约类型/mock/纯前端收尾） | 单测 + mock 续流 + `test:real` M7 用例 |
+| **M8** | **管理台后端（原 X2）** | **管理控制台 v8 全量** | **已立项（2026-11-11），未开始** | **未开始**（依赖 M8 后端） | 七页 E2E + `smoke` 管理端用例 |
+| **M9** | **工作流后端（原 X1）** | **工作流管理 + 运行** | **已立项（2026-11-11），未开始（先 spike）** | **未开始**（依赖 M9 spike 与契约） | 3 步模板联调 + `workflow.step` |
 | F1 | —（横切） | 体验与可访问性 | — | 已完成（2026-11-11，本地未推送） | `pnpm test` / `pnpm e2e` / axe |
-| X1 | 未立项 | 工作流 | 仅「M5 后评估」 | 仅页面骨架 + mock | 后端立项后升级为 M 编号 |
-| X2 | 未立项 | 完整管理控制台 | `/api/v1/admin/*` 实测 404 | 仅 v8 原型 | 后端提供 admin 契约后升级 |
+| ~~X1~~ | — | ~~工作流~~ | 已升级为 **M9** | — | 见 M9 |
+| ~~X2~~ | — | ~~完整管理台~~ | 已升级为 **M8** | — | 见 M8 |
 
 ## 2. 各里程碑
 
@@ -56,8 +62,6 @@
 
 验收证据：`smoke:real` 97 项、`test:real` M1 用例、`docs/handoff/2026-11-09-m15-m2-alignment.md`。
 
-> **M1 收尾已完成（2026-11-10）**：模型/推理选择已并入 `ChatContextSelection` 并随请求发送；`/system/info` 的 `models`/`reasoning_efforts` 为空时前端隐藏选择器，不下发对应字段，也不回退到假参数。reasoning 事件继续按原 reducer 渲染。
-
 ### M1.5 个人能力层（已完成，真实联调）
 
 - [x] 输入栏「+」上下文：附件 / 技能 / MCP；本轮上限与发送后清空
@@ -68,8 +72,6 @@
 - [x] 审批卡与同一 SSE 流恢复（**提前交付，正式归属 M5**）
 
 验收证据：`smoke:m15` 68 项、`pnpm test` 全绿。
-
-> 提前交付说明：M1.5 只承诺「对话内审批最小闭环」；审批列表、审计、RBAC 与安全加固仍在 M5，不因为审批卡已存在而把 M5 记为完成。
 
 ### M2 智能体 + 任务（已完成，真实联调）
 
@@ -82,13 +84,6 @@
 
 验收证据：`test:real` 4 个用例（含 M2 远程 Agent 调用与任务详情）、后端 101 个测试通过。
 
-> 遗留项按里程碑归位，不再笼统写成「M5+」：
->
-> - 入站 A2A Server、入站任务与会话映射 → **不实施（2026-11-10 需求变更：仅出站）**；
-> - 智能体/任务的写操作 RBAC、审计 → **M5**；
-> - 多实例 HITL/SSE（进程内 waiter 的跨实例问题）→ **M6**；
-> - 工作流、完整管理台 → **X1 / X2（待立项）**。
-
 ### M3 A2A 入站（已取消，需求变更）
 
 > **2026-11-10 决策：本服务只做出站 A2A Client，不提供入站 A2A Server。**
@@ -97,8 +92,6 @@
 > - 不做入站鉴权（API Key / OAuth2）、`contextId ↔ conversationId` 映射、入站任务与入站会话；
 > - 设置页的「A2A 端点」分区已整块移除；远程智能体统一在「智能体」页注册与管理（出站方向）；
 > - 保留 M3 编号空位，避免与后端里程碑错位；后端仓库的 M3 清理由后端单独处理。
->
-> 若未来恢复入站能力，需重新立项并重新冻结契约，不沿用原 M3 清单。原清单（Agent Card 发布、入站鉴权、入站任务/会话来源、`a2a-inspector` 验收）全部作废。
 
 ### M4 知识库 RAG（已完成，真实联调）
 
@@ -116,8 +109,6 @@
 > 2026-11-10 联调证据：`pnpm smoke:m4` 41 项（管理员）/40 项（普通用户）断言通过（上传 201/幂等 200/413/422、列表统计、检索 10 字段、重试、管理员 rebuild、删除 404）；`scripts/real-m4.spec.ts` 3 例通过。
 >
 > 落地差异（以后端 M4 实际契约为准）：① 上传是**同步入库**并返回终态，没有异步进度，轮询只针对脚本导入/重建产生的 `pending/indexing`；② 后端没有「单文档重建」端点，页面用 `POST /knowledge/documents/{id}/retry` 承载；③ 后端没有分类目录端点，输入栏候选由可见文档聚合 + 手输；④ 管理员 `rebuild(scope=own)` 指**所有用户的私有文档**。
->
-> 未取得证据：真实 LLM 驱动的「对话 → search_knowledge → citations」SSE 全链路。本机 `LLM API key` 为占位符（DeepSeek 401），后端 M4 报告用替换 `build_chat_model` 的测试接缝验证；前端侧已用 mock 流与真实检索接口分别覆盖。
 
 ### M5 审批与安全加固（已完成，真实联调）
 
@@ -131,112 +122,153 @@
 - [x] 审批决定语义：`resumed=true` / `本轮还有其他审批待处理` / `运行已结束` / 409 `approval_expired`、`approval_already_decided` 分别提示，不再把正常语义当失败。
 - [x] 审批超时：`message.done(finish_reason=canceled, reason=approval_timeout)` 明确提示「审批超时，本轮已取消」，过期审批不可再操作。
 - [x] 审批中心 `/approvals`：5 键统计、待处理/历史 Tab、状态筛选、会话/运行 query 过滤、详情抽屉、批准/拒绝（备注 ≤500）、游标分页、过期禁用。
-- [x] 审计查询（设置页「安全与审计」）：普通用户 `GET /audit-logs` 自查；管理员可切 `GET /admin/audit-logs` 全局并额外按 actor/resource_id 筛选；动作/资源/时间范围、详情与 request_id 复制。
+- [x] 审计查询（设置页「安全与审计」）：普通用户 `GET /audit-logs` 自查；管理员可切 `GET /admin/audit-logs` 全局并额外按 actor/resource_id 筛选。
 - [x] 平台密钥（仅管理员）：`/admin/secrets` 列表、创建、轮换、启停、删除；503 `secret_store_unavailable` 与 403 分开提示；永不回显明文。
 - [x] 安全 UX：聊天/登录/注册 429 `retry_after_seconds` 倒计时；审批 payload 与审计 detail 敏感键默认遮罩；Markdown 外链域名确认；401 会话过期提示。
-- [x] 断线恢复：轮询 run 状态 + 进入会话时用 pending 审批补卡 + 终态刷新历史；**不**做逐字续流（见缺口）。
-- [x] mock：新审批流事件、审计/密钥端点与数据、`admin@example.com` 管理员沙盒账号。
-- [x] 单测：reducer/多审批/超时/决定语义、SSE 事件白名单与分发、终态审批对账/超时合成、审批中心、审计/密钥面板、敏感遮罩、聊天 429、Markdown 外链；全量 180 通过。
-- [x] 真实联调：`smoke:m5` 163 项（审批列表/详情/stats、审计用户+管理员+过滤、密钥 CRUD、聊天 429）；`test:real` M5 3 例。
-- [x] 后端 M5 迁移 `9c1d4e7a2b60`/`2d8f6a1c3e70` 已在开发库执行；`CAPABILITY_SECRET_KEY` 已配置；dev 账号临时提为 admin 联调。
+- [x] 断线恢复：轮询 run 状态 + 进入会话时用 pending 审批补卡 + 终态刷新历史；**不**做增量续流（M7 补已落库事件回放；`message.delta` 不落库，断线窗口文本仍靠终态刷新）。
 
-验收：高风险工具调用必须审批，拒绝后不执行且 UI 明确；审批超时后不可再批准；非管理员看不到管理员专属写操作；审计可按用户/动作/时间检索。
+验收证据：`smoke:m5` 163 项、`test:real` M5 3 例、`pnpm test` 180（当轮）、`docs/handoff/2026-11-11-m5-frontend-alignment.md`。
 
-> 2026-11-11 联调证据：`pnpm smoke:m5` 163 项断言通过；`pnpm test:real` 中 M5 3 例通过；`pnpm test` 180、`pnpm build`、`pnpm type-check`、`pnpm lint` 通过。
+### M6 生产化与可观测（前后端均已完成，2026-11-11）
+
+后端目标：结构化日志 + OpenTelemetry、Prometheus 指标、`/readyz`、Docker/Compose、清理任务、压测、CI。后端 M6 已交付 582 测试；**本轮无破坏性业务契约变更**。
+
+前端按「上线前置条件」收口：
+
+- [x] 构建产物拆分与体积门禁：`manualChunks` 拆出 `markdown` / `vue-vendor` / `http`；`pnpm size` 逐文件 gzip 门禁（单 chunk ≤ 110 KB、JS 总 ≤ 420 KB、CSS ≤ 60 KB）。
+- [x] 生产强制关闭 mock：构建期（`vite build --mode production` 且 `VITE_USE_MOCK=true` 直接失败）与运行期双层。
+- [x] Nginx 配置与 SSE 代理验证：`deploy/nginx.conf` 的 SSE location（`proxy_buffering off` / `proxy_cache off` / `gzip off` / 长读超时 / `Connection ""`）；`pnpm verify:nginx` 对照实测。
+- [x] 断线续传（自动重连部分）：1/2/4/8/16s ±20%，最多 5 次、总窗口 60s；重连前 `GET /runs/{id}` 回填 `conversation_id` 并校验 run，保留 `lastSeq` 去重；正常 EOF 也触发重连；失败降级轮询。
+- [x] 可观测：`X-Request-ID` / `X-Trace-ID` 与耗时环形缓冲；错误态展示并复制 `request_id`；诊断信息抽屉；Web Vitals；上报钩子默认关闭。
+- [x] E2E（Playwright + chromium，mock 构建）：`pnpm e2e` 10 例通过；`.github/workflows/ci.yml` 提供 quality + e2e 两个 job。
+- [x] 部署文档：`deploy/README.md`。
+- [x] F1 收口（虚拟滚动、a11y 审计、移动端回归）：已由 F1 完成（2026-11-11）。
+
+验收：`pnpm build` + `pnpm size` 通过；`VITE_USE_MOCK=true pnpm build` 失败；`pnpm e2e` 10 例通过；`pnpm verify:nginx` exit 0。
+
+> 未取证与限制：① 不做逐字续流（后端 M7 非目标：`message.delta` 不落库；M7 只补已落库事件回放）；② E2E 只跑 mock 构建；③ Nginx 验证是指令语义证据；④ CI 仅为配置交付。
 >
-> 落地差异与缺口：
-> 1. `GET /runs/{id}/events` 回放响应剔除了 `payload._event`，前端无法逐事件重放，断线只能「轮询状态 + 终态补历史 + 补审批卡」；建议后端 M6 增加 `event` 字段或流式续接端点。
-> 2. 智能体/任务写操作 RBAC 后端未实现（仍为 `CurrentUser`）；前端只隐藏管理员专属入口并保留系统 MCP 写工具置灰，不伪造角色禁用。
-> 3. 本机 `LLM_API_KEY` 为占位符（DeepSeek 401），无法真实触发「批准 → 恢复 → 继续输出」；该链路由 mock 流、reducer 单测与后端 395 项测试证据覆盖，`smoke:real` 的 M1 聊天用例因此失败，属环境限制。
-> 4. 审批成功恢复后的 SSE 续接未取得真实 HTTP 证据（同上）。
+> **2026-11-11 全量证据**：`pnpm test` 44 文件 / 232 用例通过；`pnpm type-check`、`pnpm build`、`pnpm size`、`pnpm e2e` 10 passed、`pnpm verify:nginx` 与 `--check-deploy` exit 0。
 
-### M6 生产化与可观测（前端已完成，2026-11-11）
+### M7 契约补齐与安全收口（后端已立项，前端未开始）
 
-后端目标：结构化日志 + OpenTelemetry、Prometheus 指标、`/readyz`、Docker/Compose、清理任务、压测、CI。
-后端 M6 设计明确「只做后端与运维产物、不改业务契约、前端无需适配」，前端因此按「上线前置条件」独立收口。
+后端目标（M7）：`GET /runs/{id}/events` 补 `event` 字段；新增 `GET /runs/{id}/stream?after_seq=` SSE 续流端点；agents/tasks 写接口收紧到管理员（403）；`approval.required` 补 5 个展示字段；A2A `authorization_url` 白名单；契约文档/OpenAPI/handoff 同步。无迁移。
 
-已交付：
+前端范围（详见[对齐设计](superpowers/specs/2026-11-11-m7-m9-frontend-alignment-design.md) §3）：
 
-- [x] 构建产物拆分与体积门禁：`manualChunks` 拆出 `markdown` / `vue-vendor` / `http`；`pnpm size` 逐文件 gzip 门禁（单 chunk ≤ 110 KB、JS 总 ≤ 420 KB、CSS ≤ 60 KB）。ChatView 由 118.7 KB → 43.0 KB gzip，Markdown 三件套独立成块按需加载。
-- [x] 生产强制关闭 mock：构建期（`vite build --mode production` 且 `VITE_USE_MOCK=true` 直接失败，实测 exit 1）与运行期（`import.meta.env.MODE === 'production'`）双层；`vite preview` 不被误伤。
-- [x] Nginx 配置与 SSE 代理验证：`deploy/nginx.conf` 的 SSE location（`proxy_buffering off` / `proxy_cache off` / `gzip off` / 长读超时 / `Connection ""`）；`pnpm verify:nginx` 在已有 `dev_nginx` 容器内起临时实例对照实测：`/sse` 5 帧逐秒到达（间隔 999–1002 ms），`/sse-buffered` 首帧 5030 ms 后集中到达 5 帧。`--check-deploy` 对交付配置做 `nginx -t` 语法校验。
-- [x] 断线续传：SSE 断线自动重连（1/2/4/8/16s ±20%，最多 5 次、总窗口 60s），重连前 `GET /runs/{id}` 回填 `conversation_id` 并校验 run，重连保留 `lastSeq` 去重，正常 EOF（未收到 `message.done`）也触发重连；重连中显示可中断的连接条，失败降级复用 M5 恢复横幅 + 轮询。
-- [x] 可观测：`X-Request-ID` / `X-Trace-ID` 与请求耗时进环形缓冲；错误态展示并复制 `request_id`（聊天错误透传 SSE `error.request_id`）；账号菜单「诊断信息」抽屉（版本 / 构建时间 / git sha / API base / mock / run_id / conversation_id / 最近请求 / 最近错误 / Web Vitals）；Web Vitals 自研采集 LCP/CLS/INP/TTFB；`VITE_ERROR_REPORT_ENDPOINT` / `VITE_PERF_ENDPOINT` 上报钩子默认关闭。
-- [x] E2E（Playwright + chromium，mock 构建）：`pnpm e2e` 10 例通过（登录 3 / 对话 2 / 审批 2 / 知识库 3）；`.github/workflows/ci.yml` 提供 quality + e2e 两个 job。
-- [x] 部署文档：`deploy/README.md`（部署、缓存、回滚、验证记录与证据边界）。
-- [ ] F1 收口（虚拟滚动、a11y 审计、移动端回归）：按用户决策拆到下一轮，不阻塞 M6。
+- [ ] M7-F1 续流：`src/api/runs.ts` 新增 `openRunStream`（fetch + Bearer + `after_seq`）；`chat` store 重连改为「续流优先、失败回退轮询」；`400 replay_too_large` 回退分页。
+- [ ] M7-F2 事件回放：`RunEvent.event` 进入类型与 reducer；支持按事件名重放补卡；按 `seq` 去重。
+- [ ] M7-F3 权限边界：agents/tasks 写入口按 `role=admin` 显隐/禁用；403 `forbidden` 统一文案；管理员入口按角色。
+- [ ] M7-F4 审批字段：`approval.required` 的 `tool_display_name/executor/target/side_effect/payload_preview` 直接渲染；详情请求保留兜底。
+- [ ] M7-F5 授权链接：跟随后端白名单，非法/缺失链接显示「授权链接不可用」；补容错用例。
+- [ ] M7-F6 纯前端收尾：登录 401 文案（不触发 refresh）、全局 503 统一文案、管理员入口（与 F3 合并验收）。
+- [ ] M7-F7 契约与门禁：类型/mock/fixtures/OpenAPI 手写类型同步；单测 + mock 续流 E2E；后端落地后 `test:real` M7 用例。
+- [ ] M7-F8 部署配置：`deploy/nginx.conf` 为 `/api/v1/runs/{id}/stream` 增加 SSE location（`proxy_buffering off` / `proxy_cache off` / `gzip off` / 长读超时），`deploy/README.md` 与 `pnpm verify:nginx` 同步；否则生产续流会被缓冲或 60s 截断。
 
-验收：`pnpm build` + `pnpm size` 通过；`VITE_USE_MOCK=true pnpm build` 失败；`pnpm e2e` 10 例通过；`pnpm verify:nginx` exit 0 且给出缓冲对照时间线；断线重连单测覆盖回填/去重/终态/EOF/上限。
+启动条件：后端 M7 契约冻结（以 handoff/OpenAPI 为准）。**前端可先做**：类型、mock、续流状态机单测、B-1/B-2/B-3 纯前端修复。
 
-> 2026-11-11 联调证据：`pnpm test` 44 文件 / 232 用例通过；`pnpm type-check` 通过；`pnpm build` 通过；`pnpm size` 通过；`pnpm e2e` 10 passed；`pnpm verify:nginx` 与 `--check-deploy` exit 0。
->
-> 未取证与限制：
-> 1. **不做逐字续流**：后端 `GET /runs/{id}/events` 剔除 `payload._event`、无 `Last-Event-ID`、单实例不引入 Redis 广播，断线期间的文本增量只能等 run 结束后 `refreshHistory()` 补齐；建议后端后续给回放加 `event` 字段或提供 `GET /runs/{id}/stream?after_seq=`。
-> 2. **E2E 只跑 mock 构建**：本机 `LLM_API_KEY` 为占位符（聊天 401），真实后端链路仍由 `smoke:real` / `test:real` 覆盖；不提供「只改 baseURL 就切真实后端」的假模式。
-> 3. **Nginx 验证是「指令语义」证据**：临时实例 + 容器内假 SSE 源证明 `proxy_buffering off` 生效，不等于真实后端 LLM 长流/断线场景；`--check-deploy` 只验语法。
-> 4. **CI 仅为配置交付**：仓库尚无远端 workflow 历史，是否有 runner 由用户决定。
+验收：
 
-## 3. F1 体验与可访问性（横切，不占 M 编号）
+- 断线后从 `lastSeq` 续流：已落库事件回放 + 实时事件不重复；断线窗口内未落库的 `message.delta` 不承诺补齐，终态 `refreshHistory()` 仍是必需步骤；
+- `400 replay_too_large` 正确降级；终态关闭并 `refreshHistory()`；
+- 普通用户写 agents/tasks 入口不可见、直接调用 403 文案正确；管理员成功；
+- 审批卡直接用事件字段渲染（兜底请求不触发）；
+- `pnpm test` / `type-check` / `lint` / `build` / `e2e`（mock）通过；真实联调待后端 M7 落地。
 
-> 2026-11-11 完成第一轮收口（两批，本地提交未推送）；设计与计划见 `docs/superpowers/specs/2026-11-11-f1-experience-a11y-design.md` 与 `docs/superpowers/plans/2026-11-11-f1-experience-a11y.md`。
+风险：续流端点单实例；排水不拦截新流；生产 Nginx 未给续流端点配 SSE location 会导致逐帧失效或 60s 截断（M7-F8 必须与功能同批交付）；真实 LLM key 占位导致真实增量续流证据受限；续流与旧轮询需状态机互斥。
+
+### M8 管理台后端 / 前端管理台（后端已立项，前端未开始）
+
+后端目标（M8，原 X2）：用户列表/详情/角色与状态调整（不能修改自己的 role、不能禁用/降级最后一个 admin（自己能否改 status 以 M8 handoff 为准））；平台指令、系统技能、系统 MCP、全局 Agent 的查询与管理；`GET /admin/overview` 只读统计；管理端审计与 403 契约。预计无迁移。
+
+前端范围（v8 原型全量，详见对齐设计 §4）：
+
+- [ ] M8-F1 路由与外壳：`/admin` 独立布局 `AdminLayout`（深墨侧栏 + 七页），`meta.requiresAdmin`，非 admin 无权限页。
+- [ ] M8-F2 概览：`GET /admin/overview` 计数卡片。
+- [ ] M8-F3 用户：`GET /admin/users`、`GET /admin/users/{id}`、`PATCH /admin/users/{id}`，分页/搜索/角色/状态；前端禁用「修改自己的 role」「禁用/降级最后一个 admin」，后端校验兜底。
+- [ ] M8-F4 角色权限：**只读**两角色说明 + 用户角色分布 + 内置能力矩阵；不做新建角色/权限编辑。
+- [ ] M8-F5 菜单：**只读**前端路由菜单树；标注「后端无菜单配置接口」。
+- [ ] M8-F6 字典：**只读**前端内置枚举（任务状态/审批风险/知识库状态等）；标注「后端无字典管理接口」。
+- [ ] M8-F7 审计：复用管理员审计面板（M5 已有）；若 M8 handoff 的 `GET /admin/audit-logs` 扩展了过滤字段，补对应 UI 与参数。
+- [ ] M8-F8 系统设置：平台指令、系统技能、系统 MCP、全局 Agent、平台密钥；写操作二次确认 + 审计。
+- [ ] M8-F9 契约/类型/mock：`src/api/admin.ts`、`src/types/admin.ts`、mock 与 fixtures。
+
+依赖：M7-2 RBAC 先落地；V8 全量中角色权限/菜单/字典三页**无后端契约**，按只读 + 明确提示交付，不做假 CRUD。若要求可编辑，需后端另立项（候选 M10+）。
+
+验收：管理员可完成用户/系统项操作且关键写操作有审计；普通用户访问 `/admin/*` 403/无权限页；七页 axe 无 critical/serious；`smoke` 管理端用例通过（M8 后端后）。
+
+### M9 工作流后端 / 前端工作流（后端已立项，前端未开始）
+
+后端目标（M9，原 X1）：`workflows` / `workflow_runs` 表；五类步骤（`knowledge_search` / `tool` / `a2a` / `approval` / `answer`）；CRUD/启停/运行入口（`chat/stream.workflow_id`）/运行历史；`workflow.step` 事件；先做 1 天 spike，不引入外部引擎，不做 DAG/并行。
+
+前端范围（详见对齐设计 §5）：
+
+- [ ] M9-F1 列表页：名称、描述、步骤数、启用状态、归属、更新时间；启停/删除/运行。
+- [ ] M9-F2 线性编辑器：步骤增删/排序（上移下移），五类步骤参数表单；保存前校验；**不做拖拽画布**。
+- [ ] M9-F3 运行历史：`GET /workflows/{id}/runs` + 关联 run 详情。
+- [ ] M9-F4 对话接入：`capabilities.workflows=true` 时输入栏「+ → 工作流」开放；请求带 `workflow_id`；时间线渲染 `workflow.step` 步骤卡。
+- [ ] M9-F5 契约/类型/mock：`src/types/workflow.ts`、`src/api/workflows.ts` 由骨架升级为真实契约；mock 同步。
+
+启动条件：M9 spike 通过 + 契约冻结（`workflows` CRUD、`workflow_id`、`workflow.step`、五类步骤参数 schema），且后端显式把 `capabilities.workflows` 置 `true`（当前恒 `false`）。spike 不通过或上述任一项未冻结，不启动实现。
+
+验收：3 步模板（检索 → A2A → 审批）可保存并运行；`workflow.step` 可见；取消/失败/审批超时语义与现有 run 一致；`workflows=false` 时入口置灰。
+
+## 3. F1 体验与可访问性（横切，已完成）
+
+> 2026-11-11 已完成（两批，本地提交未推送）；设计与计划见 `docs/superpowers/specs/2026-11-11-f1-experience-a11y-design.md` 与 `docs/superpowers/plans/2026-11-11-f1-experience-a11y.md`。
 
 - [x] 长会话虚拟滚动：`virtua` 的 `VList`，1000 条消息 E2E 验证 DOM 行数 < 60、前置插入不跳视口、上滑「回到底部」。
-- [x] 移动端抽屉布局（已有，持续回归；新增 390×844 E2E）。
-- [x] Enter 发送 / Shift+Enter 换行、Esc 关闭账号菜单（已实现）。
-- [x] ⌘K 全局搜索：页面跳转 + 会话标题（`GET /conversations?q=`）+ 当前会话已加载消息定位；桌面侧栏与移动顶栏入口。
+- [x] 移动端抽屉布局（390×844 E2E）。
+- [x] Enter 发送 / Shift+Enter 换行、Esc 关闭账号菜单。
+- [x] ⌘K 全局搜索：页面跳转 + 会话标题（`GET /conversations?q=`）+ 当前会话已加载消息定位。
 - [x] 基础三态组件 + 规格统一：`EmptyState` 增 `size`/`icon`，新增 `LoadingSkeleton`，16 处首屏加载接入。
-- [x] 可访问性：对比度（`--ink-3` 微调后全部正文 token ≥4.5:1）、focus ring（移除 8 处 `outline:none`）、流式 `aria-live`（状态节点播报，不逐字）、跳过链接、axe 扫描 7 个页面/状态 0 critical/serious。
-- [x] 主题持久化（浅色/深色 + localStorage，已实现）。
-- [x] 消息密度偏好（紧凑/标准/宽松，localStorage）；语言只读展示（本轮不做 i18n）。**服务端偏好同步待后端提供接口**。
-- [x] 性能预算：Markdown 渲染 LRU 缓存（上限 200，只缓存清洗后 HTML、流式不写缓存）；SSE 按帧合并已在 M1 完成；构建体积门禁更新（JS 377.7 KB / CSS 38.8 KB gzip）。
+- [x] 可访问性：对比度、focus ring、流式 `aria-live`、跳过链接、axe 扫描 7 页面/状态 0 critical/serious。
+- [x] 主题持久化、消息密度偏好（localStorage）；语言只读展示。
+- [x] 性能预算：Markdown 渲染 LRU 缓存、SSE 按帧合并、构建体积门禁更新。
 
-> 原型视觉的像素级还原属于「呈现型欠账」，单独排期，不在本路线图中占用 M/F 编号；新页面按 v7 设计 token 实现。
+> 原计划的 F2 纯前端收尾（登录 401 文案、全局 503 文案、管理员入口按角色）已并入 M7 前端（M7-F6），不单独占用 F 编号。v7 像素级视觉还原与服务端偏好同步仍待后续（后者需后端接口）。
 
-## 4. X 系列：后端未立项
+## 4. 原 X 系列：已升级为 M8 / M9
 
-### X1 工作流（待立项）
+| 原编号 | 原内容 | 现状 |
+|---|---|---|
+| X1 | 工作流（后端未立项） | **升级为 M9**：后端 2026-11-11 立项轻量步骤模板 MVP，前端 `/workflows` 骨架 + mock 升级为真实页面 |
+| X2 | 完整管理控制台（`/api/v1/admin/*` 404） | **升级为 M8**：后端立项用户/角色、系统项、概览；前端 v8 全量七页（无契约三页只读） |
 
-- 后端现状：无 `workflows` / `workflow_runs` 表或 API；架构明确不做通用 BPMN 编排器；roadmap 仅写「M5 后按实际任务复杂度评估」。
-- 前端现状：`/workflows` 页面骨架 + mock；路由受 `capabilities.workflows` 门控（当前恒为 `false`）；交接包 `docs/handoff/workflows.md`、BE-12 保留为方案证据。
-- 规则：后端未立项前不建表、不做编辑器、不做执行，不显示「即将上线」式假承诺，也不做本地假成功。
-- 升级条件：后端给出轻量步骤模板的表/API 与里程碑后，前端新增与之同名的 M 编号（例如 M7），并补契约与 fixtures。
-
-### X2 完整管理控制台（待立项）
-
-- 后端现状：`/api/v1/admin/*` 实测 404；`api.md` 2.12 的平台指令/系统 MCP/系统技能仍为设计稿；用户、角色权限、菜单、字典、审计查询均无 API。
-- 前端现状：仅 `ui-v8-admin.html` 原型；`docs/handoff/admin-console.md` 的 M5.0/M5.1/M5.2 是**建议切片，不是后端路线图的 M5**。
-- 拆分：若后端 M5 提供审计查询，只把「审计查询 + 审批相关」纳入 M5；概览、用户、RBAC、菜单、字典全部留在 X2。
-- 升级条件：后端实现 admin 契约并给出里程碑后，再建前端 M 编号；在此之前不加 `/admin` 路由，不伪造管理数据。
+历史交接文档（`docs/handoff/workflows.md`、`docs/handoff/admin-console.md`）中的建议切片仍然有效，但编号与范围以本文 M8/M9 为准。
 
 ## 5. 契约前置与联调门禁
 
 | 里程碑 | 开工前必须冻结的契约 | 当前事实 | 前端动作 |
 |---|---|---|---|
-| M3 | 不适用（已取消） | 2026-11-10 决策：仅出站 A2A Client，入站不实施 | 无；设置页入站分区已移除，智能体页继续承载出站能力 |
-| M4 | 知识库文档/检索端点；citations；`knowledge_categories`；能力开关 | 7 个端点已实现，`capabilities.knowledge=true`；前端已联调 | 按实际契约消费；单文档重建复用 retry；分类候选由文档聚合 |
-| M5 | 审批列表/详情/决定；审计查询；平台密钥；429；`run.interrupted`/`run.resumed` | 后端已交付并在开发库迁移 | 已联调；RBAC 403 仍缺，待后端补 |
-| M6 | 无新增业务契约；`/readyz` 加字段、DB 503 兼容 | 后端 M6 设计已明确前端无需适配；单实例、无 Redis 广播 | 前端生产化已收口：构建门禁、重连、可观测、E2E、Nginx SSE；逐字续流待后端补回放事件名 |
-| X1/X2 | 无 | 未立项 | 保留原型/交接包，不进入排期 |
+| M3 | 不适用（已取消） | 仅出站 A2A Client | 无 |
+| M4 | 知识库端点；citations；`knowledge_categories`；能力开关 | 已实现并联调 | 按实际契约消费 |
+| M5 | 审批列表/详情/决定；审计；平台密钥；429；`run.interrupted`/`run.resumed` | 已交付并联调 | 已消费；RBAC 403 移入 M7 |
+| M6 | 无新增业务契约；`/readyz`、Trace ID、503 | 后端已完成；单实例 | 已收口；增量续流移入 M7 |
+| **M7** | `RunEventOut.event`；`GET /runs/{id}/stream?after_seq=`；agents/tasks 写接口 403；`approval.required` 5 字段；`authorization_url` 白名单 | 已立项，契约草案见后端立项 §3 | 先冻结类型/mock；后端 handoff 后联调 |
+| **M8** | `/admin/users*`、`/admin/overview`、`/admin/settings/instruction`、`/admin/skills*`、`/admin/mcp/servers*`、`/admin/agents*` | 已立项，未开始；依赖 M7-2 | 无契约页只读；有契约页等 M8 后端 |
+| **M9** | `workflows` CRUD/启停、`workflow_runs`、`chat/stream.workflow_id`、`workflow.step`、`capabilities.workflows=true` | 已立项，未开始；先 spike | 骨架 + mock 保持；契约冻结后再实现 |
 
 ## 6. 待决策
 
 | 议题 | 选项 | 当前结论/倾向 | 影响 |
 |---|---|---|---|
-| Token 存储 | localStorage / httpOnly cookie | 先 localStorage；M6 评估 cookie（需后端配合） | 安全与刷新链路 |
+| M8 无契约页（角色权限/菜单/字典） | 只读内置数据 / 等后端补契约 / 前端 mock 可编辑 | **只读 + 明确提示**（v8 全量页面，但拒绝假 CRUD） | 若要求可编辑，需后端另立项 |
+| M9 编辑器形态 | 线性步骤列表 / 拖拽画布 | **线性列表**（后端 MVP 非目标） | 画布列 F3 候选 |
+| 服务端偏好同步 | 并入 M8 / 等后端接口 / 不做 | 等后端接口；M8 后端未包含 | 设置页偏好仍本地存储 |
+| 真实 LLM key 取证 | 等 key / fake 模型 | 等用户配置；不伪造真实长流证据 | M7 续流真实 HTTP 证据 |
+| 多实例 SSE | 粘性会话 / Redis 事件总线 / 前端轮询 | 后端单实例；候选 M10+，需求触发 | 扩容前不启动 |
+| 真实后端 E2E | mock 构建 / 双后端模式 | 维持 mock 构建（不提供「只改 baseURL」的假模式） | 真实链路靠 `smoke:real`/`test:real` |
 | UI 库 | Element Plus / Naive UI | **Element Plus（已定）** | 不再重复评估 |
-| Markdown 高亮 | highlight.js / Shiki | **highlight.js（已实现）** | 构建期高亮不再等待 |
-| 虚拟滚动 | Element Plus 虚拟列表 / 自研 | 先原生 + 分页，F1（M6 前）优化 | 长会话性能 |
-| 工作流定位 | 轻量步骤模板 / 不落地 | 待后端 D1；未立项前不建表 | X1 是否升级 |
-| 完整管理台 | 全量 / 最小集 / 后置 | 最小集也需 admin 契约；当前 X2 | M5 范围 |
-| 多实例 SSE | 粘性会话 / Redis 事件总线 / 前端轮询 | 后端 M6 决策；前端保留 `after_seq` 恢复 | 断线与扩容 |
-| 交接包 D1–D8 | 见 `contract-delta.md` | 推荐项仍有效；与本文冲突的编号以本文为准 | 字段与表结构 |
+| 工作流定位 | 轻量步骤模板 / 不落地 | **M9 轻量步骤模板**（后端已立项） | 按 M9 实现 |
 
 ## 7. 变更记录
 
-- **2026-11-11（F1 前端）**：F1 体验与可访问性完成第一轮收口：虚拟滚动（virtua，1000 条消息 E2E、前置插入不跳、回到底部）、Markdown LRU 缓存、三态统一（`LoadingSkeleton` + 16 处接入）、⌘K 命令面板（页面/会话/当前会话消息三组，桌面与移动入口）、可访问性（对比度微调、focus ring、流式状态播报、跳过链接、axe 门禁 0 critical/serious）、消息密度偏好与设置页「界面」分区。本地提交未推送；服务端偏好同步与 v7 像素级视觉还原仍待后续。
-- **2026-11-11（M6 前端）**：前端 M6 生产化完成：分包与体积门禁（ChatView 118.7→43.0 KB gzip）、生产 mock 双层门禁、SSE 断线自动重连（回填 conversation_id + lastSeq 去重，不做逐字续流）、诊断抽屉与 Web Vitals、Playwright E2E 10 例 + CI、Nginx SSE 配置与容器内对照实测（`/sse` 逐秒 999–1002 ms vs `/sse-buffered` 集中到达）。F1 收口与视觉欠账按用户决策排到下一轮。
-- **2026-11-11**：M5 前端完成并对接后端交付：审批中心、多审批与超时语义、审计查询、平台密钥、429/遮罩/外链等安全 UX；`smoke:m5` 163 项与 `test:real` M5 3 例通过。记录事件回放无事件名、写操作 RBAC 未落地、LLM 占位导致审批恢复无真实 HTTP 证据三项缺口。
-- **2026-11-10（需求变更）**：A2A 能力边界收缩为**仅出站**。M3「A2A 入站」取消（保留编号空位），设置页「A2A 端点」分区整块移除，`system/info.a2a` 前端不再读取；F1 并行范围收窄为 M4–M6。后端仓库的 M3 清理由后端单独处理。
-- **2026-11-10**：与后端 M0–M6 语义对齐。M3 由「审批」改为「A2A 入站前端配套」；M5 由「体验与可访问性」改为「审批与安全加固」；体验项移入 F1；工作流/完整管理台移入 X1/X2；M1/M1.5/M2 状态更新为真实联调通过；补充契约前置、门禁与待决策。
-- **2026-11-10（代码收尾）**：模型/推理选择随 `chat/stream` 发送；设置页 A2A 按 `a2a.enabled` 门控；新增 4 个单测（`withModelSelection` 2 个、A2A 门控 2 个）。
+- **2026-11-11（M7–M9 对齐）**：后端新增 M7 契约补齐与安全收口、M8 管理台、M9 工作流立项；前端新增 M7 前端适配、M8 管理台（v8 全量，无契约三页只读）、M9 工作流；X1/X2 升级为 M9/M8；原 F2 纯前端收尾并入 M7；M6 后端状态改已完成；文档同步 README/api/pages/architecture/development/handoff；设计见[对齐设计](superpowers/specs/2026-11-11-m7-m9-frontend-alignment-design.md)。
+- **2026-11-11（F1 前端）**：F1 体验与可访问性完成：虚拟滚动、Markdown LRU 缓存、三态统一、⌘K 命令面板、可访问性、消息密度偏好与设置页「界面」分区。本地提交未推送；服务端偏好同步与 v7 像素级视觉还原仍待后续。
+- **2026-11-11（M6 前端）**：前端 M6 生产化完成：分包与体积门禁、生产 mock 双层门禁、SSE 断线自动重连（回填 conversation_id + lastSeq 去重）、诊断抽屉与 Web Vitals、Playwright E2E 10 例 + CI、Nginx SSE 配置与容器内对照实测。
+- **2026-11-11**：M5 前端完成并对接后端交付：审批中心、多审批与超时语义、审计查询、平台密钥、429/遮罩/外链等安全 UX；记录事件回放无事件名、写操作 RBAC 未落地、LLM 占位导致审批恢复无真实 HTTP 证据三项缺口（M7 承接）。
+- **2026-11-10（需求变更）**：A2A 能力边界收缩为**仅出站**。M3「A2A 入站」取消（保留编号空位），设置页「A2A 端点」分区整块移除，F1 并行范围收窄为 M4–M6。
+- **2026-11-10**：与后端 M0–M6 语义对齐。M3 由「审批」改为「A2A 入站前端配套」；M5 由「体验与可访问性」改为「审批与安全加固」；体验项移入 F1；工作流/完整管理台移入 X1/X2。
+- **2026-11-10（代码收尾）**：模型/推理选择随 `chat/stream` 发送；设置页 A2A 按 `a2a.enabled` 门控；新增 4 个单测。
 - 旧版 M3「审批」中的已完成项（审批卡、同一流恢复）归入 M5 的「提前交付」；旧版 M5「体验」中的未完成项移入 F1。

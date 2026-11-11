@@ -1,8 +1,8 @@
 # 开发指南
 
-> **当前状态：M1.5/M2/M4 前端已实现并与真实后端联调，开发环境默认使用内置 mock。**
-> 登录/注册、应用布局、对话工作台、个人能力设置、智能体/任务/知识库页已可用；工作流为 X1 待后端立项。
-> 后端联调时在 `.env.development.local` 设置 `VITE_USE_MOCK=false`（`.env.local` 会被 `.env.development` 覆盖）。
+> **当前状态：M0–M6 前端已实现并完成真实联调（M6 为生产化收口），F1 体验与可访问性已收口；M7/M8/M9 已随后端立项进入规划，未开工。开发环境默认使用内置 mock。**
+> 登录/注册、应用布局、对话工作台、个人能力设置、智能体/任务/知识库页、审批中心/审计/平台密钥可用；工作流为 M9 骨架 + mock，管理台为 M8 规划页。
+> 后端联调时在 `.env.development.local` 设置 `VITE_USE_MOCK=false`（`.env.development` 会覆盖 `.env.local`）。
 
 ## 1. 环境要求
 
@@ -20,12 +20,17 @@
 | `pnpm install` | 安装依赖 |
 | `pnpm dev` | 开发服务器（5173，热更新） |
 | `pnpm build` | 类型检查 + 生产构建 |
-| `pnpm test` | Vitest 单测（180 个用例，无需后端） |
+| `pnpm test` | Vitest 单测（232 个用例，无需后端） |
 | `pnpm test:watch` | Vitest 监听模式 |
+| `pnpm e2e` | Playwright E2E（mock 构建，10 例） |
+| `pnpm size` | 构建产物体积门禁（gzip） |
+| `pnpm verify:nginx` | Nginx SSE 代理对照验证（需已有 nginx 容器） |
 | `pnpm preview` | 预览构建产物 |
 | `pnpm type-check` | 仅类型检查 |
 | `pnpm lint` | oxlint + eslint（自动修复） |
 | `pnpm format` | Prettier 格式化 `src/` |
+| `pnpm smoke:real` | M1 协议冒烟（需后端 8000 与开发账号） |
+| `pnpm smoke:m15` | M1.5 能力层冒烟（附件/指令/记忆/技能/MCP/审批） |
 | `pnpm smoke:m4` | 知识库真实冒烟（需后端 8000 与开发账号） |
 | `pnpm smoke:m5` | 审批/审计/平台密钥/聊天 429 真实冒烟（最后会占用约 60s 聊天限流窗口） |
 | `pnpm test:real` | 真实后端 vitest 联调（M1/M2/M4/M5；需 `VITE_API_BASE_URL`） |
@@ -37,7 +42,7 @@
 | 场景 | 配置 | 行为 |
 |---|---|---|
 | 默认开发 | `.env.development` 的 `VITE_USE_MOCK=true` | `src/api` 使用内置 adapter；SSE 走 `src/api/mock/stream.ts` |
-| 联调 | `.env.local` 写 `VITE_USE_MOCK=false` | 请求经 Vite 代理 `/api`、`/a2a` 到 `http://127.0.0.1:8000` |
+| 联调 | `.env.development.local` 写 `VITE_USE_MOCK=false` | 请求经 Vite 代理 `/api`、`/a2a` 到 `http://127.0.0.1:8000` |
 | 直连 | `VITE_API_BASE_URL=http://localhost:8000/api/v1` | 需后端允许 CORS |
 | 生产 | `.env.production` 固定 `false` | 同源 `/api/v1`，由 Nginx 反代 |
 

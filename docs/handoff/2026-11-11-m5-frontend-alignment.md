@@ -2,7 +2,7 @@
 
 - 范围：前端 M5「审批与安全加固」全量对接
 - 后端基线：agent-hub M5（`9095699 docs: 记录 M5 审查修复与最终测试证据`）及 M5 交付报告
-- 后端报告：[`2026-11-10-m5-backend-report.md`](../../../PythonProjects/agent-hub/docs/feedback/2026-11-10-m5-backend-report.md)
+- 后端报告：[`2026-11-10-m5-backend-report.md`](../../../../PythonProjects/agent-hub/docs/feedback/2026-11-10-m5-backend-report.md)
 - 前端路线图：[`docs/roadmap.md`](../roadmap.md) M5
 
 ## 1. 环境准备（已执行）
@@ -57,7 +57,7 @@ approval.required
 |---|---|
 | `pnpm type-check` | 通过 |
 | `pnpm lint` | oxlint 0 warnings/0 errors；eslint 通过 |
-| `pnpm test` | 36 files / 180 tests 通过（含 SSE 白名单、store 决定语义/429、终态审批对账、遮罩、外链） |
+| `pnpm test` | 36 files / 180 tests（M5 当轮；当前全量 232）通过（含 SSE 白名单、store 决定语义/429、终态审批对账、遮罩、外链） |
 | `pnpm build` | 通过（ApprovalsView、SettingsView 分包正常） |
 | `pnpm smoke:m5` | **163 项断言，0 失败** |
 | `pnpm test:real` | M5 3 例通过；M2 2 例 skipped；M1 聊天 1 例因 LLM 401 失败（见 §4.3） |

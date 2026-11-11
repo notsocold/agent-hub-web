@@ -2,7 +2,7 @@
 
 > 状态：2026-11-11 设计，待确认后进入计划与实施。
 >
-> 对齐基线：后端 `agent-hub` M6 设计稿 [`2026-11-11-m6-production-observability-design.md`](../../../../PythonProjects/agent-hub/docs/superpowers/specs/2026-11-11-m6-production-observability-design.md) 与前端路线图 [`docs/roadmap.md`](../../roadmap.md) M6 一节。
+> 对齐基线：后端 `agent-hub` M6 设计稿 [`2026-11-11-m6-production-observability-design.md`](../../../../../PythonProjects/agent-hub/docs/superpowers/specs/2026-11-11-m6-production-observability-design.md) 与前端路线图 [`docs/roadmap.md`](../../roadmap.md) M6 一节。
 
 ## 1. 背景与目标
 
@@ -77,7 +77,7 @@
 - **不改后端契约、不新增 API**；不向后端提「必须补」的阻断性需求（只记录建议）。
 - **不做 F1 体验项**（虚拟滚动、a11y 审计、⌘K、空态统一、移动端回归）——下一轮独立工作包。
 - **不做视觉还原欠账**（v7 像素级）——排在 M6 与 F1 之后。
-- **不动 X1/X2**（工作流、完整管理台后端未立项）。
+- **不动 X1/X2**（当时未立项；2026-11-11 已升级为后端 M9/M8 立项，前端同名）。
 - **不引入 Sentry SDK**：只留 `VITE_ERROR_REPORT_ENDPOINT` / `VITE_PERF_ENDPOINT` 上报钩子（默认关闭），避免体积、隐私与账号依赖。
 - **不启动新的 Docker 容器**：Nginx 验证复用已有 `dev_nginx`。
 - **不写宿主 `/home/zhaodan/work/docker_work/nginx/`**：只读且不可写，验证只用容器内 `/tmp`。
@@ -372,5 +372,5 @@ docs/roadmap.md               （M6 状态更新）
 
 - **F1 体验与可访问性**：虚拟滚动、a11y 审计（对比度/focus ring/aria-live）、⌘K、空态统一、移动端回归、性能预算二次收口。
 - **呈现型欠账**：v7 原型像素级还原（独立工作包）。
-- **X1/X2**：工作流与完整管理台，等后端立项。
+- **X1/X2**：已升级为 M9/M8（2026-11-11 后端立项）。
 - **向后端反馈**（不阻断）：`GET /runs/{id}/events` 增加 `event` 字段或提供 `GET /runs/{id}/stream?after_seq=`，前端即可做真正的逐字续流；多实例 SSE 需 M7 决策。

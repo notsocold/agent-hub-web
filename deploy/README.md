@@ -163,6 +163,8 @@ curl --noproxy '*' -sS -o /dev/null -w 'readyz: %{http_code}\n' http://127.0.0.1
 `/api/` 走普通反代（`proxy_read_timeout 60s`）。聊天流使用**精确匹配**的
 `location = /api/v1/chat/stream`，覆盖 `/api/` 的前缀匹配：
 
+> **M7 前瞻**：后端立项的 `GET /api/v1/runs/{id}/stream`（增量续流）不在当前配置内。M7 实施时需为它增加同参数的 SSE location（如 `location ~ ^/api/v1/runs/[^/]+/stream$`），并让 `scripts/verify-nginx-sse.mjs` 覆盖该端点；否则会被 `/api/` 的 60s 读超时与默认缓冲影响。当前 M6 交付未包含该端点。
+
 | 指令                             | 作用                                                                                   |
 | -------------------------------- | -------------------------------------------------------------------------------------- |
 | `proxy_http_version 1.1`         | 与后端使用 HTTP/1.1，支持 chunked/长连接；HTTP/1.0 不适合长流                          |
