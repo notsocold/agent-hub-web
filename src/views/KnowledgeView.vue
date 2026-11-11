@@ -65,7 +65,8 @@ const debugPanel = ref<InstanceType<typeof SearchDebugPanel> | null>(null)
 let pollTimer: ReturnType<typeof setInterval> | null = null
 let keywordTimer: ReturnType<typeof setTimeout> | null = null
 
-const isAdmin = computed(() => auth.user?.role === 'admin')
+// M7：统一走 auth store 的角色判断，避免各页各自实现。
+const isAdmin = computed(() => auth.isAdmin)
 const interim = computed(() => items.value.some((document) => isInterimStatus(document.status)))
 
 function mergeCategories(documents: KnowledgeDocument[]): void {
