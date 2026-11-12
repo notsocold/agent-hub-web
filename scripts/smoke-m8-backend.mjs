@@ -125,7 +125,7 @@ async function main() {
   // 3. 用户列表：字段 / stats / 筛选。
   const usersPage = await api('/admin/users?limit=5', { token: adminToken })
   assert(usersPage.status === 200, `GET /admin/users 期望 200，实际 ${usersPage.status}`)
-  const { items, stats, has_more, next_cursor } = usersPage.data
+  const { items, stats, has_more } = usersPage.data
   assert(Array.isArray(items), '用户列表缺少 items 数组')
   assert(items.length > 0, '用户列表为空')
   for (const row of items) {
