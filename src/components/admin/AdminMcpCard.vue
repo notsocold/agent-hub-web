@@ -168,6 +168,14 @@ function validateCreate(): string | null {
     if (!url) return '远程传输必须填写 URL'
     if (url.length > 2048) return 'URL 不能超过 2048 字符'
   }
+  // headers 与编辑端同语义：键值需同时填写（整行留空则跳过）。
+  for (const row of headerRows.value) {
+    const key = row.key.trim()
+    const value = row.value.trim()
+    if ((key && !value) || (!key && value)) {
+      return 'headers 的键与值需同时填写（支持 secret:NAME / env:NAME 引用）'
+    }
+  }
   return null
 }
 

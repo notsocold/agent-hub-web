@@ -201,7 +201,7 @@
 
 验收：管理员可完成用户/系统项操作且关键写操作有审计；普通用户访问 `/admin/*` 403/无权限页；七页 axe 无 critical/serious；`smoke` 管理端用例通过（M8 后端后）。
 
-前端 M8 完成情况（2026-11-12）：398 单测全绿（含管理台 40+ 用例）、type-check / eslint / oxlint 干净；`e2e/admin.spec.ts` 8 例 + a11y 管理台 4 例已就位，**本机缺 chromium 系统库（无 sudo）未执行**；`scripts/smoke-m8-backend.mjs` 已就位，**后端 8000 未启动未联调**。已知限制：全局 Agent 的 `headers` 不提供编辑 UI（响应不回显明文，避免覆盖风险），`requires_approval` 展示按字段存在性守卫。
+前端 M8 完成情况（2026-11-12）：402 单测全绿（管理台 55+ 用例）、type-check / eslint / oxlint 干净；`e2e/admin.spec.ts` 8 例 + a11y 管理台 4 例已就位，**本机缺 chromium 系统库（无 sudo）未执行**；`scripts/smoke-m8-backend.mjs` 已就位，**后端 8000 未启动未联调**。已知限制：全局 Agent 的 `headers` 不提供编辑 UI（响应不回显明文，避免覆盖风险）；系统 MCP 的 `headers` 可编辑——响应不回显、留空=不修改、填写则整体覆盖为本次输入（仅引用形态）；`requires_approval` 展示按字段存在性守卫。
 
 ### M9 工作流后端 / 前端工作流（后端已立项，前端未开始）
 

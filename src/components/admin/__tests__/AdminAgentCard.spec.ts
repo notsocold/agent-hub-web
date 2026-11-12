@@ -133,6 +133,24 @@ describe('AdminAgentCard', () => {
     wrapper.unmount()
   })
 
+  it('非法游标 422 后回到第一页', async () => {
+    adminApiMock.agents.mockResolvedValue(agentList({ has_more: true, next_cursor: 'cursor-1' }))
+    const wrapper = await mountCard()
+
+    adminApiMock.agents
+      .mockRejectedValueOnce(
+        new ApiRequestError('游标无效', { code: 'validation_error', status: 422 }),
+      )
+      .mockResolvedValue(agentList())
+    await wrapper.findAll('.table-foot button')[1]!.trigger('click')
+    await flushPromises()
+
+    expect(messageMock.warning).toHaveBeenCalledWith('游标已失效，已回到第一页')
+    const lastCall = adminApiMock.agents.mock.calls.at(-1)![0]!
+    expect(lastCall.cursor).toBeUndefined()
+    wrapper.unmount()
+  })
+
   it('编辑只提交变化字段（只改 name）', async () => {
     const wrapper = await mountCard()
 
