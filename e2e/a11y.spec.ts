@@ -101,3 +101,36 @@ test.describe('可访问性扫描', () => {
     expect(describeViolations(await scan(page))).toEqual([])
   })
 })
+
+test.describe('可访问性扫描 · 管理台（M8）', () => {
+  test('管理概览页', async ({ page }) => {
+    await login(page)
+    await page.goto('/admin')
+    await expect(page.getByRole('heading', { name: '管理概览', level: 1 })).toBeVisible()
+    await waitReady(page)
+    expect(describeViolations(await scan(page))).toEqual([])
+  })
+
+  test('用户管理页', async ({ page }) => {
+    await login(page)
+    await page.goto('/admin/users')
+    await expect(page.getByRole('heading', { name: '用户管理', level: 1 })).toBeVisible()
+    await waitReady(page)
+    expect(describeViolations(await scan(page))).toEqual([])
+  })
+
+  test('系统设置页', async ({ page }) => {
+    await login(page)
+    await page.goto('/admin/settings')
+    await expect(page.getByRole('heading', { name: '系统设置', level: 1 })).toBeVisible()
+    await waitReady(page)
+    expect(describeViolations(await scan(page))).toEqual([])
+  })
+
+  test('无权限页', async ({ page }) => {
+    await login(page)
+    await page.goto('/admin/forbidden')
+    await expect(page.getByRole('heading', { name: '需要管理员权限' })).toBeVisible()
+    expect(describeViolations(await scan(page))).toEqual([])
+  })
+})
