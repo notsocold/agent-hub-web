@@ -137,7 +137,11 @@ describe('AdminUsersView', () => {
 
   it('筛选变更重置游标并带上筛选参数', async () => {
     adminApiMock.users.mockResolvedValue(
-      userPage({ has_more: true, next_cursor: 'cursor-1', stats: { total: 30, active: 25, disabled: 5, admins: 2 } }),
+      userPage({
+        has_more: true,
+        next_cursor: 'cursor-1',
+        stats: { total: 30, active: 25, disabled: 5, admins: 2 },
+      }),
     )
     const wrapper = await mountView()
 
@@ -157,9 +161,7 @@ describe('AdminUsersView', () => {
   })
 
   it('下一页带 cursor、上一页回退', async () => {
-    adminApiMock.users.mockResolvedValue(
-      userPage({ has_more: true, next_cursor: 'cursor-1' }),
-    )
+    adminApiMock.users.mockResolvedValue(userPage({ has_more: true, next_cursor: 'cursor-1' }))
     const wrapper = await mountView()
 
     adminApiMock.users.mockResolvedValue(userPage())
@@ -274,9 +276,7 @@ describe('AdminUsersView', () => {
   })
 
   it('非法游标 422 后回到第一页', async () => {
-    adminApiMock.users.mockResolvedValue(
-      userPage({ has_more: true, next_cursor: 'cursor-1' }),
-    )
+    adminApiMock.users.mockResolvedValue(userPage({ has_more: true, next_cursor: 'cursor-1' }))
     const wrapper = await mountView()
 
     adminApiMock.users

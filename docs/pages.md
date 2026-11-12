@@ -202,13 +202,13 @@ M5 事件顺序：`approval.required` → `run.interrupted`（非终态，SSE �
 | 布局 | 独立 `AdminLayout`：深墨管理侧栏 + 内容区，与 v8 原型一致；仅 `role=admin` 可见 |
 | 路由 | `/admin` 概览、`/admin/users` 用户、`/admin/roles` 角色权限、`/admin/menus` 菜单、`/admin/dictionaries` 字典、`/admin/audit` 审计、`/admin/settings` 系统设置；`meta.requiresAdmin` |
 | 概览 | `GET /admin/overview` 计数卡片（用户/会话/run/任务/知识库/存储） |
-| 用户 | `GET /admin/users`、`GET /admin/users/{id}`、`PATCH /admin/users/{id}`；分页/搜索/角色/状态；不能修改自己的 role、不能禁用/降级最后一个 admin（自己能否改 status 以 M8 handoff 为准） |
+| 用户 | `GET /admin/users`、`GET /admin/users/{id}`、`PATCH /admin/users/{id}`；分页/搜索/角色/状态；不能修改自己的 role（422 `cannot_change_own_role`）、不能停用自己（422 `cannot_disable_self`）、最后活跃管理员保护（409 `last_admin_protected`），前端先行禁用控件、后端校验兜底 |
 | 角色权限 | **只读**：两角色说明 + 用户角色分布 + 内置能力矩阵；不做新建角色/权限编辑（后端 v1 仅 user/admin） |
 | 菜单 | **只读**：前端路由菜单树；标注「后端无菜单配置接口」 |
 | 字典 | **只读**：前端内置枚举（任务状态/审批风险/知识库状态等）；标注「后端无字典管理接口」 |
 | 审计 | 复用管理员审计面板（`GET /admin/audit-logs`） |
 | 系统设置 | 平台指令、系统技能、系统 MCP、全局 Agent、平台密钥；写操作二次确认 + 审计 |
-| 降级 | 无契约页面顶部提示「后端暂未提供该配置接口，本页为只读展示」，禁用写按钮并说明原因；不伪造 CRUD |
+| 降级 | 无契约三页顶部标注「后端无对应管理接口，本页为只读呈现」（READ-ONLY 标签 + 原因说明），不提供写控件；不伪造 CRUD |
 
 ## 8.2 工作流页 `/workflows`（M9，已立项）
 

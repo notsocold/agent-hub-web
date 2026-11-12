@@ -61,8 +61,11 @@ function roleOptions(): Array<{ value: AdminUserRole; label: string }> {
   ]
 }
 
+/** 请求序号：响应乱序时丢弃旧结果，避免「筛选已变、列表仍是旧数据」。 */
+let requestSeq = 0
+
 async function load(options: { cursor?: string } = {}): Promise<void> {
-  if (loading.value) return
+  const seq = ++requestSeq
   loading.value = true
   error.value = null
   try {
@@ -79,16 +82,17 @@ async function load(options: { cursor?: string } = {}): Promise<void> {
       options.cursor !== undefined &&
       cause instanceof ApiRequestError &&
       cause.code === 'validation_error'
-    if (invalidCursor) {
-      cursorStack.value = []
-      loading.value = false
-      ElMessage.warning('游标已失效，已回到第一页')
-      await load()
-      return
+    if (seq === requestSeq) {
+      if (invalidCursor) {
+        cursorStack.value = []
+        ElMessage.warning('游标已失效，已回到第一页')
+        await load()
+        return
+      }
+      error.value = cause instanceof Error ? cause.message : '加载用户列表失败'
     }
-    error.value = cause instanceof Error ? cause.message : '加载用户列表失败'
   } finally {
-    loading.value = false
+    if (seq === requestSeq) loading.value = false
   }
 }
 
@@ -166,7 +170,11 @@ async function toggleStatus(user: AdminUser): Promise<void> {
         ? `停用「${user.display_name || user.email}」后该账号将无法登录。`
         : `恢复「${user.display_name || user.email}」的登录权限。`,
       next === 'disabled' ? '停用账号' : '启用账号',
-      { confirmButtonText: next === 'disabled' ? '确认停用' : '确认启用', cancelButtonText: '取消', type: 'warning' },
+      {
+        confirmButtonText: next === 'disabled' ? '确认停用' : '确认启用',
+        cancelButtonText: '取消',
+        type: 'warning',
+      },
     )
   } catch {
     return
@@ -216,10 +224,9 @@ onMounted(() => {
     </PageHeader>
 
     <p v-if="stats" class="summary" aria-live="polite">
-      <b>{{ stats.total }}</b> 用户
-      <span class="sep">·</span> <b>{{ stats.active }}</b> 启用
-      <span class="sep">·</span> <b>{{ stats.disabled }}</b> 停用
-      <span class="sep">·</span> <b>{{ stats.admins }}</b> 管理员（含停用）
+      <b>{{ stats.total }}</b> 用户 <span class="sep">·</span> <b>{{ stats.active }}</b> 启用
+      <span class="sep">·</span> <b>{{ stats.disabled }}</b> 停用 <span class="sep">·</span>
+      <b>{{ stats.admins }}</b> 管理员（含停用）
       <span class="hint">计数为当前筛选下的全量值</span>
     </p>
 
@@ -288,7 +295,9 @@ onMounted(() => {
                 :disabled="isSelf(user)"
                 :title="isSelf(user) ? '不能修改自己的角色' : '调整角色'"
                 :aria-label="`调整 ${user.email} 的角色`"
-                @change="changeRole(user, ($event.target as HTMLSelectElement).value as AdminUserRole)"
+                @change="
+                  changeRole(user, ($event.target as HTMLSelectElement).value as AdminUserRole)
+                "
               >
                 <option
                   v-for="option in roleOptions()"
@@ -331,12 +340,7 @@ onMounted(() => {
         <button type="button" class="btn btn-sm" :disabled="!canGoPrev || loading" @click="goPrev">
           ‹ 上一页
         </button>
-        <button
-          type="button"
-          class="btn btn-sm"
-          :disabled="!hasMore || loading"
-          @click="goNext"
-        >
+        <button type="button" class="btn btn-sm" :disabled="!hasMore || loading" @click="goNext">
           下一页 ›
         </button>
       </div>

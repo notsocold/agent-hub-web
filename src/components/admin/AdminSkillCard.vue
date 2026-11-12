@@ -61,19 +61,29 @@ onUnmounted(() => {
 
 function replaceRow(updated: Skill): void {
   if (!list.value) return
-  list.value = {
-    ...list.value,
-    items: list.value.items.map((row) => (row.id === updated.id ? updated : row)),
+  const items = list.value.items.map((row) => (row.id === updated.id ? updated : row))
+  // 契约：stats 基于当前筛选结果（total == len(items)），本地同步重算。
+  const stats = {
+    total: items.length,
+    enabled: items.filter((row) => row.enabled).length,
+    force_disabled: items.filter((row) => row.force_disabled === true).length,
   }
+  list.value = { ...list.value, items, stats }
 }
 
 async function toggleEnabled(skill: Skill): Promise<void> {
   const next = !skill.enabled
   try {
     await ElMessageBox.confirm(
-      next ? `启用「${skill.name}」后所有用户可用该技能。` : `停用「${skill.name}」后所有用户不可用。`,
+      next
+        ? `启用「${skill.name}」后所有用户可用该技能。`
+        : `停用「${skill.name}」后所有用户不可用。`,
       next ? '全局启用技能' : '全局停用技能',
-      { confirmButtonText: next ? '确认启用' : '确认停用', cancelButtonText: '取消', type: 'warning' },
+      {
+        confirmButtonText: next ? '确认启用' : '确认停用',
+        cancelButtonText: '取消',
+        type: 'warning',
+      },
     )
   } catch {
     return
@@ -98,7 +108,11 @@ async function toggleForceDisabled(skill: Skill): Promise<void> {
         ? `强制停用「${skill.name}」后，任何用户个人覆盖都无法再启用它。`
         : `解除「${skill.name}」的强制停用后，用户个人覆盖按原值生效。`,
       next ? '强制停用技能' : '解除强制停用',
-      { confirmButtonText: next ? '确认强制停用' : '确认解除', cancelButtonText: '取消', type: 'warning' },
+      {
+        confirmButtonText: next ? '确认强制停用' : '确认解除',
+        cancelButtonText: '取消',
+        type: 'warning',
+      },
     )
   } catch {
     return
@@ -176,14 +190,14 @@ onMounted(() => {
                 <span v-if="skill.description" class="desc">{{ skill.description }}</span>
               </div>
             </td>
-            <td class="mono muted">
-              {{ skill.version ?? '—' }} / {{ skill.source ?? '—' }}
-            </td>
+            <td class="mono muted">{{ skill.version ?? '—' }} / {{ skill.source ?? '—' }}</td>
             <td class="mono muted">{{ formatTokens(skill.estimated_tokens) }}</td>
             <td>
               <span
                 class="st"
-                :class="effectiveOf(skill) ? 'st-ok' : skill.force_disabled ? 'st-forced' : 'st-off'"
+                :class="
+                  effectiveOf(skill) ? 'st-ok' : skill.force_disabled ? 'st-forced' : 'st-off'
+                "
               >
                 {{ effectiveOf(skill) ? '启用' : skill.force_disabled ? '已强制停用' : '停用' }}
               </span>

@@ -154,12 +154,7 @@ onMounted(() => {
         >
           {{ saving ? '保存中…' : '保存' }}
         </button>
-        <button
-          type="button"
-          class="btn"
-          :disabled="saving"
-          @click="restoreDefault"
-        >
+        <button type="button" class="btn" :disabled="saving" @click="restoreDefault">
           恢复内置默认
         </button>
         <span class="spacer"></span>

@@ -93,13 +93,38 @@ onMounted(() => {
       </p>
 
       <section class="metrics" aria-label="关键计数">
-        <StatCard label="用户" :value="overview.users.total" :hint="`${overview.users.active} 活跃 · ${overview.users.admins} 管理员`" />
-        <StatCard label="会话" :value="overview.conversations.total" :hint="`${overview.conversations.active} 活跃 · ${overview.conversations.archived} 已归档`" />
+        <StatCard
+          label="用户"
+          :value="overview.users.total"
+          :hint="`${overview.users.active} 活跃 · ${overview.users.admins} 管理员`"
+        />
+        <StatCard
+          label="会话"
+          :value="overview.conversations.total"
+          :hint="`${overview.conversations.active} 活跃 · ${overview.conversations.archived} 已归档`"
+        />
         <StatCard label="消息" :value="overview.messages.total" />
-        <StatCard label="运行" :value="overview.runs.total" :hint="`${overview.runs.running} 运行中 · ${overview.runs.failed} 失败`" tone="default" />
-        <StatCard label="A2A 任务" :value="overview.a2a_tasks.total" :hint="`${overview.a2a_tasks.completed} 已完成`" />
-        <StatCard label="知识文档" :value="overview.knowledge.documents" :hint="`${overview.knowledge.documents_ready} 就绪 · ${overview.knowledge.documents_failed} 失败`" />
-        <StatCard label="附件存储" :value="formatBytes(overview.attachments.storage_bytes)" :hint="`${overview.attachments.total} 个文件 · ${overview.attachments.deleted} 已删除`" />
+        <StatCard
+          label="运行"
+          :value="overview.runs.total"
+          :hint="`${overview.runs.running} 运行中 · ${overview.runs.failed} 失败`"
+          tone="default"
+        />
+        <StatCard
+          label="A2A 任务"
+          :value="overview.a2a_tasks.total"
+          :hint="`${overview.a2a_tasks.completed} 已完成`"
+        />
+        <StatCard
+          label="知识文档"
+          :value="overview.knowledge.documents"
+          :hint="`${overview.knowledge.documents_ready} 就绪 · ${overview.knowledge.documents_failed} 失败`"
+        />
+        <StatCard
+          label="附件存储"
+          :value="formatBytes(overview.attachments.storage_bytes)"
+          :hint="`${overview.attachments.total} 个文件 · ${overview.attachments.deleted} 已删除`"
+        />
       </section>
 
       <section class="panels">

@@ -85,7 +85,10 @@ describe('AdminSkillCard', () => {
     adminApiMock.setSkillEnabled.mockResolvedValue(skill({ enabled: false }))
     const wrapper = await mountCard()
 
-    await wrapper.findAll('tbody button').find((b) => b.text() === '停用')!.trigger('click')
+    await wrapper
+      .findAll('tbody button')
+      .find((b) => b.text() === '停用')!
+      .trigger('click')
     await flushPromises()
 
     expect(messageBoxMock.confirm).toHaveBeenCalled()
@@ -116,7 +119,10 @@ describe('AdminSkillCard', () => {
     messageBoxMock.confirm.mockRejectedValue('cancel')
     const wrapper = await mountCard()
 
-    await wrapper.findAll('tbody button').find((b) => b.text() === '停用')!.trigger('click')
+    await wrapper
+      .findAll('tbody button')
+      .find((b) => b.text() === '停用')!
+      .trigger('click')
     await flushPromises()
 
     expect(adminApiMock.setSkillEnabled).not.toHaveBeenCalled()
@@ -130,7 +136,10 @@ describe('AdminSkillCard', () => {
     adminApiMock.setSkillEnabled.mockRejectedValue(
       new ApiRequestError('系统技能不存在', { code: 'not_found', status: 404 }),
     )
-    await wrapper.findAll('tbody button').find((b) => b.text() === '停用')!.trigger('click')
+    await wrapper
+      .findAll('tbody button')
+      .find((b) => b.text() === '停用')!
+      .trigger('click')
     await flushPromises()
 
     expect(messageMock.error).toHaveBeenCalledWith('系统技能不存在')

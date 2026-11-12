@@ -63,14 +63,23 @@ const editDraft = ref({
   autoInject: false,
 })
 
+/** 编辑态 headers：响应不回显现有值，留空=不修改；填写则整体覆盖为本次输入。 */
+const editHeaderRows = ref<HeaderRow[]>([{ key: '', value: '' }])
+
 const servers = computed<McpServer[]>(() => list.value?.items ?? [])
 const stats = computed(() => list.value?.stats ?? null)
 
+/**
+ * 管理台创建暂不支持 stdio：command 必填且受 MCP_STDIO_COMMAND_ALLOWLIST 白名单限制，
+ * 属运维配置场景（且 transport 创建后不可改，提交缺 command 必被 422）。
+ */
 const transportOptions = computed(() =>
-  (Object.keys(MCP_TRANSPORT_LABELS) as McpTransport[]).map((value) => ({
-    value,
-    label: MCP_TRANSPORT_LABELS[value],
-  })),
+  (Object.keys(MCP_TRANSPORT_LABELS) as McpTransport[])
+    .filter((value) => value !== 'stdio')
+    .map((value) => ({
+      value,
+      label: MCP_TRANSPORT_LABELS[value],
+    })),
 )
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -226,7 +235,11 @@ async function toggleEnabled(server: McpServer): Promise<void> {
         ? `启用「${server.name}」后所有用户可按个人设置使用该 MCP。`
         : `停用「${server.name}」后所有用户不可使用该 MCP。`,
       next ? '启用系统 MCP' : '停用系统 MCP',
-      { confirmButtonText: next ? '确认启用' : '确认停用', cancelButtonText: '取消', type: 'warning' },
+      {
+        confirmButtonText: next ? '确认启用' : '确认停用',
+        cancelButtonText: '取消',
+        type: 'warning',
+      },
     )
   } catch {
     return
@@ -253,7 +266,11 @@ async function toggleForceDisabled(server: McpServer): Promise<void> {
         ? `强制停用「${server.name}」后，即使 enabled=true 也会对所有用户生效停用（最高优先级）。`
         : `解除「${server.name}」的强制停用后，生效状态恢复按 enabled 与用户个人覆盖计算。`,
       next ? '强制停用系统 MCP' : '解除强制停用',
-      { confirmButtonText: next ? '确认强制停用' : '确认解除', cancelButtonText: '取消', type: 'warning' },
+      {
+        confirmButtonText: next ? '确认强制停用' : '确认解除',
+        cancelButtonText: '取消',
+        type: 'warning',
+      },
     )
   } catch {
     return
@@ -283,10 +300,35 @@ function startEdit(server: McpServer): void {
     forceDisabled: server.force_disabled ?? false,
     autoInject: server.auto_inject,
   }
+  // headers 不回显（响应不含密文）：打开编辑时给一个空行，留空即不提交。
+  editHeaderRows.value = [{ key: '', value: '' }]
 }
 
 function cancelEdit(): void {
   editingId.value = null
+}
+
+function addEditHeaderRow(): void {
+  editHeaderRows.value = [...editHeaderRows.value, { key: '', value: '' }]
+}
+
+function removeEditHeaderRow(index: number): void {
+  if (editHeaderRows.value.length > 1) {
+    editHeaderRows.value = editHeaderRows.value.filter((_, current) => current !== index)
+  }
+}
+
+function collectEditHeaders(): { headers?: Record<string, string>; invalid?: string } {
+  const headers: Record<string, string> = {}
+  for (const row of editHeaderRows.value) {
+    const key = row.key.trim()
+    const value = row.value.trim()
+    if (!key && !value) continue
+    if (!key || !value)
+      return { invalid: 'headers 的键与值需同时填写（支持 secret:NAME / env:NAME 引用）' }
+    headers[key] = value
+  }
+  return Object.keys(headers).length > 0 ? { headers } : {}
 }
 
 async function submitEdit(): Promise<void> {
@@ -306,17 +348,24 @@ async function submitEdit(): Promise<void> {
     ElMessage.error('远程传输必须填写 URL')
     return
   }
+  const collected = collectEditHeaders()
+  if (collected.invalid) {
+    ElMessage.error(collected.invalid)
+    return
+  }
   const patch: AdminMcpServerUpdateRequest = {}
   if (name !== server.name) patch.name = name
   if (editDraft.value.description !== (server.description ?? '')) {
     patch.description = editDraft.value.description
   }
   if (url !== (server.url ?? '')) patch.url = url
+  if (collected.headers) patch.headers = collected.headers
   if (editDraft.value.enabled !== server.enabled) patch.enabled = editDraft.value.enabled
   if (editDraft.value.forceDisabled !== (server.force_disabled ?? false)) {
     patch.force_disabled = editDraft.value.forceDisabled
   }
-  if (editDraft.value.autoInject !== server.auto_inject) patch.auto_inject = editDraft.value.autoInject
+  if (editDraft.value.autoInject !== server.auto_inject)
+    patch.auto_inject = editDraft.value.autoInject
   // 空对象不发请求。
   if (Object.keys(patch).length === 0) {
     ElMessage.info('没有变更')
@@ -361,9 +410,21 @@ async function removeServer(server: McpServer): Promise<void> {
   try {
     await adminApi.deleteMcpServer(server.id)
     if (list.value) {
+      const removed = server
+      const enabledCount = effectiveOf(removed) ? 1 : 0
+      const healthyCount = removed.health_status === 'healthy' ? 1 : 0
+      const stats = list.value.stats
       list.value = {
         ...list.value,
         items: list.value.items.filter((row) => row.id !== server.id),
+        // 契约：stats 基于当前筛选结果（total == len(items)），本地同步重算。
+        stats: {
+          ...stats,
+          total: stats.total - 1,
+          system: stats.system - 1,
+          enabled: stats.enabled - enabledCount,
+          healthy: stats.healthy - healthyCount,
+        },
       }
     }
     ElMessage.success('已删除')
@@ -391,8 +452,9 @@ onMounted(() => {
       <div>
         <h2 id="admin-mcp-title">系统 MCP</h2>
         <p class="panel-sub">
-          配置面接口在 MCP_ENABLED=false 时仍可读写。凭据请用 secret:NAME（需先在平台密钥分区创建同名密钥）
-          或 env:NAME 引用写进 headers，不提交明文密钥。
+          配置面接口在 MCP_ENABLED=false 时仍可读写。凭据请用
+          secret:NAME（需先在平台密钥分区创建同名密钥） 或 env:NAME 引用写进
+          headers，不提交明文密钥。
         </p>
       </div>
       <button type="button" class="btn btn-sm" :disabled="loading" @click="load">刷新</button>
@@ -465,7 +527,9 @@ onMounted(() => {
         </div>
 
         <div class="headers-block">
-          <span class="label-text">Headers（value 支持 secret:NAME / env:NAME 引用，不发明文）</span>
+          <span class="label-text"
+            >Headers（value 支持 secret:NAME / env:NAME 引用，不发明文）</span
+          >
           <div v-for="(row, index) in headerRows" :key="index" class="header-row">
             <input
               v-model="row.key"
@@ -496,7 +560,12 @@ onMounted(() => {
 
         <div class="form-actions">
           <!-- jsdom 不实现表单隐式提交，按钮直接绑 click；form 的 submit.prevent 兜底回车提交。 -->
-          <button type="button" class="btn primary btn-sm" :disabled="submitting" @click="submitCreate">
+          <button
+            type="button"
+            class="btn primary btn-sm"
+            :disabled="submitting"
+            @click="submitCreate"
+          >
             {{ submitting ? '创建中…' : '创建' }}
           </button>
           <button type="button" class="btn btn-sm" :disabled="submitting" @click="toggleCreate">
@@ -549,11 +618,7 @@ onMounted(() => {
                     "
                   >
                     {{
-                      effectiveOf(server)
-                        ? '启用'
-                        : server.force_disabled
-                          ? '已强制停用'
-                          : '停用'
+                      effectiveOf(server) ? '启用' : server.force_disabled ? '已强制停用' : '停用'
                     }}
                   </span>
                 </td>
@@ -667,6 +732,41 @@ onMounted(() => {
                         />
                         自动注入
                       </label>
+                    </div>
+                    <div class="headers-block">
+                      <p class="headers-note">
+                        现有 headers
+                        不回显（响应不含密文）。留空=不修改；填写任意一行则整体覆盖为本次输入，凭据用
+                        <span class="mono">secret:NAME</span>（需先建平台密钥）或
+                        <span class="mono">env:NAME</span> 引用，不发明文。
+                      </p>
+                      <div v-for="(row, index) in editHeaderRows" :key="index" class="header-row">
+                        <input
+                          v-model="row.key"
+                          class="input mono"
+                          type="text"
+                          placeholder="Header 名（如 Authorization）"
+                          :aria-label="`编辑 header 名 ${index + 1}`"
+                        />
+                        <input
+                          v-model="row.value"
+                          class="input mono"
+                          type="text"
+                          placeholder="值（secret:NAME / env:NAME）"
+                          :aria-label="`编辑 header 值 ${index + 1}`"
+                        />
+                        <button
+                          type="button"
+                          class="btn btn-sm"
+                          :disabled="editHeaderRows.length === 1"
+                          @click="removeEditHeaderRow(index)"
+                        >
+                          移除
+                        </button>
+                      </div>
+                      <button type="button" class="btn btn-sm" @click="addEditHeaderRow">
+                        添加 header
+                      </button>
                     </div>
                     <div class="form-actions">
                       <button
@@ -804,6 +904,13 @@ onMounted(() => {
   align-items: flex-start;
   gap: 8px;
   margin-top: 10px;
+}
+
+.headers-note {
+  margin: 0;
+  color: var(--ink-3);
+  font-size: 10.5px;
+  line-height: 1.6;
 }
 
 .header-row {

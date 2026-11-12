@@ -24,7 +24,8 @@ async function waitReady(page: Page): Promise<void> {
 }
 
 const ADMIN_PAGES: Array<{ nav: string; heading: string }> = [
-  { nav: '管理概览', heading: '管理概览' },
+  // 侧栏 label 与页面 h1 不同源：第一项导航 label 是「概览」，页面标题才是「管理概览」。
+  { nav: '概览', heading: '管理概览' },
   { nav: '用户管理', heading: '用户管理' },
   { nav: '角色与权限', heading: '角色与权限' },
   { nav: '菜单管理', heading: '菜单管理' },
@@ -100,7 +101,7 @@ test.describe('M8 管理台', () => {
     await expect(page.getByRole('heading', { name: '系统 MCP', level: 2 })).toBeVisible()
     await expect(page.getByRole('heading', { name: '全局 Agent', level: 2 })).toBeVisible()
     // SecretPanel 的分区标题（M5 平台密钥）。
-    await expect(page.getByText('平台密钥', { exact: false }).first()).toBeVisible()
+    await expect(page.getByRole('heading', { name: '平台密钥' })).toBeVisible()
   })
 
   test('三个无契约页展示只读提示', async ({ page }) => {

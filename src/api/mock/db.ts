@@ -91,6 +91,9 @@ function encodeCursor(offset: number): string {
 
 function decodeCursor(cursor?: string): number {
   const match = /^cursor_(\d+)$/.exec(cursor ?? '')
+  // 已知差异：真实后端对非法/缺字段 cursor 返回 422 validation_error，
+  // mock 沙盒静默按 0 处理。「非法游标回第一页」链路只在组件单测中覆盖，
+  // mock 模式下 E2E 走不到该分支。
   return match ? Number(match[1]) : 0
 }
 
@@ -1839,6 +1842,8 @@ class MockDb {
     if (this.mcpServers.some((server) => server.slug === body.slug)) {
       throw new MockAdminRuleError('conflict', 'slug 已被占用', 409)
     }
+    // 已知差异：真实后端创建后首检失败仍返回 201，但 health_status=unhealthy 且带
+    // last_error；mock 沙盒固定 healthy 语义（unknown→视为可用），不模拟首检。
     const now = new Date().toISOString()
     const server: McpServer = {
       id: crypto.randomUUID(),

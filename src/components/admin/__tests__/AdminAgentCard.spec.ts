@@ -65,9 +65,7 @@ async function mountCard(): Promise<VueWrapper> {
 }
 
 function findButton(wrapper: VueWrapper, text: string) {
-  return wrapper
-    .findAll('button')
-    .find((button) => button.text() === text)
+  return wrapper.findAll('button').find((button) => button.text() === text)
 }
 
 beforeEach(() => {
@@ -87,7 +85,7 @@ describe('AdminAgentCard', () => {
 
     const text = wrapper.text()
     expect(text).toContain('全局 Agent')
-    expect(text).toContain('1 全部 · 1 健康 · 0 降级 · 0 不可用 · 0 停用')
+    expect(text).toContain('1 全部 · 1 健康 · 0 降级 · 0 不可用 · 1 启用 · 0 停用')
     expect(text).toContain('Data Analyst')
     expect(text).toContain('data-analyst')
     expect(text).toContain('env:DATA_AGENT_KEY')

@@ -54,8 +54,28 @@ async function api(path, { method = 'GET', token, body } = {}) {
 
 async function login(email, password) {
   const result = await api('/auth/login', { method: 'POST', body: { email, password } })
-  assert(result.status === 200, `登录 ${email} 失败：${result.status} ${JSON.stringify(result.data)}`)
+  assert(
+    result.status === 200,
+    `登录 ${email} 失败：${result.status} ${JSON.stringify(result.data)}`,
+  )
   return result.data.access_token
+}
+
+/** 按 created_at 倒序逐页查找用户（cursor 不解析，透传 next_cursor）。 */
+async function findUserByEmail(token, email, maxPages = 10) {
+  let cursor
+  for (let page = 0; page < maxPages; page += 1) {
+    const query = cursor
+      ? `/admin/users?limit=50&cursor=${encodeURIComponent(cursor)}`
+      : '/admin/users?limit=50'
+    const result = await api(query, { token })
+    assert(result.status === 200, `翻页查找用户失败：${result.status}`)
+    const row = result.data.items.find((item) => item.email === email)
+    if (row) return row
+    if (!result.data.has_more || !result.data.next_cursor) return null
+    cursor = result.data.next_cursor
+  }
+  return null
 }
 
 async function ensureOrdinaryUserToken() {
@@ -92,7 +112,10 @@ async function main() {
   const userToken = await ensureOrdinaryUserToken()
   const denied = await api('/admin/overview', { token: userToken })
   assert(denied.status === 403, `普通用户 GET /admin/overview 期望 403，实际 ${denied.status}`)
-  assert(denied.data?.error?.code === 'forbidden', `403 code 不是 forbidden：${JSON.stringify(denied.data)}`)
+  assert(
+    denied.data?.error?.code === 'forbidden',
+    `403 code 不是 forbidden：${JSON.stringify(denied.data)}`,
+  )
   assert(
     denied.data?.error?.details?.required_role === 'admin',
     `403 details.required_role 不是 admin：${JSON.stringify(denied.data)}`,
@@ -109,9 +132,36 @@ async function main() {
     assert(row.id && row.email, `用户行缺少 id/email：${JSON.stringify(row)}`)
     assert(!('password_hash' in row), '用户行不应包含 password_hash')
   }
-  assert(typeof stats?.total === 'number' && typeof stats?.admins === 'number', `stats 缺字段：${JSON.stringify(stats)}`)
+  assert(
+    typeof stats?.total === 'number' && typeof stats?.admins === 'number',
+    `stats 缺字段：${JSON.stringify(stats)}`,
+  )
   assert(typeof has_more === 'boolean', '缺少 has_more')
-  console.log(`✓ 用户列表：${items.length} 行，stats.total=${stats.total} admins=${stats.admins}（不含 password_hash）`)
+  console.log(
+    `✓ 用户列表：${items.length} 行，stats.total=${stats.total} admins=${stats.admins}（不含 password_hash）`,
+  )
+
+  // 只读翻页：limit=1 连续两页无重复行；非法 cursor 期望 422。
+  const page1 = await api('/admin/users?limit=1', { token: adminToken })
+  assert(page1.status === 200, `limit=1 期望 200，实际 ${page1.status}`)
+  if (page1.data.has_more && page1.data.next_cursor) {
+    const page2 = await api(
+      `/admin/users?limit=1&cursor=${encodeURIComponent(page1.data.next_cursor)}`,
+      { token: adminToken },
+    )
+    assert(page2.status === 200, `第二页期望 200，实际 ${page2.status}`)
+    assert(page2.data.items[0]?.id !== page1.data.items[0]?.id, '翻页出现重复行（cursor 语义异常）')
+    console.log('✓ limit=1 翻页两页无重复')
+  }
+  const badCursor = await api('/admin/users?limit=5&cursor=%%definitely-not-a-cursor%%', {
+    token: adminToken,
+  })
+  assert(badCursor.status === 422, `非法 cursor 期望 422，实际 ${badCursor.status}`)
+  assert(
+    badCursor.data?.error?.code === 'validation_error',
+    `非法 cursor code 不是 validation_error：${JSON.stringify(badCursor.data)}`,
+  )
+  console.log('✓ 非法 cursor 返回 422 validation_error（前端应回第一页）')
 
   const filtered = await api('/admin/users?role=admin&status=active&limit=5', { token: adminToken })
   assert(filtered.status === 200, `角色/状态筛选期望 200，实际 ${filtered.status}`)
@@ -122,10 +172,14 @@ async function main() {
   console.log(`✓ role/status 筛选：${filtered.data.items.length} 行均为 admin+active`)
 
   // 4. 用户详情 + 对 smoke 用户的禁用/启用往返。
-  const smokeRow = items.find((row) => row.email === USER_EMAIL)
-  assert(smokeRow, `用户列表未包含 ${USER_EMAIL}（limit=5 内未找到，可调大 SMOKE 场景或手动核验）`)
+  // smoke 用户按创建时间倒序逐页查找：环境用户多于首页时不误报。
+  const smokeRow = await findUserByEmail(adminToken, USER_EMAIL)
+  assert(smokeRow, `用户列表未包含 ${USER_EMAIL}（已翻页查找仍未找到，请手动核验）`)
   const detail = await api(`/admin/users/${smokeRow.id}`, { token: adminToken })
-  assert(detail.status === 200 && detail.data?.id === smokeRow.id, `用户详情 404/不一致：${detail.status}`)
+  assert(
+    detail.status === 200 && detail.data?.id === smokeRow.id,
+    `用户详情 404/不一致：${detail.status}`,
+  )
   console.log('✓ 用户详情返回同形结构')
 
   const disable = await api(`/admin/users/${smokeRow.id}`, {
@@ -133,13 +187,19 @@ async function main() {
     token: adminToken,
     body: { status: 'disabled' },
   })
-  assert(disable.status === 200 && disable.data?.status === 'disabled', `停用失败：${disable.status} ${JSON.stringify(disable.data)}`)
+  assert(
+    disable.status === 200 && disable.data?.status === 'disabled',
+    `停用失败：${disable.status} ${JSON.stringify(disable.data)}`,
+  )
   const reEnable = await api(`/admin/users/${smokeRow.id}`, {
     method: 'PATCH',
     token: adminToken,
     body: { status: 'active' },
   })
-  assert(reEnable.status === 200 && reEnable.data?.status === 'active', `恢复启用失败：${reEnable.status}`)
+  assert(
+    reEnable.status === 200 && reEnable.data?.status === 'active',
+    `恢复启用失败：${reEnable.status}`,
+  )
   console.log('✓ smoke 用户停用→启用往返成功（已恢复 active）')
 
   // 5. 自己的角色不可改：422 cannot_change_own_role。
@@ -150,18 +210,41 @@ async function main() {
     body: { role: 'user' },
   })
   assert(selfRole.status === 422, `改自己角色期望 422，实际 ${selfRole.status}`)
-  assert(selfRole.data?.error?.code === 'cannot_change_own_role', `code 不是 cannot_change_own_role：${JSON.stringify(selfRole.data)}`)
+  assert(
+    selfRole.data?.error?.code === 'cannot_change_own_role',
+    `code 不是 cannot_change_own_role：${JSON.stringify(selfRole.data)}`,
+  )
   console.log('✓ 修改自己的角色返回 422 cannot_change_own_role（管理员未被降级）')
 
   // 6. 只读概览：字段树完整（8 个 A2A 状态键 + canceled 单 L）。
   const overview = await api('/admin/overview', { token: adminToken })
   assert(overview.status === 200, `GET /admin/overview 期望 200，实际 ${overview.status}`)
   const ov = overview.data
-  assert(typeof ov.generated_at === 'string' && ov.generated_at.endsWith('Z'), `generated_at 非 UTC Z：${ov.generated_at}`)
-  for (const section of ['users', 'conversations', 'messages', 'runs', 'a2a_tasks', 'knowledge', 'attachments']) {
+  assert(
+    typeof ov.generated_at === 'string' && ov.generated_at.endsWith('Z'),
+    `generated_at 非 UTC Z：${ov.generated_at}`,
+  )
+  for (const section of [
+    'users',
+    'conversations',
+    'messages',
+    'runs',
+    'a2a_tasks',
+    'knowledge',
+    'attachments',
+  ]) {
     assert(ov[section] != null, `概览缺少 ${section} 分组`)
   }
-  for (const key of ['submitted', 'working', 'input_required', 'auth_required', 'completed', 'failed', 'canceled', 'rejected']) {
+  for (const key of [
+    'submitted',
+    'working',
+    'input_required',
+    'auth_required',
+    'completed',
+    'failed',
+    'canceled',
+    'rejected',
+  ]) {
     assert(key in ov.a2a_tasks, `a2a_tasks 缺少状态键 ${key}`)
   }
   assert('canceled' in ov.runs && !('cancelled' in ov.runs), 'runs 应使用单 L 拼写 canceled')
@@ -171,30 +254,51 @@ async function main() {
   const instructionBefore = await api('/admin/settings/instruction', { token: adminToken })
   assert(instructionBefore.status === 200, `GET 指令期望 200，实际 ${instructionBefore.status}`)
   const original = instructionBefore.data
-  assert(typeof original?.max_chars === 'number' && typeof original?.is_default === 'boolean', '指令响应缺少 max_chars/is_default')
+  assert(
+    typeof original?.max_chars === 'number' && typeof original?.is_default === 'boolean',
+    '指令响应缺少 max_chars/is_default',
+  )
 
   const saved = await api('/admin/settings/instruction', {
     method: 'PUT',
     token: adminToken,
     body: { content: `[smoke-m8] ${Date.now()}` },
   })
-  assert(saved.status === 200 && saved.data?.is_default === false, `保存指令失败：${saved.status} ${JSON.stringify(saved.data)}`)
-  assert(saved.data?.updated_by_email === ADMIN_EMAIL, `updated_by_email 与管理员不符：${saved.data?.updated_by_email}`)
+  assert(
+    saved.status === 200 && saved.data?.is_default === false,
+    `保存指令失败：${saved.status} ${JSON.stringify(saved.data)}`,
+  )
+  assert(
+    saved.data?.updated_by_email === ADMIN_EMAIL,
+    `updated_by_email 与管理员不符：${saved.data?.updated_by_email}`,
+  )
 
+  // 恢复时提交原值：环境指令已被自定义时不能清成内置默认（避免污染真实配置）。
+  const restoreBody = original.is_default ? { content: null } : { content: original.content }
   const restored = await api('/admin/settings/instruction', {
     method: 'PUT',
     token: adminToken,
-    body: { content: null },
+    body: restoreBody,
   })
-  assert(restored.status === 200 && restored.data?.is_default === true, `恢复默认失败：${restored.status} ${JSON.stringify(restored.data)}`)
-  assert(restored.data?.updated_by === null, '恢复默认后 updated_by 应为 null')
-  console.log('✓ 平台指令保存→恢复往返成功（is_default 状态切换正确）')
+  assert(
+    restored.status === 200,
+    `恢复指令失败：${restored.status} ${JSON.stringify(restored.data)}`,
+  )
+  assert(
+    restored.data?.content === original.content &&
+      restored.data?.is_default === original.is_default,
+    `指令未还原为原值：${JSON.stringify(restored.data)}`,
+  )
+  console.log(`✓ 平台指令保存→恢复往返成功（原样还原，is_default=${original.is_default}）`)
 
   // 8. 系统技能 / 系统 MCP / 全局 Agent / 平台密钥：只读冒烟。
   const skills = await api('/admin/skills', { token: adminToken })
   assert(skills.status === 200, `GET /admin/skills 期望 200，实际 ${skills.status}`)
   assert(typeof skills.data?.stats?.total === 'number', '技能 stats 缺 total')
-  assert(skills.data.items.every((row) => row.scope === 'system'), '技能列表混入非 system scope')
+  assert(
+    skills.data.items.every((row) => row.scope === 'system'),
+    '技能列表混入非 system scope',
+  )
   console.log(`✓ 系统技能列表：${skills.data.items.length} 个，均为 system scope`)
 
   const mcp = await api('/admin/mcp/servers', { token: adminToken })

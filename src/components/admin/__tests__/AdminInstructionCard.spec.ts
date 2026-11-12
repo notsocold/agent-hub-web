@@ -36,9 +36,7 @@ function instruction(overrides: Partial<AdminInstruction> = {}): AdminInstructio
   }
 }
 
-async function mountCard(
-  initial: AdminInstruction = instruction(),
-): Promise<VueWrapper> {
+async function mountCard(initial: AdminInstruction = instruction()): Promise<VueWrapper> {
   adminApiMock.instruction.mockResolvedValue(initial)
   const wrapper = mount(AdminInstructionCard)
   await flushPromises()
@@ -63,7 +61,12 @@ describe('AdminInstructionCard', () => {
     )
     expect(wrapper.text()).toContain('2 位用户写了个人指令')
     // 未修改时保存禁用。
-    expect((wrapper.findAll('button').find((b) => b.text() === '保存'))!.attributes('disabled')).toBeDefined()
+    expect(
+      wrapper
+        .findAll('button')
+        .find((b) => b.text() === '保存')!
+        .attributes('disabled'),
+    ).toBeDefined()
     wrapper.unmount()
   })
 
@@ -109,11 +112,12 @@ describe('AdminInstructionCard', () => {
 
   it('恢复内置默认提交 null', async () => {
     adminApiMock.saveInstruction.mockResolvedValue(instruction())
-    const wrapper = await mountCard(
-      instruction({ is_default: false, content: '已自定义的指令' }),
-    )
+    const wrapper = await mountCard(instruction({ is_default: false, content: '已自定义的指令' }))
 
-    await wrapper.findAll('button').find((b) => b.text() === '恢复内置默认')!.trigger('click')
+    await wrapper
+      .findAll('button')
+      .find((b) => b.text() === '恢复内置默认')!
+      .trigger('click')
     await flushPromises()
 
     expect(adminApiMock.saveInstruction).toHaveBeenCalledWith(null)
@@ -125,7 +129,10 @@ describe('AdminInstructionCard', () => {
   it('已是默认时恢复按钮提示 no-op', async () => {
     const wrapper = await mountCard()
 
-    await wrapper.findAll('button').find((b) => b.text() === '恢复内置默认')!.trigger('click')
+    await wrapper
+      .findAll('button')
+      .find((b) => b.text() === '恢复内置默认')!
+      .trigger('click')
 
     expect(messageMock.info).toHaveBeenCalledWith('当前已是内置默认指令')
     expect(adminApiMock.saveInstruction).not.toHaveBeenCalled()
@@ -154,7 +161,10 @@ describe('AdminInstructionCard', () => {
     const wrapper = await mountCard()
 
     await wrapper.find('textarea').setValue('合法长度的内容')
-    await wrapper.findAll('button').find((b) => b.text() === '保存')!.trigger('click')
+    await wrapper
+      .findAll('button')
+      .find((b) => b.text() === '保存')!
+      .trigger('click')
     await flushPromises()
 
     expect(messageMock.error).toHaveBeenCalledWith('指令超过 4000 字符上限')

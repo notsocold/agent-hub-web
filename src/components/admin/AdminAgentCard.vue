@@ -64,6 +64,7 @@ const agentStats = computed(() => {
     healthy: String(stats['healthy'] ?? 0),
     degraded: String(stats['degraded'] ?? 0),
     unhealthy: String(stats['unhealthy'] ?? 0),
+    enabled: String(stats['enabled'] ?? 0),
     disabled: String(stats['disabled'] ?? 0),
   }
 })
@@ -107,8 +108,11 @@ function approvalKnown(agent: Agent): boolean {
   return 'requires_approval' in agent
 }
 
+/** 请求序号：响应乱序时丢弃旧结果，避免「筛选已变、列表仍是旧数据」。 */
+let requestSeq = 0
+
 async function load(options: { cursor?: string } = {}): Promise<void> {
-  if (loading.value) return
+  const seq = ++requestSeq
   loading.value = true
   error.value = null
   try {
@@ -120,9 +124,22 @@ async function load(options: { cursor?: string } = {}): Promise<void> {
       cursor: options.cursor,
     })
   } catch (cause) {
-    error.value = cause instanceof Error ? cause.message : '加载 Agent 列表失败'
+    // 非法游标（422 validation_error）回第一页重试一次，其余交给错误态。
+    const invalidCursor =
+      options.cursor !== undefined &&
+      cause instanceof ApiRequestError &&
+      cause.code === 'validation_error'
+    if (seq === requestSeq) {
+      if (invalidCursor) {
+        cursorStack.value = []
+        ElMessage.warning('游标已失效，已回到第一页')
+        await load()
+        return
+      }
+      error.value = cause instanceof Error ? cause.message : '加载 Agent 列表失败'
+    }
   } finally {
-    loading.value = false
+    if (seq === requestSeq) loading.value = false
   }
 }
 
@@ -200,7 +217,13 @@ async function submitEdit(): Promise<void> {
     patch.requires_approval = editDraft.value.requiresApproval
   }
   const secretRef = editDraft.value.secretRef.trim()
-  if (editDraft.value.authType !== agent.auth_type || secretRef) {
+  const authChanged = editDraft.value.authType !== agent.auth_type
+  // api_key 必须带凭据引用（secret:NAME / env:NAME）；none/oauth2 不带引用是合法的「清空」。
+  if ((authChanged || secretRef) && editDraft.value.authType === 'api_key' && !secretRef) {
+    ElMessage.error('API Key 鉴权需要填写凭据引用（secret:NAME 或 env:NAME）')
+    return
+  }
+  if (authChanged || secretRef) {
     patch.auth = secretRef
       ? { type: editDraft.value.authType, secret_ref: secretRef }
       : { type: editDraft.value.authType }
@@ -248,7 +271,8 @@ onMounted(() => {
       <div>
         <h2 id="admin-agents-title">全局 Agent</h2>
         <p class="panel-sub">
-          全部未软删 Agent 的全局注册表（不按 owner 过滤）。管理端翻页时 stats 为当前筛选下的全量计数。
+          全部未软删 Agent 的全局注册表（不按 owner 过滤）。管理端翻页时 stats
+          为当前筛选下的全量计数。
         </p>
       </div>
       <button type="button" class="btn btn-sm" :disabled="loading" @click="resetAndLoad">
@@ -287,8 +311,8 @@ onMounted(() => {
         <option value="false">已停用</option>
       </select>
       <span class="mono stats" aria-live="polite">
-        {{ agentStats.total }} 全部 · {{ agentStats.healthy }} 健康 ·
-        {{ agentStats.degraded }} 降级 · {{ agentStats.unhealthy }} 不可用 ·
+        {{ agentStats.total }} 全部 · {{ agentStats.healthy }} 健康 · {{ agentStats.degraded }} 降级
+        · {{ agentStats.unhealthy }} 不可用 · {{ agentStats.enabled }} 启用 ·
         {{ agentStats.disabled }} 停用
       </span>
     </div>
@@ -332,7 +356,11 @@ onMounted(() => {
                 </span>
               </td>
               <td>
-                <span v-if="approvalKnown(agent)" class="st" :class="approvalOf(agent) ? 'st-warn' : 'st-off'">
+                <span
+                  v-if="approvalKnown(agent)"
+                  class="st"
+                  :class="approvalOf(agent) ? 'st-warn' : 'st-off'"
+                >
                   {{ approvalOf(agent) ? '需审批' : '免审批' }}
                 </span>
                 <span v-else class="muted">未返回</span>
@@ -408,8 +436,8 @@ onMounted(() => {
                     </div>
                   </div>
                   <p class="form-note">
-                    headers/明文凭据不支持在此编辑（响应不回显）；如需修改请用 API 提交 secret:/env: 引用。
-                    仅管理员可引用平台密钥 secret:NAME，需先在平台密钥分区创建。
+                    headers/明文凭据不支持在此编辑（响应不回显）；如需修改请用 API 提交 secret:/env:
+                    引用。 仅管理员可引用平台密钥 secret:NAME，需先在平台密钥分区创建。
                   </p>
                   <div class="form-actions">
                     <!-- jsdom 不实现表单隐式提交，按钮直接绑 click；form 的 submit.prevent 兜底回车提交。 -->
@@ -421,7 +449,12 @@ onMounted(() => {
                     >
                       {{ savingEdit ? '保存中…' : '保存' }}
                     </button>
-                    <button type="button" class="btn btn-sm" :disabled="savingEdit" @click="cancelEdit">
+                    <button
+                      type="button"
+                      class="btn btn-sm"
+                      :disabled="savingEdit"
+                      @click="cancelEdit"
+                    >
                       取消
                     </button>
                   </div>

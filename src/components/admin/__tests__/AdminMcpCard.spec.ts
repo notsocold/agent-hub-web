@@ -79,9 +79,7 @@ async function fillCreateForm(wrapper: VueWrapper, slug: string): Promise<void> 
 }
 
 function findButton(wrapper: VueWrapper, text: string) {
-  return wrapper
-    .findAll('button')
-    .find((button) => button.text() === text)
+  return wrapper.findAll('button').find((button) => button.text() === text)
 }
 
 beforeEach(() => {
@@ -261,6 +259,75 @@ describe('AdminMcpCard', () => {
     await flushPromises()
 
     expect(adminApiMock.updateMcpServer).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
+  it('新建表单不提供 stdio 传输（创建后不可改且需运维白名单）', async () => {
+    const wrapper = await mountCard()
+    await openCreateForm(wrapper)
+
+    const options = wrapper
+      .findAll('select')
+      .flatMap((select) => select.findAll('option'))
+      .map((option) => option.element.value)
+    expect(options).toContain('streamable_http')
+    expect(options).toContain('sse')
+    expect(options).not.toContain('stdio')
+    wrapper.unmount()
+  })
+
+  it('编辑 headers：填写引用行后随 patch 提交', async () => {
+    const wrapper = await mountCard()
+
+    await findButton(wrapper, '编辑')!.trigger('click')
+    await flushPromises()
+    await wrapper.find('input[aria-label="编辑 header 名 1"]').setValue('Authorization')
+    await wrapper.find('input[aria-label="编辑 header 值 1"]').setValue('secret:MCP_KEY')
+    await wrapper
+      .findAll('form.edit-form button')
+      .find((button) => button.text() === '保存')!
+      .trigger('click')
+    await flushPromises()
+
+    expect(adminApiMock.updateMcpServer).toHaveBeenCalledWith('mcp-1', {
+      headers: { Authorization: 'secret:MCP_KEY' },
+    })
+    wrapper.unmount()
+  })
+
+  it('编辑 headers 键值不完整时阻止提交', async () => {
+    const wrapper = await mountCard()
+
+    await findButton(wrapper, '编辑')!.trigger('click')
+    await flushPromises()
+    await wrapper.find('input[aria-label="编辑 header 名 1"]').setValue('Authorization')
+    await wrapper
+      .findAll('form.edit-form button')
+      .find((button) => button.text() === '保存')!
+      .trigger('click')
+    await flushPromises()
+
+    expect(messageMock.error).toHaveBeenCalledWith(
+      'headers 的键与值需同时填写（支持 secret:NAME / env:NAME 引用）',
+    )
+    expect(adminApiMock.updateMcpServer).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
+  it('编辑 headers 留空时不修改 headers', async () => {
+    const wrapper = await mountCard()
+
+    await findButton(wrapper, '编辑')!.trigger('click')
+    await flushPromises()
+    await wrapper
+      .findAll('form.edit-form button')
+      .find((button) => button.text() === '保存')!
+      .trigger('click')
+    await flushPromises()
+
+    // 全空行视为未修改：patch 无 headers，空对象不发请求。
+    expect(adminApiMock.updateMcpServer).not.toHaveBeenCalled()
+    expect(messageMock.info).toHaveBeenCalledWith('没有变更')
     wrapper.unmount()
   })
 })
