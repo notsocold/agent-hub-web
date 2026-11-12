@@ -2,6 +2,11 @@ import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 
 import 'element-plus/theme-chalk/dark/css-vars.css'
+// ElMessageBox / ElMessage 是脚本里调用的函数式组件，不经过模板解析，
+// unplugin-vue-components 不会为它们注入样式，必须在入口按需引入；
+// 否则弹窗会平铺整行、按钮小到无法操作，轻提示也会没有背景。
+import 'element-plus/es/components/message-box/style/css'
+import 'element-plus/es/components/message/style/css'
 import '@/styles/index.css'
 
 import App from './App.vue'

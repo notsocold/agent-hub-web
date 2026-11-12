@@ -37,4 +37,42 @@ test.describe('认证与登录态', () => {
     await expect(page).toHaveURL(/\/login(?:\?.*)?$/, { timeout: 15_000 })
     await expect(page.getByRole('heading', { name: '登录 Agent Hub' })).toBeVisible()
   })
+
+  // 回归：ElMessageBox 是脚本中调用的函数式组件，不经过模板解析，
+  // 一旦入口漏引 message-box 样式，弹窗会平铺整行且按钮小到无法操作。
+  test('退出登录确认弹窗样式正常且按钮可操作', async ({ page }) => {
+    await login(page)
+
+    await page.getByTestId('account-menu').click()
+    await page.getByRole('menuitem', { name: '退出登录' }).click()
+
+    const dialog = page.locator('.el-message-box')
+    await expect(dialog).toBeVisible()
+    const box = await dialog.boundingBox()
+    expect(box).not.toBeNull()
+    // 正常样式下是设计宽度 420px；样式缺失时会被拉成整行宽。
+    expect(box!.width).toBeGreaterThan(300)
+    expect(box!.width).toBeLessThan(600)
+
+    // 遮罩必须覆盖整个视口，否则弹窗没有模态语义、背景可被误触。
+    const overlay = page.locator('.el-overlay.is-message-box')
+    await expect(overlay).toBeVisible()
+    const overlayBox = await overlay.boundingBox()
+    const viewport = page.viewportSize()
+    expect(overlayBox).not.toBeNull()
+    expect(viewport).not.toBeNull()
+    expect(Math.round(overlayBox!.width)).toBe(viewport!.width)
+    expect(Math.round(overlayBox!.height)).toBe(viewport!.height)
+
+    // 按钮尺寸正常才说明 el-button 样式一并加载；点「取消」应关闭弹窗且不登出。
+    const cancel = page.getByRole('button', { name: '取消', exact: true })
+    const cancelBox = await cancel.boundingBox()
+    expect(cancelBox).not.toBeNull()
+    expect(cancelBox!.width).toBeGreaterThanOrEqual(40)
+    expect(cancelBox!.height).toBeGreaterThanOrEqual(28)
+
+    await cancel.click()
+    await expect(dialog).toBeHidden()
+    await expect(page).toHaveURL(/\/chat(?:\?.*)?$/)
+  })
 })
