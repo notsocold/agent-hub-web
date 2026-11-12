@@ -3,7 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 
-import EmptyState from '@/components/common/EmptyState.vue'
+import AppIcon from '@/components/common/AppIcon.vue'
 import ErrorState from '@/components/common/ErrorState.vue'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
 import PageHeader from '@/components/common/PageHeader.vue'
@@ -138,18 +138,17 @@ onMounted(() => {
 <template>
   <PageShell>
     <PageHeader
-      eyebrow="WORKFLOWS"
       title="运行历史"
       description="查看该模板发起的执行记录快照；完整的运行轨迹与人工审批仍在对话中完成。"
     >
       <template #actions>
         <button
           type="button"
-          class="btn"
+          class="btn btn-outline"
           data-testid="runs-back"
           @click="router.push('/workflows')"
         >
-          返回列表
+          <AppIcon name="back" />返回列表
         </button>
       </template>
     </PageHeader>
@@ -162,78 +161,90 @@ onMounted(() => {
       @retry="load"
     />
     <LoadingSkeleton v-else-if="loading" />
-    <EmptyState
-      v-else-if="items.length === 0"
-      title="该模板还没有运行记录"
-      description="在对话中发起这条工作流后，每次执行都会在这里留下一条记录。"
-    />
-
-    <div v-else class="runs-list">
-      <article
-        v-for="run in items"
-        :key="run.id"
-        class="run-row"
-        data-testid="run-row"
-      >
-        <div class="run-main">
-          <StatusBadge :tone="statusTone(run.status)" :label="statusLabel(run.status)" />
-          <button
-            type="button"
-            class="run-id mono"
-            data-testid="run-copy"
-            :title="`点击复制 run_id：${run.run_id}`"
-            @click="copyRunId(run)"
-          >
-            {{ run.run_id }}
-          </button>
-        </div>
-        <div class="run-meta mono">
-          <span>发起 {{ formatDateTime(run.created_at) }}</span>
-          <span>·</span>
-          <span>终态 {{ statusLabel(run.run_status) }}</span>
-          <span>·</span>
-          <span>耗时 {{ formatDuration(run.run_duration_ms) }}</span>
-          <span>·</span>
-          <span>错误码 {{ run.run_error_code ?? '—' }}</span>
-        </div>
-      </article>
+    <div v-else-if="items.length === 0" class="empty-state">
+      该模板还没有运行记录。在对话中发起这条工作流后，每次执行都会在这里留下一条记录。
     </div>
 
-    <div v-if="canLoadMore" class="load-more">
-      <button
-        type="button"
-        class="btn"
-        data-testid="runs-load-more"
-        :disabled="loadingMore"
-        @click="loadMore"
-      >
-        {{ loadingMore ? '加载中…' : '加载更多' }}
-      </button>
-    </div>
+    <section v-else class="panel">
+      <header class="panel-head">
+        <h2>执行记录</h2>
+        <span class="count">{{ items.length }}</span>
+        <span class="spacer"></span>
+        <span class="note">按发起时间倒序</span>
+      </header>
+      <div class="runs-list">
+        <article
+          v-for="run in items"
+          :key="run.id"
+          class="run-row"
+          data-testid="run-row"
+        >
+          <div class="run-main">
+            <StatusBadge :tone="statusTone(run.status)" :label="statusLabel(run.status)" />
+            <button
+              type="button"
+              class="run-id mono"
+              data-testid="run-copy"
+              :title="`点击复制 run_id：${run.run_id}`"
+              @click="copyRunId(run)"
+            >
+              {{ run.run_id }}
+            </button>
+            <span class="spacer"></span>
+            <span class="run-time mono">{{ formatDateTime(run.created_at) }}</span>
+          </div>
+          <div class="run-meta">
+            <span>终态 {{ statusLabel(run.run_status) }}</span>
+            <span class="dot">·</span>
+            <span>耗时 {{ formatDuration(run.run_duration_ms) }}</span>
+            <span class="dot">·</span>
+            <span>错误码 {{ run.run_error_code ?? '—' }}</span>
+          </div>
+        </article>
+      </div>
+      <footer v-if="canLoadMore" class="panel-foot load-more">
+        <button
+          type="button"
+          class="btn btn-outline btn-sm"
+          data-testid="runs-load-more"
+          :disabled="loadingMore"
+          @click="loadMore"
+        >
+          {{ loadingMore ? '加载中…' : '加载更多' }}
+        </button>
+      </footer>
+    </section>
   </PageShell>
 </template>
 
 <style scoped>
+.panel {
+  margin-top: 16px;
+}
+
+.spacer {
+  flex: 1;
+}
+
 .runs-list {
   display: flex;
   flex-direction: column;
-  gap: 14px;
 }
 
 .run-row {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 12px 16px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--surface);
+  padding: 11px 15px;
+  border-bottom: 1px solid var(--line-2);
+}
+
+.run-row:last-child {
+  border-bottom: 0;
 }
 
 .run-main {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
+  min-width: 0;
 }
 
 .run-id {
@@ -243,7 +254,7 @@ onMounted(() => {
   border: none;
   background: transparent;
   color: var(--ink-2);
-  font-size: 11px;
+  font-size: 10.5px;
   text-align: left;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -252,15 +263,27 @@ onMounted(() => {
 
 .run-id:hover {
   color: var(--ink);
+  text-decoration: underline;
+}
+
+.run-time {
+  flex: none;
+  color: var(--ink-3);
+  font-size: 9.5px;
 }
 
 .run-meta {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
+  margin-top: 5px;
+  font-size: 9.5px;
   color: var(--ink-3);
-  font-size: 10px;
+}
+
+.run-meta .dot {
+  color: var(--line);
 }
 
 .load-more {

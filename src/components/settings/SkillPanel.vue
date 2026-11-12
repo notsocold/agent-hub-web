@@ -2,7 +2,6 @@
 import { computed, reactive, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
-import EmptyState from '@/components/common/EmptyState.vue'
 import ErrorState from '@/components/common/ErrorState.vue'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
 import { skillsApi } from '@/api/skills'
@@ -64,8 +63,8 @@ async function load(): Promise<void> {
   }
 }
 
-function onToggle(row: unknown, value: string | number | boolean): void {
-  void toggleEnabled(row as Skill, value === true)
+function isEnabled(skill: Skill): boolean {
+  return skill.effective_enabled ?? skill.enabled
 }
 
 async function toggleEnabled(skill: Skill, next: boolean): Promise<void> {
@@ -95,7 +94,9 @@ async function onFileChange(event: Event): Promise<void> {
   try {
     const result = await skillsApi.importZip(file)
     if (result.warnings.length > 0) {
-      ElMessage.warning(`导入成功，但有 ${result.warnings.length} 条警告：${result.warnings.join('；')}`)
+      ElMessage.warning(
+        `导入成功，但有 ${result.warnings.length} 条警告：${result.warnings.join('；')}`,
+      )
     } else {
       ElMessage.success(`已导入技能「${result.skill.name}」`)
     }
@@ -232,60 +233,82 @@ async function removeSkill(): Promise<void> {
 </script>
 
 <template>
-  <section class="card">
-    <header class="card-head">
-      <div class="head-title">
-        <h3>技能</h3>
-        <span class="tag mono">{{ items.length }} 个</span>
-      </div>
-      <span class="mono hint">/api/v1/skills</span>
-    </header>
+  <section class="panel cap-card">
+    <div class="cap-inner">
+      <header class="cap-head">
+        <div class="cap-title">
+          <h3>技能</h3>
+          <span class="tag mono">{{ items.length }} 个</span>
+        </div>
+        <span class="cap-hint">/api/v1/skills</span>
+      </header>
 
-    <CapabilityGate :enabled="enabled" name="技能" hint="后端尚未开启技能能力，无法查看或管理技能。">
-      <div class="toolbar">
-        <button type="button" class="btn" :disabled="importing" @click="pickFile">
-          {{ importing ? '导入中…' : '导入技能包（zip）' }}
-        </button>
-        <button type="button" class="btn primary" @click="openCreate">手写创建</button>
-        <span class="muted">技能正文与参考文件按不可信内容渲染。</span>
-      </div>
+      <CapabilityGate
+        :enabled="enabled"
+        name="技能"
+        hint="后端尚未开启技能能力，无法查看或管理技能。"
+      >
+        <p class="cap-desc">
+          技能包是 SKILL.md 流程指令；输入框「+ → 技能」可显式激活，每轮最多 3
+          个。系统技能只能启停，不能修改正文。
+        </p>
 
-      <ErrorState v-if="error" :message="error" @retry="load" />
-      <LoadingSkeleton v-else-if="loading" />
-      <EmptyState
-        v-else-if="items.length === 0"
-        title="暂无技能"
-        description="导入技能包或手写创建，系统技能只能启停、不能修改正文。"
-      />
-
-      <ul v-else class="skill-list">
-        <li v-for="skill in items" :key="skill.id" class="skill-item">
-          <button type="button" class="skill-open" @click="openDetail(skill)">
-            <span class="skill-title">
-              {{ skill.name }}
-              <span class="mono slug">{{ skill.slug }}</span>
-              <span class="chip">{{ SKILL_SCOPE_LABELS[skill.scope] ?? skill.scope }}</span>
-              <span v-if="skill.scope === 'system'" class="chip chip-locked">系统 · 只读</span>
-            </span>
-            <span v-if="skill.description" class="skill-desc">{{ skill.description }}</span>
-            <span class="skill-meta">
-              <span class="mono">≈ {{ formatTokens(skill.estimated_tokens) }} tokens</span>
-              <span>{{ skill.file_count }} 个文件 · {{ formatBytes(skill.size_bytes) }}</span>
-              <span v-if="skill.updated_at" class="mono">更新于 {{ formatDateTime(skill.updated_at) }}</span>
-            </span>
+        <div class="cap-toolbar">
+          <button
+            type="button"
+            class="btn btn-outline btn-sm"
+            :disabled="importing"
+            @click="pickFile"
+          >
+            {{ importing ? '导入中…' : '导入技能包' }}
           </button>
-          <span class="switch-wrap" @click.stop>
-            <el-switch
-              :model-value="skill.effective_enabled ?? skill.enabled"
-              :loading="togglingId === skill.id"
-              size="small"
-              :aria-label="`${(skill.effective_enabled ?? skill.enabled) ? '禁用' : '启用'} ${skill.name}`"
-              @change="onToggle(skill, $event)"
-            />
-          </span>
-        </li>
-      </ul>
-    </CapabilityGate>
+          <button type="button" class="btn btn-ghost btn-sm" @click="openCreate">手写创建</button>
+          <span class="spacer"></span>
+          <span class="cap-note">技能正文与参考文件按不可信内容渲染。</span>
+        </div>
+
+        <ErrorState v-if="error" :message="error" @retry="load" />
+        <LoadingSkeleton v-else-if="loading" />
+        <div v-else-if="items.length === 0" class="empty-state">
+          还没有技能。导入技能包或手写创建，系统技能只能启停、不能修改正文。
+        </div>
+
+        <div v-else class="cap-list">
+          <div v-for="skill in items" :key="skill.id" class="cap-item">
+            <div class="cap-item-main">
+              <div class="cap-item-title">
+                {{ skill.name }}
+                <span class="cap-chip">{{ SKILL_SCOPE_LABELS[skill.scope] ?? skill.scope }}</span>
+              </div>
+              <p v-if="skill.description" class="cap-item-text">{{ skill.description }}</p>
+              <div class="cap-item-meta">
+                <span class="mono">{{ skill.slug }}</span>
+                <span> · ≈ {{ formatTokens(skill.estimated_tokens) }} tokens</span>
+                <span> · {{ skill.file_count }} 个文件 · {{ formatBytes(skill.size_bytes) }}</span>
+                <span v-if="skill.updated_at">
+                  · 更新于 {{ formatDateTime(skill.updated_at) }}</span
+                >
+              </div>
+            </div>
+            <div class="cap-item-actions">
+              <button type="button" class="text-link" @click="openDetail(skill)">详情</button>
+              <button
+                type="button"
+                class="wf-switch"
+                :class="{ 'is-on': isEnabled(skill) }"
+                role="switch"
+                :aria-checked="isEnabled(skill)"
+                :aria-label="`${isEnabled(skill) ? '停用' : '启用'} ${skill.name}`"
+                :disabled="togglingId === skill.id"
+                @click="toggleEnabled(skill, !isEnabled(skill))"
+              >
+                <span></span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </CapabilityGate>
+    </div>
 
     <input
       ref="fileInput"
@@ -305,7 +328,11 @@ async function removeSkill(): Promise<void> {
         </label>
         <label class="form-row">
           <span class="form-label">描述</span>
-          <input v-model="createForm.description" class="input" placeholder="一句话说明技能用途（必填）" />
+          <input
+            v-model="createForm.description"
+            class="input"
+            placeholder="一句话说明技能用途（必填）"
+          />
         </label>
         <label class="form-row">
           <span class="form-label">正文（SKILL.md）</span>
@@ -317,8 +344,8 @@ async function removeSkill(): Promise<void> {
           />
         </label>
         <div class="dialog-actions">
-          <button type="button" class="btn" @click="createOpen = false">取消</button>
-          <button type="submit" class="btn primary" :disabled="creating">
+          <button type="button" class="btn btn-outline" @click="createOpen = false">取消</button>
+          <button type="submit" class="btn btn-primary" :disabled="creating">
             {{ creating ? '创建中…' : '创建' }}
           </button>
         </div>
@@ -327,7 +354,11 @@ async function removeSkill(): Promise<void> {
 
     <el-drawer v-model="detailOpen" title="技能详情" size="480px" :append-to-body="true">
       <LoadingSkeleton v-if="detailLoading" variant="card" />
-      <ErrorState v-else-if="detailError" :message="detailError" @retry="detail && openDetail(detail)" />
+      <ErrorState
+        v-else-if="detailError"
+        :message="detailError"
+        @retry="detail && openDetail(detail)"
+      />
 
       <div v-else-if="detail" class="detail">
         <header class="detail-head">
@@ -385,8 +416,10 @@ async function removeSkill(): Promise<void> {
         </section>
 
         <div v-if="canEdit(detail)" class="detail-actions">
-          <button type="button" class="btn" @click="openEdit">编辑</button>
-          <button type="button" class="btn danger" @click="removeSkill">删除</button>
+          <button type="button" class="btn btn-outline" @click="openEdit">编辑</button>
+          <button type="button" class="btn btn-ghost is-danger-text" @click="removeSkill">
+            删除
+          </button>
         </div>
         <p v-else class="muted">系统技能不可编辑或删除，只能启停。</p>
       </div>
@@ -407,8 +440,8 @@ async function removeSkill(): Promise<void> {
           <textarea v-model="editForm.content" class="input textarea" rows="10" />
         </label>
         <div class="dialog-actions">
-          <button type="button" class="btn" @click="editOpen = false">取消</button>
-          <button type="submit" class="btn primary" :disabled="editing">
+          <button type="button" class="btn btn-outline" @click="editOpen = false">取消</button>
+          <button type="submit" class="btn btn-primary" :disabled="editing">
             {{ editing ? '保存中…' : '保存' }}
           </button>
         </div>
@@ -418,97 +451,24 @@ async function removeSkill(): Promise<void> {
 </template>
 
 <style scoped>
-.card {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 16px;
-  border: 1px solid var(--line);
-  border-radius: 9px;
-  background: var(--surface);
-  box-shadow: var(--shadow-sm);
+.cap-inner {
+  padding: 14px;
 }
 
-.card-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 10px;
+.empty-state {
+  margin-top: 8px;
+  padding: 14px;
+  border-bottom: 0;
 }
 
-.head-title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-h3 {
-  font-size: 14px;
-  font-weight: 650;
-}
-
-.hint {
-  color: var(--ink-3);
-  font-size: 9.5px;
-}
-
-.tag {
-  padding: 1px 7px;
-  border: 1px solid var(--line-2);
-  border-radius: 99px;
-  color: var(--ink-3);
-  font-size: 9.5px;
-}
-
-.toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
+.wf-switch:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
 }
 
 .muted {
   color: var(--ink-3);
   font-size: 10.5px;
-}
-
-.skill-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.skill-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
-  border: 1px solid var(--line-2);
-  border-radius: 7px;
-  background: var(--surface-2);
-  transition: border-color 0.15s;
-}
-
-.skill-item:hover {
-  border-color: var(--ink-3);
-}
-
-.skill-open {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  min-width: 0;
-  text-align: left;
-}
-
-.skill-title {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-  color: var(--ink);
-  font-size: 12px;
-  font-weight: 600;
 }
 
 .slug {
@@ -525,33 +485,6 @@ h3 {
   color: var(--ink-3);
   font-size: 9px;
   font-weight: 500;
-}
-
-.chip-locked {
-  color: var(--amber-text);
-  border-color: var(--amber-soft);
-  background: var(--amber-soft);
-}
-
-.skill-desc {
-  display: block;
-  margin-top: 4px;
-  color: var(--ink-2);
-  font-size: 11.5px;
-  line-height: 1.6;
-}
-
-.skill-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 12px;
-  margin-top: 5px;
-  color: var(--ink-3);
-  font-size: 10px;
-}
-
-.switch-wrap {
-  flex: none;
 }
 
 .form {
@@ -586,15 +519,6 @@ h3 {
   justify-content: flex-end;
   gap: 8px;
   padding-top: 4px;
-}
-
-.btn.danger {
-  border-color: var(--red-soft);
-  color: var(--red);
-}
-
-.btn.danger:hover:not(:disabled) {
-  border-color: var(--red);
 }
 
 .detail {

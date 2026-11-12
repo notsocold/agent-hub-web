@@ -8,14 +8,16 @@ test.describe('移动端布局', () => {
   test('导航抽屉可打开并关闭', async ({ page }) => {
     await login(page)
 
-    // 关闭态侧栏带 aria-hidden/inert，按 role 查不到；这里用稳定类名断言抽屉状态。
+    // 原型把抽屉态放在 .app 根上（.app.sidebar-open .sidebar 滑出），侧栏本身不再加 is-open。
+    const shell = page.locator('.app')
     const nav = page.locator('aside.sidebar')
     await page.getByRole('button', { name: '打开导航' }).click()
-    await expect(nav).toHaveClass(/is-open/)
+    await expect(shell).toHaveClass(/sidebar-open/)
+    await expect(nav).toBeVisible()
 
     // 遮罩只覆盖侧栏右侧，点右侧区域关闭（点中心会落在 288px 侧栏内）。
-    await page.locator('.scrim').click({ position: { x: 340, y: 400 } })
-    await expect(nav).not.toHaveClass(/is-open/)
+    await page.locator('.sidebar-scrim').click({ position: { x: 340, y: 400 } })
+    await expect(shell).not.toHaveClass(/sidebar-open/)
   })
 
   test('抽屉内可新建并切换会话（原型单侧栏）', async ({ page }) => {

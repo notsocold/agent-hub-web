@@ -283,9 +283,14 @@ defineExpose({ scrollToBottom, scrollToMessage })
 }
 
 .message-row {
-  width: min(100%, calc(var(--content-max) + 64px));
+  width: 100%;
+  max-width: 812px;
   margin: 0 auto;
-  padding: 6px 32px 0;
+  padding: 0 36px;
+}
+
+.message-row + .message-row {
+  margin-top: 0;
 }
 
 .older-bar {

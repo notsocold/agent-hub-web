@@ -2,9 +2,9 @@
 import { computed, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
+import AppIcon from '@/components/common/AppIcon.vue'
 import ErrorState from '@/components/common/ErrorState.vue'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
-import StatusBadge from '@/components/common/StatusBadge.vue'
 import { agentsApi } from '@/api/agents'
 import { formatDateTime, formatDuration } from '@/utils/format'
 import type { AgentDetail, AgentHealthStatus } from '@/types'
@@ -61,6 +61,20 @@ const skills = computed(() => detail.value?.skills ?? [])
 const rawCard = computed(() =>
   detail.value?.card ? JSON.stringify(detail.value.card, null, 2) : '',
 )
+
+const initials = computed(() => {
+  const source = detail.value?.slug || detail.value?.name || ''
+  const parts = source.split(/[-_\s]+/).filter(Boolean)
+  if (parts.length >= 2) return `${parts[0]![0] ?? ''}${parts[1]![0] ?? ''}`.toUpperCase()
+  return source.slice(0, 2).toUpperCase()
+})
+
+const authLabel = computed(() => {
+  const agent = detail.value
+  if (!agent) return '—'
+  if (agent.auth_type === 'none') return '无'
+  return agent.auth_scheme || agent.auth_type
+})
 
 watch(
   () => [props.modelValue, props.agentId] as const,
@@ -175,70 +189,62 @@ async function removeAgent(): Promise<void> {
     <ErrorState v-else-if="error" :message="error" @retry="agentId && load(agentId)" />
 
     <div v-else-if="detail" class="detail">
-      <header class="head">
-        <div class="title">
-          <h2>{{ detail.name }}</h2>
-          <span class="mono slug">{{ detail.slug }}</span>
+      <header class="agent-drawer-ident">
+        <span class="agent-badge">{{ initials }}</span>
+        <div class="agent-card-ident">
+          <div class="agent-name">{{ detail.name }}</div>
+          <div class="agent-slug">{{ detail.slug }} · A2A {{ detail.protocol_version }}</div>
         </div>
-        <StatusBadge :tone="healthTone" :label="healthLabel" />
+        <span class="st" :class="`st-${healthTone}`">
+          <span class="dot"></span>{{ healthLabel }}
+        </span>
       </header>
 
-      <p v-if="detail.description" class="desc">{{ detail.description }}</p>
+      <div class="agent-card-url" :title="detail.url">
+        <AppIcon name="external" />
+        <span class="url-text">{{ detail.url }}</span>
+      </div>
 
-      <dl class="facts">
-        <div>
-          <dt>地址</dt>
-          <dd class="mono ellipsis">{{ detail.url }}</dd>
-        </div>
-        <div>
-          <dt>协议版本</dt>
-          <dd class="mono">{{ detail.protocol_version }}</dd>
-        </div>
-        <div>
-          <dt>鉴权</dt>
-          <dd>
-            {{ detail.auth_type === 'none' ? '无' : detail.auth_scheme || detail.auth_type }}
-            <span v-if="detail.auth_hint" class="mono muted"> · {{ detail.auth_hint }}</span>
-          </dd>
-        </div>
-        <div>
-          <dt>状态</dt>
-          <dd>{{ detail.enabled ? '已启用' : '已禁用' }}</dd>
-        </div>
-        <div>
-          <dt>最近检查</dt>
-          <dd class="mono">{{ formatDateTime(detail.last_checked_at) }}</dd>
-        </div>
-        <div>
-          <dt>延迟</dt>
-          <dd class="mono">{{ formatDuration(detail.last_latency_ms) }}</dd>
-        </div>
-        <div>
-          <dt>流式</dt>
-          <dd>{{ detail.capabilities.streaming ? '支持' : '不支持' }}</dd>
-        </div>
-        <div>
-          <dt>推送通知</dt>
-          <dd>{{ detail.capabilities.push_notifications ? '支持' : '不支持' }}</dd>
-        </div>
+      <p v-if="detail.description" class="detail-note">{{ detail.description }}</p>
+
+      <dl class="kv detail-kv">
+        <dt>协议</dt>
+        <dd>A2A {{ detail.protocol_version }}</dd>
+        <dt>鉴权</dt>
+        <dd class="mono">
+          {{ authLabel }}
+          <span v-if="detail.auth_hint"> · {{ detail.auth_hint }}</span>
+        </dd>
+        <dt>状态</dt>
+        <dd>{{ detail.enabled ? '已启用' : '已禁用' }}</dd>
+        <dt>最近检查</dt>
+        <dd class="mono">{{ formatDateTime(detail.last_checked_at) }}</dd>
+        <dt>延迟</dt>
+        <dd class="mono">{{ formatDuration(detail.last_latency_ms) }}</dd>
+        <dt>流式</dt>
+        <dd>{{ detail.capabilities.streaming ? '支持' : '不支持' }}</dd>
+        <dt>推送通知</dt>
+        <dd>{{ detail.capabilities.push_notifications ? '支持' : '不支持' }}</dd>
       </dl>
 
-      <p v-if="detail.last_error" class="error-line">最近错误：{{ detail.last_error }}</p>
+      <p v-if="detail.last_error" class="error-line is-error-text">
+        最近错误：{{ detail.last_error }}
+      </p>
 
-      <section>
-        <h3>技能（{{ skills.length }}）</h3>
-        <ul class="skills">
-          <li v-for="skill in skills" :key="skill.id">
+      <section class="detail-block">
+        <h4>技能（{{ skills.length }}）</h4>
+        <div v-if="skills.length > 0" class="skill-list">
+          <div v-for="skill in skills" :key="skill.id" class="skill-row">
             <span class="skill-name">{{ skill.name }}</span>
-            <span class="mono muted">{{ skill.id }}</span>
+            <span class="skill-chip">{{ skill.id }}</span>
             <span v-if="skill.description" class="skill-desc">{{ skill.description }}</span>
-          </li>
-          <li v-if="skills.length === 0" class="empty">Agent Card 未声明技能。</li>
-        </ul>
+          </div>
+        </div>
+        <p v-else class="detail-note">Agent Card 未声明技能。</p>
       </section>
 
-      <section v-if="detail.recent_tasks && detail.recent_tasks.length > 0">
-        <h3>最近任务</h3>
+      <section v-if="detail.recent_tasks && detail.recent_tasks.length > 0" class="detail-block">
+        <h4>最近任务</h4>
         <ul class="tasks">
           <li v-for="task in detail.recent_tasks" :key="task.id">
             <span class="mono">{{ task.a2a_task_id }}</span>
@@ -249,15 +255,19 @@ async function removeAgent(): Promise<void> {
         </ul>
       </section>
 
-      <details v-if="rawCard" class="raw">
-        <summary>原始 Agent Card</summary>
-        <pre>{{ rawCard }}</pre>
+      <details v-if="rawCard" class="agent-extra">
+        <summary>
+          原始 Agent Card<AppIcon name="chevron" class="agent-extra-chev" />
+        </summary>
+        <div class="agent-extra-body">
+          <pre class="raw-card">{{ rawCard }}</pre>
+        </div>
       </details>
 
       <div v-if="props.canManage" class="actions">
         <button
           type="button"
-          class="btn"
+          class="btn btn-outline btn-sm"
           :disabled="busy !== null"
           @click="checkHealth"
         >
@@ -265,7 +275,7 @@ async function removeAgent(): Promise<void> {
         </button>
         <button
           type="button"
-          class="btn"
+          class="btn btn-ghost btn-sm"
           :disabled="busy !== null"
           @click="refreshCard"
         >
@@ -273,7 +283,7 @@ async function removeAgent(): Promise<void> {
         </button>
         <button
           type="button"
-          class="btn"
+          class="btn btn-ghost btn-sm"
           :disabled="busy !== null"
           @click="toggleEnabled"
         >
@@ -281,7 +291,7 @@ async function removeAgent(): Promise<void> {
         </button>
         <button
           type="button"
-          class="btn danger"
+          class="btn btn-ghost btn-sm is-danger-text"
           :disabled="busy !== null"
           @click="removeAgent"
         >
@@ -296,78 +306,49 @@ async function removeAgent(): Promise<void> {
 .detail {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 14px;
   color: var(--ink-2);
   font-size: 12px;
 }
 
-.head {
+.agent-drawer-ident {
   display: flex;
   align-items: flex-start;
-  justify-content: space-between;
-  gap: 10px;
+  gap: 9px;
 }
 
-.title h2 {
-  color: var(--ink);
-  font-size: 15px;
-  font-weight: 650;
+.agent-drawer-ident > .st {
+  margin-left: auto;
+  flex: none;
 }
 
-.slug {
-  color: var(--ink-3);
-  font-size: 10px;
+.detail-kv {
+  grid-template-columns: 92px minmax(0, 1fr);
+  gap: 5px 14px;
+  margin-top: 0;
+  padding-top: 11px;
+  border-top: 1px solid var(--line-2);
 }
 
-.desc {
-  line-height: 1.7;
-}
-
-.facts {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px 14px;
-  padding: 12px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--surface);
-}
-
-.facts dt {
-  color: var(--ink-3);
-  font-size: 10px;
-}
-
-.facts dd {
-  margin: 2px 0 0;
-  color: var(--ink);
-  font-size: 11.5px;
-}
-
-h3 {
+.detail-block h4 {
   margin-bottom: 6px;
-  color: var(--ink);
-  font-size: 11.5px;
-  font-weight: 600;
+  color: var(--ink-3);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.03em;
 }
 
-.skills,
-.tasks {
+.skill-list {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 7px;
 }
 
-.skills li,
-.tasks li {
+.skill-row {
   display: flex;
   flex-wrap: wrap;
-  align-items: baseline;
-  gap: 4px 10px;
-  padding: 6px 8px;
-  border: 1px solid var(--line-2);
-  border-radius: 6px;
-  background: var(--surface);
+  align-items: center;
+  gap: 4px 8px;
 }
 
 .skill-name {
@@ -380,23 +361,53 @@ h3 {
   flex-basis: 100%;
   color: var(--ink-3);
   font-size: 10px;
+  line-height: 1.55;
+}
+
+.tasks {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .tasks li {
-  justify-content: space-between;
-}
-
-.empty {
-  color: var(--ink-3);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  padding: 6px 8px;
+  border: 1px solid var(--line-2);
+  border-radius: 4px;
+  background: var(--surface-2);
   font-size: 10.5px;
 }
 
+.raw-card {
+  max-height: 240px;
+  margin: 6px 0 0;
+  padding: 8px;
+  overflow: auto;
+  border: 1px solid var(--line-2);
+  border-radius: 5px;
+  background: var(--surface-2);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+
+.url-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .error-line {
-  padding: 8px 10px;
-  border: 1px solid var(--red-soft);
-  border-radius: 6px;
+  padding: 7px 9px;
+  border-radius: 4px;
   background: var(--red-soft);
-  color: var(--red);
+  font-size: 10.5px;
   line-height: 1.6;
 }
 
@@ -405,45 +416,11 @@ h3 {
   font-size: 10.5px;
 }
 
-.ellipsis {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.raw summary {
-  color: var(--ink-3);
-  font-size: 10.5px;
-  cursor: pointer;
-}
-
-.raw pre {
-  max-height: 240px;
-  margin: 6px 0 0;
-  padding: 8px;
-  overflow: auto;
-  border: 1px solid var(--line-2);
-  border-radius: 6px;
-  background: var(--surface);
-  font-family: var(--font-mono);
-  font-size: 10px;
-  line-height: 1.55;
-  white-space: pre-wrap;
-}
-
 .actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  padding-top: 4px;
-}
-
-.btn.danger {
-  border-color: var(--red-soft);
-  color: var(--red);
-}
-
-.btn.danger:hover:not(:disabled) {
-  border-color: var(--red);
+  gap: 6px;
+  padding-top: 3px;
+  border-top: 1px solid var(--line-2);
 }
 </style>

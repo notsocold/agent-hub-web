@@ -38,7 +38,9 @@ test.describe('M8 管理台', () => {
   test('管理员从侧栏进入管理台并看到概览统计', async ({ page }) => {
     await login(page)
 
-    await page.getByRole('link', { name: '管理控制台' }).click()
+    // 原型 v7 侧栏不出现管理员入口：管理台入口收在账号菜单里。
+    await page.getByTestId('account-menu').click()
+    await page.getByRole('menuitem', { name: '管理控制台' }).click()
     await expect(page).toHaveURL(/\/admin$/)
     await expect(page.getByRole('heading', { name: '管理概览', level: 1 })).toBeVisible()
     await waitReady(page)
@@ -128,8 +130,10 @@ test.describe('M8 管理台', () => {
     await expect(page).toHaveURL(/\/chat(?:\?.*)?$/)
   })
 
-  test('普通用户侧栏不出现管理控制台入口', async ({ page }) => {
+  test('普通用户账号菜单不出现管理控制台入口', async ({ page }) => {
     await loginAsUser(page)
     await expect(page.getByRole('link', { name: '管理控制台' })).toHaveCount(0)
+    await page.getByTestId('account-menu').click()
+    await expect(page.getByRole('menuitem', { name: '管理控制台' })).toHaveCount(0)
   })
 })

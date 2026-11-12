@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 
+import { RouterLink } from 'vue-router'
+
 import ProcessCardShell from './ProcessCardShell.vue'
 import { formatDuration } from '@/utils/format'
 import { formatScore } from '@/utils/knowledge'
@@ -43,46 +45,66 @@ const RISK_LABELS: Record<string, string> = {
     :kind="cardKind"
     :title="item.displayName || item.tool"
     :status="item.status"
-    :status-label="
-      item.status === 'canceled' && item.requiresApproval ? '已拒绝' : undefined
-    "
+    :status-label="item.status === 'canceled' && item.requiresApproval ? '已拒绝' : undefined"
     :duration="formatDuration(item.durationMs)"
+    :args="item.argsPreview || item.tool"
+    :result-icon="cardKind === 'vector' ? 'search' : 'check'"
   >
-    <p class="line meta">
-      <span v-if="sourceLabel" class="tag">{{ sourceLabel }}</span>
-      <span v-if="item.server" class="tag">{{ item.server }}</span>
-      <span v-if="item.risk" class="tag is-risk">{{ RISK_LABELS[item.risk] ?? item.risk }}</span>
-      <span v-if="item.requiresApproval" class="tag is-approval">需审批</span>
-      <span class="mono tool-name">{{ item.tool }}</span>
-    </p>
+    <template v-if="cardKind === 'vector'">
+      <div class="vector-meta">{{ sourceLabel }} · {{ item.tool }} · {{ item.summary || '检索结果' }}</div>
+      <p v-if="(item.citations ?? []).length > 0" class="block-label">引用来源</p>
+      <RouterLink
+        v-for="citation in item.citations ?? []"
+        :key="citation.chunk_id"
+        class="vhit"
+        :to="{
+          name: 'knowledge',
+          query: { document_id: citation.document_id, q: citation.title },
+        }"
+      >
+        <div class="vhit-main">
+          <span class="vhit-title">{{ citation.title }}</span>
+          <span class="vhit-score">{{ formatScore(citation.score) }}</span>
+        </div>
+        <div class="vhit-sub">
+          {{ citation.chunk_id }} · {{ citation.category }} · {{ citation.updated_at.slice(0, 10) }}
+        </div>
+      </RouterLink>
+      <div class="tool-note">{{ sourceLabel }} · {{ item.tool }} · {{ formatDuration(item.durationMs) }}</div>
+    </template>
 
-    <p v-if="item.argsPreview" class="line mono">{{ item.argsPreview }}</p>
-    <p v-if="item.summary" class="line summary">{{ item.summary }}</p>
+    <template v-else-if="cardKind === 'mcp'">
+      <div class="mcp-line">
+        <span class="mcp-server">{{ item.server || item.source }}</span>
+        <span v-if="item.source" class="tag">{{ item.source }}</span>
+        <span class="mcp-ok"><span class="dot is-ok"></span>已连接</span>
+      </div>
+      <dl class="kv">
+        <dt>工具</dt>
+        <dd class="mono">{{ item.tool }}</dd>
+        <dt v-if="item.risk">风险</dt>
+        <dd v-if="item.risk">{{ RISK_LABELS[item.risk] ?? item.risk }}</dd>
+        <dt v-if="item.requiresApproval">审批</dt>
+        <dd v-if="item.requiresApproval">需要用户确认</dd>
+      </dl>
+      <div class="tool-note">{{ item.summary || item.tool }} · {{ formatDuration(item.durationMs) }}</div>
+    </template>
 
-    <div v-if="item.citations?.length" class="citations">
-      <p class="block-label">引用来源</p>
-      <ol>
-        <li v-for="citation in item.citations" :key="citation.chunk_id">
-          <RouterLink
-            :to="{
-              name: 'knowledge',
-              query: { document_id: citation.document_id, q: citation.title },
-            }"
-          >
-            <span class="index mono">[{{ citation.index }}]</span>
-            <span class="citation-title">{{ citation.title }}</span>
-            <span class="citation-meta">
-              {{ citation.category }} · {{ formatScore(citation.score) }}
-            </span>
-          </RouterLink>
-        </li>
-      </ol>
-    </div>
+    <template v-else>
+      <div v-if="item.summary" class="hit">
+        <span class="hit-title">{{ item.summary }}</span>
+      </div>
+      <div v-if="item.argsPreview" class="hit">
+        <span class="hit-title">{{ item.argsPreview }}</span>
+      </div>
+      <div class="tool-note">{{ item.tool }} · {{ formatDuration(item.durationMs) }}</div>
+    </template>
 
-    <details v-if="item.resultPreview || item.error || metadataEntries.length" class="details">
+    <p v-if="item.error" class="card-error">{{ item.error }}</p>
+
+    <details v-if="item.resultPreview || metadataEntries.length" class="result-details">
       <summary>查看结果</summary>
-      <p v-if="item.error" class="error">{{ item.error }}</p>
-      <p v-if="item.resultPreview" class="line mono">{{ item.resultPreview }}</p>
+      <p v-if="item.resultPreview" class="result-raw mono">{{ item.resultPreview }}</p>
       <dl v-if="metadataEntries.length" class="metadata">
         <template v-for="[key, value] in metadataEntries" :key="key">
           <dt>{{ key }}</dt>
@@ -94,136 +116,53 @@ const RISK_LABELS: Record<string, string> = {
 </template>
 
 <style scoped>
-.line {
-  margin: 0;
-  overflow-wrap: anywhere;
-}
-
-.line.meta {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px;
-  margin-bottom: 5px;
-}
-
-.tag {
-  padding: 0 5px;
-  border: 1px solid var(--line-2);
-  border-radius: 4px;
-  color: var(--ink-3);
-  font-size: 9px;
-}
-
-.tag.is-risk {
-  border-color: var(--amber-soft);
-  background: var(--amber-soft);
-  color: var(--amber-text);
-}
-
-.tag.is-approval {
-  border-color: var(--red-soft);
-  background: var(--red-soft);
-  color: var(--red);
-}
-
-.tool-name {
-  overflow: hidden;
-  color: var(--ink-3);
-  font-size: 9.5px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.line + .line {
-  margin-top: 4px;
-}
-
-.summary {
-  color: var(--ink);
-}
-
-.citations {
-  margin-top: 8px;
-}
-
 .block-label {
-  margin-bottom: 3px;
+  margin: 8px 0 2px;
   color: var(--ink-3);
-  font-size: 9.5px;
-  letter-spacing: 0.04em;
+  font-size: 10px;
 }
 
-.citations ol {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
+.vhit {
+  display: block;
 }
 
-.citations a {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-  padding: 2px 4px;
-  border-radius: 4px;
-  color: var(--ink-2);
-  font-size: 10.5px;
-}
-
-.citations a:hover {
-  background: var(--surface-2);
-  color: var(--ink);
-}
-
-.citations a:hover .citation-title {
+.vhit:hover .vhit-title {
   text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
-.index {
-  flex: none;
-  color: var(--prussian);
-  font-size: 9.5px;
+.card-error {
+  margin-top: 6px;
+  color: var(--red);
+  font-size: 11.5px;
 }
 
-.citation-title {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.citation-meta {
-  flex: none;
-  color: var(--ink-3);
-  font-size: 9px;
-}
-
-.details {
+.result-details {
   margin-top: 8px;
 }
 
-.details summary {
+.result-details summary {
   color: var(--ink-3);
-  font-size: 11px;
+  font-size: 10.5px;
   cursor: pointer;
 }
 
-.details summary:hover {
-  color: var(--ink);
-}
-
-.error {
-  margin: 6px 0 0;
-  color: var(--red);
+.result-raw {
+  margin-top: 5px;
+  padding: 6px 8px;
+  border-radius: 4px;
+  background: var(--paper-2);
+  color: var(--ink-2);
+  font-size: 10.5px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .metadata {
   display: grid;
   grid-template-columns: auto 1fr;
   gap: 2px 10px;
-  margin: 6px 0 0;
+  margin-top: 6px;
   font-size: 10.5px;
 }
 
@@ -233,6 +172,7 @@ const RISK_LABELS: Record<string, string> = {
 
 .metadata dd {
   margin: 0;
+  color: var(--ink-2);
   overflow-wrap: anywhere;
 }
 </style>

@@ -2,7 +2,6 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 
-import EmptyState from '@/components/common/EmptyState.vue'
 import ErrorState from '@/components/common/ErrorState.vue'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
 import RedactedJson from '@/components/common/RedactedJson.vue'
@@ -293,207 +292,221 @@ async function copyRequestId(): Promise<void> {
 </script>
 
 <template>
-  <section class="card">
-    <header class="card-head">
-      <div class="head-title">
-        <h3>审计日志</h3>
-        <span class="tag mono">{{ items.length }} 条</span>
-      </div>
-      <span class="mono hint">{{ endpointHint }}</span>
-    </header>
+  <section class="panel cap-card">
+    <div class="cap-inner">
+      <header class="cap-head">
+        <div class="cap-title">
+          <h3>审计日志</h3>
+          <span class="tag mono">{{ items.length }} 条</span>
+        </div>
+        <span class="cap-hint">{{ endpointHint }}</span>
+      </header>
 
-    <p class="notice">
-      审计记录覆盖审批、密钥、智能体、技能、MCP、记忆与安全事件（<span class="mono">security.*</span
-      >）。 记录只读，不提供修改或删除入口。
-    </p>
+      <p class="cap-desc">
+        审计记录覆盖审批、密钥、智能体、技能、MCP、记忆与安全事件（<span class="mono"
+          >security.*</span
+        >）。记录只读，不提供修改或删除入口。
+      </p>
 
-    <div class="scope-bar">
-      <div class="scope-switch" role="group" aria-label="审计范围">
-        <button
-          type="button"
-          class="scope-btn"
-          :class="{ 'is-active': scope === 'own' }"
-          :aria-pressed="scope === 'own'"
-          @click="setScope('own')"
-        >
-          我的审计
-        </button>
-        <button
-          v-if="props.canViewAll"
-          type="button"
-          class="scope-btn"
-          :class="{ 'is-active': scope === 'all' }"
-          :aria-pressed="scope === 'all'"
-          @click="setScope('all')"
-        >
-          全局审计
-        </button>
+      <div class="cap-toolbar scope-bar">
+        <div class="seg" role="group" aria-label="审计范围">
+          <button
+            type="button"
+            class="scope-btn"
+            :class="{ 'is-active': scope === 'own' }"
+            :aria-pressed="scope === 'own'"
+            @click="setScope('own')"
+          >
+            我的审计
+          </button>
+          <button
+            v-if="props.canViewAll"
+            type="button"
+            class="scope-btn"
+            :class="{ 'is-active': scope === 'all' }"
+            :aria-pressed="scope === 'all'"
+            @click="setScope('all')"
+          >
+            全局审计
+          </button>
+        </div>
+        <span class="cap-note">{{ scopeHint }}</span>
       </div>
-      <span class="muted">{{ scopeHint }}</span>
+
+      <form class="filters" @submit.prevent="applyFilters">
+        <div class="filter-grid">
+          <label class="field">
+            <span class="field-label">动作</span>
+            <input
+              v-model="filterForm.action"
+              class="input mono"
+              list="audit-action-options"
+              placeholder="全部动作，可输入"
+              autocomplete="off"
+              spellcheck="false"
+            />
+          </label>
+
+          <label class="field">
+            <span class="field-label">资源类型</span>
+            <select v-model="filterForm.resourceType" class="input" aria-label="筛选资源类型">
+              <option value="">全部资源类型</option>
+              <option v-for="type in AUDIT_RESOURCE_TYPES" :key="type" :value="type">
+                {{ type }}
+              </option>
+              <option :value="CUSTOM_RESOURCE">自定义…</option>
+            </select>
+          </label>
+
+          <label v-if="filterForm.resourceType === CUSTOM_RESOURCE" class="field">
+            <span class="field-label">自定义资源类型</span>
+            <input
+              v-model="filterForm.customResourceType"
+              class="input mono"
+              placeholder="例如：knowledge"
+              autocomplete="off"
+              spellcheck="false"
+            />
+          </label>
+
+          <label class="field">
+            <span class="field-label">开始时间</span>
+            <input v-model="filterForm.start" class="input mono" type="datetime-local" />
+          </label>
+
+          <label class="field">
+            <span class="field-label">结束时间（不含）</span>
+            <input v-model="filterForm.end" class="input mono" type="datetime-local" />
+          </label>
+
+          <template v-if="scope === 'all'">
+            <label class="field">
+              <span class="field-label">操作者类型</span>
+              <input
+                v-model="filterForm.actorType"
+                class="input mono"
+                list="audit-actor-types"
+                placeholder="全部，如 user"
+                autocomplete="off"
+                spellcheck="false"
+              />
+            </label>
+
+            <label class="field">
+              <span class="field-label">操作者 ID</span>
+              <input
+                v-model="filterForm.actorId"
+                class="input mono"
+                placeholder="按操作者 ID 精确筛选"
+                autocomplete="off"
+                spellcheck="false"
+              />
+            </label>
+
+            <label class="field">
+              <span class="field-label">资源 ID</span>
+              <input
+                v-model="filterForm.resourceId"
+                class="input mono"
+                placeholder="按资源 ID 精确筛选"
+                autocomplete="off"
+                spellcheck="false"
+              />
+            </label>
+          </template>
+        </div>
+
+        <div class="filter-actions">
+          <button type="submit" class="btn btn-primary btn-sm" :disabled="loading">查询</button>
+          <button
+            type="button"
+            class="btn btn-outline btn-sm"
+            :disabled="loading"
+            @click="resetFilters"
+          >
+            重置
+          </button>
+          <span class="cap-note">时间为本地时区，提交时转换为 ISO 8601；结束时间为开区间。</span>
+        </div>
+
+        <datalist id="audit-action-options">
+          <option v-for="action in AUDIT_ACTIONS" :key="action" :value="action" />
+        </datalist>
+        <datalist id="audit-actor-types">
+          <option value="user" />
+          <option value="admin" />
+          <option value="system" />
+        </datalist>
+      </form>
+
+      <ErrorState v-if="error" :message="error" @retry="load" />
+      <LoadingSkeleton v-else-if="loading" />
+      <div v-else-if="items.length === 0" class="empty-state">
+        <p class="empty-title">暂无审计记录</p>
+        <p class="empty-desc">{{ emptyDescription }}</p>
+      </div>
+
+      <template v-else>
+        <div class="table-card">
+          <el-table :data="items" style="width: 100%" row-key="id">
+            <el-table-column label="时间" width="136">
+              <template #default="{ row }">
+                <span class="mono time-cell">{{ formatDateTime(row.created_at) }}</span>
+              </template>
+            </el-table-column>
+
+            <el-table-column label="动作" min-width="150">
+              <template #default="{ row }">
+                <span class="mono action-cell">{{ row.action }}</span>
+              </template>
+            </el-table-column>
+
+            <el-table-column label="资源" min-width="150">
+              <template #default="{ row }">
+                <span class="resource-cell">
+                  <span class="mono resource-type">{{ row.resource_type || '—' }}</span>
+                  <span v-if="row.resource_id" class="mono resource-id">{{ row.resource_id }}</span>
+                </span>
+              </template>
+            </el-table-column>
+
+            <el-table-column label="操作者" min-width="120">
+              <template #default="{ row }">
+                <span class="resource-cell">
+                  <span class="mono resource-type">{{ row.actor_type || '—' }}</span>
+                  <span v-if="row.actor_id" class="mono resource-id">{{ row.actor_id }}</span>
+                </span>
+              </template>
+            </el-table-column>
+
+            <el-table-column label="request_id" min-width="130">
+              <template #default="{ row }">
+                <span class="mono request-cell" :title="row.request_id">
+                  {{ row.request_id || '—' }}
+                </span>
+              </template>
+            </el-table-column>
+
+            <el-table-column label="操作" width="64" fixed="right">
+              <template #default="{ row }">
+                <button type="button" class="text-link" @click="openDetail(row)">详情</button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </div>
+
+        <div v-if="hasMore" class="load-more">
+          <button
+            type="button"
+            class="btn btn-outline btn-sm"
+            :disabled="loadingMore"
+            @click="loadMore"
+          >
+            {{ loadingMore ? '加载中…' : '加载更多' }}
+          </button>
+        </div>
+      </template>
     </div>
-
-    <form class="filters" @submit.prevent="applyFilters">
-      <div class="filter-grid">
-        <label class="field">
-          <span class="field-label">动作</span>
-          <input
-            v-model="filterForm.action"
-            class="input mono"
-            list="audit-action-options"
-            placeholder="全部动作，可输入"
-            autocomplete="off"
-            spellcheck="false"
-          />
-        </label>
-
-        <label class="field">
-          <span class="field-label">资源类型</span>
-          <select v-model="filterForm.resourceType" class="input" aria-label="筛选资源类型">
-            <option value="">全部资源类型</option>
-            <option v-for="type in AUDIT_RESOURCE_TYPES" :key="type" :value="type">
-              {{ type }}
-            </option>
-            <option :value="CUSTOM_RESOURCE">自定义…</option>
-          </select>
-        </label>
-
-        <label v-if="filterForm.resourceType === CUSTOM_RESOURCE" class="field">
-          <span class="field-label">自定义资源类型</span>
-          <input
-            v-model="filterForm.customResourceType"
-            class="input mono"
-            placeholder="例如：knowledge"
-            autocomplete="off"
-            spellcheck="false"
-          />
-        </label>
-
-        <label class="field">
-          <span class="field-label">开始时间</span>
-          <input v-model="filterForm.start" class="input mono" type="datetime-local" />
-        </label>
-
-        <label class="field">
-          <span class="field-label">结束时间（不含）</span>
-          <input v-model="filterForm.end" class="input mono" type="datetime-local" />
-        </label>
-
-        <template v-if="scope === 'all'">
-          <label class="field">
-            <span class="field-label">操作者类型</span>
-            <input
-              v-model="filterForm.actorType"
-              class="input mono"
-              list="audit-actor-types"
-              placeholder="全部，如 user"
-              autocomplete="off"
-              spellcheck="false"
-            />
-          </label>
-
-          <label class="field">
-            <span class="field-label">操作者 ID</span>
-            <input
-              v-model="filterForm.actorId"
-              class="input mono"
-              placeholder="按操作者 ID 精确筛选"
-              autocomplete="off"
-              spellcheck="false"
-            />
-          </label>
-
-          <label class="field">
-            <span class="field-label">资源 ID</span>
-            <input
-              v-model="filterForm.resourceId"
-              class="input mono"
-              placeholder="按资源 ID 精确筛选"
-              autocomplete="off"
-              spellcheck="false"
-            />
-          </label>
-        </template>
-      </div>
-
-      <div class="filter-actions">
-        <button type="submit" class="btn primary" :disabled="loading">查询</button>
-        <button type="button" class="btn" :disabled="loading" @click="resetFilters">重置</button>
-        <span class="muted">时间为本地时区，提交时转换为 ISO 8601；结束时间为开区间。</span>
-      </div>
-
-      <datalist id="audit-action-options">
-        <option v-for="action in AUDIT_ACTIONS" :key="action" :value="action" />
-      </datalist>
-      <datalist id="audit-actor-types">
-        <option value="user" />
-        <option value="admin" />
-        <option value="system" />
-      </datalist>
-    </form>
-
-    <ErrorState v-if="error" :message="error" @retry="load" />
-    <LoadingSkeleton v-else-if="loading" />
-    <EmptyState
-      v-else-if="items.length === 0"
-      title="暂无审计记录"
-      :description="emptyDescription"
-    />
-
-    <template v-else>
-      <div class="table-card">
-        <el-table :data="items" style="width: 100%" row-key="id">
-          <el-table-column label="时间" width="148">
-            <template #default="{ row }">
-              <span class="mono time-cell">{{ formatDateTime(row.created_at) }}</span>
-            </template>
-          </el-table-column>
-
-          <el-table-column label="动作" min-width="170">
-            <template #default="{ row }">
-              <span class="mono action-cell">{{ row.action }}</span>
-            </template>
-          </el-table-column>
-
-          <el-table-column label="资源" min-width="180">
-            <template #default="{ row }">
-              <span class="resource-cell">
-                <span class="mono resource-type">{{ row.resource_type || '—' }}</span>
-                <span v-if="row.resource_id" class="mono resource-id">{{ row.resource_id }}</span>
-              </span>
-            </template>
-          </el-table-column>
-
-          <el-table-column label="操作者" min-width="150">
-            <template #default="{ row }">
-              <span class="resource-cell">
-                <span class="mono resource-type">{{ row.actor_type || '—' }}</span>
-                <span v-if="row.actor_id" class="mono resource-id">{{ row.actor_id }}</span>
-              </span>
-            </template>
-          </el-table-column>
-
-          <el-table-column label="request_id" min-width="170">
-            <template #default="{ row }">
-              <span class="mono request-cell" :title="row.request_id">
-                {{ row.request_id || '—' }}
-              </span>
-            </template>
-          </el-table-column>
-
-          <el-table-column label="操作" width="76" fixed="right">
-            <template #default="{ row }">
-              <button type="button" class="link" @click="openDetail(row)">详情</button>
-            </template>
-          </el-table-column>
-        </el-table>
-      </div>
-
-      <div v-if="hasMore" class="load-more">
-        <button type="button" class="btn" :disabled="loadingMore" @click="loadMore">
-          {{ loadingMore ? '加载中…' : '加载更多' }}
-        </button>
-      </div>
-    </template>
 
     <el-drawer v-model="detailOpen" title="审计详情" size="480px" :append-to-body="true">
       <template v-if="activeLog">
@@ -533,7 +546,7 @@ async function copyRequestId(): Promise<void> {
             <h4>request_id</h4>
             <button
               type="button"
-              class="link"
+              class="text-link"
               :disabled="!activeLog.request_id"
               @click="copyRequestId"
             >
@@ -546,7 +559,7 @@ async function copyRequestId(): Promise<void> {
         <section class="detail-section">
           <div class="detail-head">
             <h4>detail</h4>
-            <span class="muted">敏感字段自动遮罩</span>
+            <span class="cap-note">敏感字段自动遮罩</span>
           </div>
           <RedactedJson :value="activeLog.detail" />
         </section>
@@ -556,97 +569,15 @@ async function copyRequestId(): Promise<void> {
 </template>
 
 <style scoped>
-.card {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 16px;
-  border: 1px solid var(--line);
-  border-radius: 9px;
-  background: var(--surface);
-  box-shadow: var(--shadow-sm);
-}
-
-.card-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 10px;
-}
-
-.head-title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-h3 {
-  font-size: 14px;
-  font-weight: 650;
-}
-
-.hint {
-  color: var(--ink-3);
-  font-size: 9.5px;
-}
-
-.tag {
-  padding: 1px 7px;
-  border: 1px solid var(--line-2);
-  border-radius: 99px;
-  color: var(--ink-3);
-  font-size: 9.5px;
-}
-
-.notice {
-  padding: 9px 12px;
-  border: 1px solid var(--line-2);
-  border-radius: 7px;
-  background: var(--surface-2);
-  color: var(--ink-2);
-  font-size: 11.5px;
-  line-height: 1.65;
-}
-
-.scope-bar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px;
-}
-
-.scope-switch {
-  display: inline-flex;
-  gap: 3px;
-  padding: 2px;
-  border: 1px solid var(--line);
-  border-radius: 7px;
-  background: var(--surface-2);
-}
-
-.scope-btn {
-  height: 26px;
-  padding: 0 10px;
-  border-radius: 5px;
-  color: var(--ink-2);
-  font-size: 11.5px;
-  font-weight: 550;
-}
-
-.scope-btn:hover {
-  color: var(--ink);
-}
-
-.scope-btn.is-active {
-  background: var(--surface);
-  color: var(--prussian);
-  box-shadow: var(--shadow-sm);
+.cap-inner {
+  padding: 14px;
 }
 
 .filters {
   display: flex;
   flex-direction: column;
   gap: 9px;
+  margin-top: 10px;
   padding: 10px 12px;
   border: 1px solid var(--line-2);
   border-radius: 7px;
@@ -678,16 +609,27 @@ h3 {
   gap: 8px;
 }
 
-.muted {
+.empty-state {
+  margin-top: 8px;
+  padding: 18px 12px;
+  border-bottom: 0;
+}
+
+.empty-title {
+  color: var(--ink-2);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.empty-desc {
+  margin-top: 4px;
   color: var(--ink-3);
-  font-size: 10.5px;
+  font-size: 11px;
+  line-height: 1.65;
 }
 
 .table-card {
-  overflow: hidden;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--surface);
+  margin-top: 10px;
 }
 
 .time-cell {
@@ -734,16 +676,7 @@ h3 {
   vertical-align: bottom;
 }
 
-.link {
-  color: var(--prussian);
-  font-size: 11.5px;
-}
-
-.link:hover:not(:disabled) {
-  text-decoration: underline;
-}
-
-.link:disabled {
+.text-link:disabled {
   cursor: not-allowed;
   opacity: 0.5;
 }
@@ -751,7 +684,7 @@ h3 {
 .load-more {
   display: flex;
   justify-content: center;
-  padding-top: 2px;
+  padding-top: 8px;
 }
 
 .detail-grid {

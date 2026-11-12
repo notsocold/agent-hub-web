@@ -22,7 +22,7 @@ const emit = defineEmits<{
   'move-down': []
 }>()
 
-/** 五类步骤的文案与着色（answer 复用 skill 绿色系），与列表页芯片配色一致。 */
+/** 五类步骤的文案与着色，与列表页执行轨迹的芯片类型配色一致。 */
 const STEP_META: Record<WorkflowStepType, { label: string; kind: string }> = {
   knowledge_search: { label: '检索', kind: 'kind-vector' },
   tool: { label: '工具', kind: 'kind-tool' },
@@ -66,42 +66,52 @@ function removeTool(tool: string): void {
 </script>
 
 <template>
-  <article class="step-card" data-testid="step-card" :data-step-type="step.type">
+  <article
+    class="step-card tool-card"
+    :class="meta.kind"
+    data-testid="step-card"
+    :data-step-type="step.type"
+  >
     <header class="step-head">
       <span class="step-no mono">{{ String(index + 1).padStart(2, '0') }}</span>
-      <span class="chip" :class="meta.kind">
-        <span class="chip-type">{{ meta.label }}</span>
-        <span class="chip-code mono">{{ step.type }}</span>
-      </span>
+      <span class="step-type">{{ meta.label }}</span>
+      <span class="step-code mono">{{ step.type }}</span>
       <span class="spacer"></span>
       <button
         type="button"
-        class="btn"
+        class="wf-step-btn"
         data-testid="step-up"
         :disabled="index === 0"
         aria-label="上移该步骤"
+        title="上移"
         @click="emit('move-up')"
       >
-        上移
+        ↑
       </button>
       <button
         type="button"
-        class="btn"
+        class="wf-step-btn"
         data-testid="step-down"
         :disabled="index === total - 1"
         aria-label="下移该步骤"
+        title="下移"
         @click="emit('move-down')"
       >
-        下移
+        ↓
       </button>
-      <button type="button" class="btn danger" data-testid="step-remove" @click="emit('remove')">
+      <button
+        type="button"
+        class="btn btn-danger btn-sm"
+        data-testid="step-remove"
+        @click="emit('remove')"
+      >
         删除
       </button>
     </header>
 
     <div class="step-body">
       <label class="field">
-        <span class="field-label">标题（选填）</span>
+        <span>标题（选填）</span>
         <input
           class="input"
           type="text"
@@ -113,7 +123,7 @@ function removeTool(tool: string): void {
       </label>
 
       <label v-if="showInstruction" class="field">
-        <span class="field-label">执行指令（选填，≤500 字符）</span>
+        <span>执行指令（选填，≤500 字符）</span>
         <textarea
           class="input step-instruction"
           rows="2"
@@ -125,9 +135,9 @@ function removeTool(tool: string): void {
       </label>
 
       <div v-if="showTools" class="field">
-        <span class="field-label">工具清单（必填，至少 1 个）</span>
+        <span>工具清单（必填，至少 1 个）</span>
         <div class="tag-box">
-          <span v-for="tool in tools" :key="tool" class="tag" data-testid="step-tool-tag">
+          <span v-for="tool in tools" :key="tool" class="tool-tag" data-testid="step-tool-tag">
             {{ tool }}
             <button
               type="button"
@@ -141,7 +151,7 @@ function removeTool(tool: string): void {
           </span>
           <input
             v-model="toolDraft"
-            class="input tag-input"
+            class="tag-input"
             type="text"
             data-testid="step-tool-input"
             placeholder="输入工具名，回车或逗号添加"
@@ -157,111 +167,89 @@ function removeTool(tool: string): void {
 
 <style scoped>
 .step-card {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 12px 14px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--surface);
+  border-left: 2px solid var(--line);
+}
+
+.step-card.kind-vector {
+  border-left-color: var(--kind-vector);
+}
+
+.step-card.kind-tool {
+  border-left-color: var(--amber);
+}
+
+.step-card.kind-a2a {
+  border-left-color: var(--kind-a2a);
+}
+
+.step-card.kind-approval {
+  border-left-color: var(--red);
+}
+
+.step-card.kind-skill {
+  border-left-color: var(--green);
 }
 
 .step-head {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 7px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line-2);
+  background: var(--surface-2);
 }
 
 .step-no {
   color: var(--ink-3);
-  font-size: 11px;
+  font-size: 9px;
 }
 
-.chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 24px;
-  padding: 0 8px;
-  border: 1px solid var(--line-2);
-  border-left: 2px solid var(--chip-color, var(--line));
-  border-radius: 4px;
-  background: var(--chip-bg, var(--surface-2));
-  font-size: 10.5px;
+.step-type {
   color: var(--ink-2);
+  font-size: 10.5px;
+  font-weight: 600;
 }
 
-.chip-type {
-  color: var(--chip-color, var(--ink-3));
-  font-size: 9.5px;
+.kind-vector .step-type {
+  color: var(--kind-vector);
 }
 
-.chip-code {
+.kind-tool .step-type {
+  color: var(--amber-text);
+}
+
+.kind-a2a .step-type {
+  color: var(--kind-a2a);
+}
+
+.kind-approval .step-type {
+  color: var(--red);
+}
+
+.kind-skill .step-type {
+  color: var(--green);
+}
+
+.step-code {
   color: var(--ink-3);
   font-size: 8.5px;
-}
-
-.kind-vector {
-  --chip-color: var(--kind-vector);
-  --chip-bg: var(--kind-vector-soft);
-}
-
-.kind-tool {
-  /* 芯片为 10px 小字：amber 在 amber-soft 上对比不足，改用文字色 amber-text。 */
-  --chip-color: var(--amber-text);
-  --chip-bg: var(--kind-tool-soft);
-}
-
-.kind-a2a {
-  --chip-color: var(--kind-a2a);
-  --chip-bg: var(--kind-a2a-soft);
-}
-
-.kind-approval {
-  --chip-color: var(--kind-approval);
-  --chip-bg: var(--kind-approval-soft);
-}
-
-.kind-skill {
-  --chip-color: var(--kind-skill);
-  --chip-bg: var(--kind-skill-soft);
 }
 
 .spacer {
   flex: 1;
 }
 
-.btn.danger {
-  color: var(--red);
-}
-
-.btn.danger:hover:not(:disabled) {
-  border-color: var(--red);
-  color: var(--red);
-}
-
 .step-body {
   display: flex;
   flex-direction: column;
   gap: 10px;
-}
-
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.field-label {
-  color: var(--ink-3);
-  font-size: 10px;
-  letter-spacing: 0.03em;
+  padding: 10px 12px 12px;
 }
 
 .step-instruction {
   height: auto;
-  padding: 7px 10px;
-  line-height: 1.6;
+  padding: 7px 9px;
+  line-height: 1.55;
   resize: vertical;
 }
 
@@ -269,50 +257,59 @@ function removeTool(tool: string): void {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
-  min-height: 32px;
-  padding: 4px 6px;
+  gap: 5px;
+  min-height: 30px;
+  padding: 3px 5px;
   border: 1px solid var(--line);
   border-radius: 6px;
   background: var(--surface);
 }
 
-.tag {
+.tag-box:focus-within {
+  border-color: var(--ink-3);
+}
+
+.tool-tag {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 1px 4px 1px 8px;
+  gap: 3px;
+  height: 22px;
+  padding: 0 3px 0 7px;
   border: 1px solid var(--line-2);
   border-radius: 4px;
   background: var(--surface-2);
   color: var(--ink-2);
-  font-size: 10.5px;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  white-space: nowrap;
 }
 
 .tag-remove {
-  border: none;
-  background: none;
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
   color: var(--ink-3);
   font-size: 12px;
   line-height: 1;
-  cursor: pointer;
-  padding: 2px;
 }
 
 .tag-remove:hover {
+  background: var(--red-soft);
   color: var(--red);
 }
 
 .tag-input {
   flex: 1;
-  min-width: 180px;
-  border: none;
-  background: none;
-  height: 24px;
+  min-width: 160px;
+  height: 22px;
   padding: 0 4px;
-}
-
-.tag-input:focus {
   border: none;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 11.5px;
+  outline: none;
 }
 </style>

@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 
-import ProcessCardShell from './ProcessCardShell.vue'
-import { formatDateTime } from '@/utils/format'
+import AppIcon from '@/components/common/AppIcon.vue'
+import { formatClock, formatDateTime } from '@/utils/format'
 import { containsSensitiveKey, redactText, redactValue } from '@/utils/redact'
 import type { ApprovalProcess } from '@/types'
 
@@ -65,7 +65,7 @@ const decidedLabel = computed(() => {
   if (expired.value) return '已过期'
   if (props.item.status === 'canceled') return '已取消'
   if (props.item.status === 'ok') return '已处理'
-  return '等待决定'
+  return '待审批'
 })
 
 const canDecide = computed(
@@ -75,6 +75,14 @@ const canDecide = computed(
     !props.busy &&
     props.item.status === 'waiting',
 )
+
+const chipClass = computed(() => {
+  if (canDecide.value) return 'is-warn'
+  if (props.item.decision === 'approve') return 'is-ok'
+  if (props.item.decision === 'reject' || expired.value) return 'is-warn'
+  if (props.item.status === 'ok') return 'is-ok'
+  return 'is-warn'
+})
 
 const payload = computed(() => props.item.payload ?? null)
 // M7：事件已带脱敏预览时不请求详情；预览文本再做一次字符串级遮罩兜底。
@@ -92,107 +100,87 @@ const payloadJson = computed(() => {
 </script>
 
 <template>
-  <ProcessCardShell
-    kind="approval"
-    :title="item.toolDisplayName || item.tool"
-    :status="item.status"
-    :status-label="decidedLabel"
+  <li
+    class="entry entry-approval"
+    :class="{ 'is-decided': !canDecide }"
     :data-approval-id="item.approvalId"
   >
-    <p v-if="item.reason" class="reason">{{ item.reason }}</p>
-
-    <dl class="facts">
-      <div v-if="item.executor">
-        <dt>执行方</dt>
-        <dd>{{ item.executor }}</dd>
-      </div>
-      <div v-if="item.target">
-        <dt>目标</dt>
-        <dd>{{ item.target }}</dd>
-      </div>
-      <div v-if="item.sideEffect">
-        <dt>副作用</dt>
-        <dd>{{ item.sideEffect }}</dd>
-      </div>
-      <div>
-        <dt>风险</dt>
-        <dd :class="`risk risk-${item.risk}`">{{ riskLabel }}</dd>
-      </div>
-      <div v-if="item.expiresAt">
-        <dt>{{ expired ? '过期时间' : '剩余时间' }}</dt>
-        <dd class="mono" :class="{ 'is-expired': expired }">
-          {{ expired ? formatDateTime(item.expiresAt) : remainingLabel }}
-        </dd>
-      </div>
-    </dl>
-
-    <details v-if="payload" class="payload">
-      <summary>
-        查看参数
-        <span v-if="hasSensitive" class="mask-note">敏感字段已遮罩</span>
-      </summary>
-      <pre class="payload-body mono">{{ payloadJson }}</pre>
-    </details>
-    <details v-else-if="previewText" class="payload" open>
-      <summary>参数预览（已脱敏）</summary>
-      <pre class="payload-body mono">{{ previewText }}</pre>
-    </details>
-    <p v-else class="payload-empty">参数预览不可用</p>
-
-    <div v-if="canDecide" class="actions">
-      <button type="button" class="btn ghost" :disabled="busy" @click="emit('reject')">拒绝</button>
-      <button
-        type="button"
-        class="btn primary"
-        data-approval-approve
-        :disabled="busy"
-        @click="emit('approve')"
-      >
-        {{ busy ? '处理中…' : '批准并执行' }}
-      </button>
+    <span class="node" aria-hidden="true"></span>
+    <div class="entry-head">
+      <span class="who">审批</span>
+      <span class="who-sub">外部写操作 · HITL</span>
+      <span class="spacer"></span>
+      <time v-if="item.startedAt">{{ formatClock(item.startedAt) }}</time>
     </div>
-    <p v-else-if="item.decision" class="resolved">
-      {{ item.decision === 'approve' ? '已批准，运行将继续。' : '已拒绝，本次操作不会执行。' }}
-    </p>
-    <p v-else-if="expired" class="resolved is-expired">审批已过期，无法继续执行。</p>
-    <p v-else-if="item.status === 'canceled'" class="resolved">审批已取消。</p>
-    <p v-else class="resolved">审批已处理，运行将继续。</p>
-  </ProcessCardShell>
+    <div class="entry-body">
+      <div class="approval-card" :class="{ 'is-resolved': !canDecide }">
+        <div class="approval-head">
+          <AppIcon name="shield" />
+          <span class="approval-title">需要你的决定</span>
+          <span class="status-chip" :class="chipClass">{{ decidedLabel }}</span>
+        </div>
+        <div class="approval-body">
+          <p v-if="item.reason" class="approval-action">{{ item.reason }}</p>
+          <dl class="risk-list">
+            <dt>执行工具</dt>
+            <dd><span class="mono">{{ item.tool }}</span></dd>
+            <dt v-if="item.executor">执行方</dt>
+            <dd v-if="item.executor">{{ item.executor }}</dd>
+            <dt v-if="item.target">目标</dt>
+            <dd v-if="item.target">{{ item.target }}</dd>
+            <dt v-if="item.sideEffect">副作用</dt>
+            <dd v-if="item.sideEffect">{{ item.sideEffect }}</dd>
+            <dt>风险</dt>
+            <dd :class="`risk risk-${item.risk}`">{{ riskLabel }}</dd>
+            <dt v-if="item.expiresAt">超时</dt>
+            <dd v-if="item.expiresAt" class="mono" :class="{ 'is-expired': expired }">
+              {{ expired ? `已过期 · ${formatDateTime(item.expiresAt)}` : remainingLabel }}
+            </dd>
+          </dl>
+
+          <details v-if="payload" class="payload">
+            <summary>
+              查看参数
+              <span v-if="hasSensitive" class="mask-note">敏感字段已遮罩</span>
+            </summary>
+            <pre class="payload-body mono">{{ payloadJson }}</pre>
+          </details>
+          <details v-else-if="previewText" class="payload">
+            <summary>参数预览（已脱敏）</summary>
+            <pre class="payload-body mono">{{ previewText }}</pre>
+          </details>
+          <p v-else class="payload-empty">参数预览不可用</p>
+        </div>
+
+        <div v-if="canDecide" class="approval-actions">
+          <span class="spacer"></span>
+          <button type="button" class="btn btn-outline" :disabled="busy" @click="emit('reject')">
+            拒绝
+          </button>
+          <button
+            type="button"
+            class="btn btn-primary"
+            data-approval-approve
+            :disabled="busy"
+            @click="emit('approve')"
+          >
+            {{ busy ? '处理中…' : '批准并执行' }}
+          </button>
+        </div>
+        <div v-else class="resolved-note">
+          <AppIcon :name="expired || item.decision === 'reject' ? 'x' : 'check'" />
+          <span v-if="item.decision === 'approve'">已批准，运行将继续。</span>
+          <span v-else-if="item.decision === 'reject'">已拒绝，本次操作不会执行。</span>
+          <span v-else-if="expired">审批已过期，无法继续执行。</span>
+          <span v-else-if="item.status === 'canceled'">审批已取消。</span>
+          <span v-else>审批已处理，运行将继续。</span>
+        </div>
+      </div>
+    </div>
+  </li>
 </template>
 
 <style scoped>
-.reason {
-  margin: 0 0 8px;
-  color: var(--ink-2);
-}
-
-.facts {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 6px 14px;
-  margin: 0;
-}
-
-.facts div {
-  min-width: 0;
-}
-
-.facts dt {
-  color: var(--ink-3);
-  font-size: 10px;
-}
-
-.facts dd {
-  margin: 1px 0 0;
-  overflow-wrap: anywhere;
-  color: var(--ink);
-  font-size: 11.5px;
-}
-
-.risk {
-  font-weight: 600;
-}
-
 .risk-write {
   color: var(--amber-text);
 }
@@ -206,7 +194,7 @@ const payloadJson = computed(() => {
 }
 
 .payload {
-  margin-top: 9px;
+  margin-top: 10px;
   border-top: 1px dashed var(--line);
   padding-top: 8px;
 }
@@ -244,47 +232,12 @@ const payloadJson = computed(() => {
   overflow-wrap: anywhere;
 }
 
-.actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  margin-top: 12px;
+.risk {
+  font-weight: 600;
 }
 
-.btn {
-  height: 30px;
-  padding: 0 12px;
-  border: 1px solid var(--line);
-  border-radius: 5px;
-  background: var(--surface);
+.approval-card.is-resolved .resolved-note {
+  background: var(--surface-2);
   color: var(--ink-2);
-  font-size: 12px;
-  font-weight: 550;
-}
-
-.btn:hover:not(:disabled) {
-  border-color: var(--ink-3);
-  color: var(--ink);
-}
-
-.btn.primary {
-  border-color: var(--prussian);
-  background: var(--prussian);
-  color: var(--surface);
-}
-
-.btn.primary:hover:not(:disabled) {
-  filter: brightness(1.06);
-}
-
-.btn:disabled {
-  cursor: not-allowed;
-  opacity: 0.6;
-}
-
-.resolved {
-  margin: 10px 0 0;
-  color: var(--ink-3);
-  font-size: 11px;
 }
 </style>

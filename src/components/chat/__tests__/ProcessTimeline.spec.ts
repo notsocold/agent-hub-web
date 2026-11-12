@@ -81,7 +81,7 @@ describe('ProcessTimeline 摘要栏', () => {
       global: { stubs: { RouterLink: RouterLinkStub } },
     })
 
-    const header = wrapper.get('.process-toggle').text()
+    const header = wrapper.get('.run-viewbar').text()
     expect(header).toContain('思考 12s')
     expect(header).toContain('3 步')
     expect(header).toContain('1 个远程智能体')
@@ -95,7 +95,7 @@ describe('ProcessTimeline 摘要栏', () => {
       global: { stubs: { RouterLink: RouterLinkStub } },
     })
 
-    const header = wrapper.get('.process-toggle').text()
+    const header = wrapper.get('.run-viewbar').text()
     expect(header).toContain('1 步')
     expect(header).not.toContain('思考')
     expect(header).not.toContain('审批')

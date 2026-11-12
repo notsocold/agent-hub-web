@@ -5,9 +5,8 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 
 import ErrorState from '@/components/common/ErrorState.vue'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
-import StatusBadge from '@/components/common/StatusBadge.vue'
 import { tasksApi } from '@/api/tasks'
-import { formatDateTime, formatDuration } from '@/utils/format'
+import { formatDateTime } from '@/utils/format'
 import { isSafeAuthorizationUrl } from './authorizationUrl'
 import { stateLabel, stateTone } from './taskMeta'
 import type { A2aTaskDetail, TaskAction } from '@/types'
@@ -41,7 +40,7 @@ const busy = ref<TaskAction | null>(null)
 
 const resumeInput = ref('')
 const nowMs = ref(Date.now())
-const drawerSize = ref('480px')
+const drawerSize = ref('520px')
 
 let tickTimer: number | undefined
 
@@ -84,6 +83,43 @@ function formatRawValue(value: unknown): string {
   if (typeof value === 'string') return value
   if (typeof value === 'number' || typeof value === 'boolean') return String(value)
   return JSON.stringify(value)
+}
+
+function statusClass(state: string): string {
+  return `st-${stateTone(state)}`
+}
+
+function statusDotClass(state: string): string {
+  const tone = stateTone(state)
+  if (tone === 'live') return 'is-live'
+  if (tone === 'ok') return 'is-ok'
+  if (tone === 'error') return 'is-warn'
+  return ''
+}
+
+function timelineTone(state: string, isLast: boolean): string {
+  if (!isLast) return 'is-done'
+  if (state === 'failed') return 'is-error'
+  if (state === 'completed' || state === 'canceled' || state === 'rejected') return 'is-done'
+  return 'is-now'
+}
+
+/** 原型时间线展示 A2A 原始状态名（下划线换成连字符）。 */
+function timelineStateLabel(state: string): string {
+  return state.replace(/_/g, '-')
+}
+
+/** 与任务页一致：短任务保留秒/毫秒，长任务用 00:12 形式。 */
+function formatTaskDuration(ms: number | null | undefined): string {
+  if (ms === null || ms === undefined) return '—'
+  if (ms < 10_000) {
+    if (ms < 1000) return `${Math.round(ms)}ms`
+    return `${(ms / 1000).toFixed(1)}s`
+  }
+  const totalSeconds = Math.round(ms / 1000)
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = totalSeconds % 60
+  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
 }
 
 function hasAction(action: TaskAction): boolean {
@@ -266,7 +302,7 @@ async function confirmCancel(): Promise<void> {
 }
 
 function syncDrawerSize(): void {
-  drawerSize.value = window.innerWidth < 700 ? '100%' : '480px'
+  drawerSize.value = window.innerWidth < 700 ? '100%' : '520px'
 }
 
 onMounted(() => {
@@ -289,89 +325,77 @@ onUnmounted(() => {
     <ErrorState v-else-if="error" :message="error" @retry="taskId && load(taskId)" />
 
     <div v-else-if="detail" class="detail">
-      <header class="head">
-        <StatusBadge :tone="stateTone(detail.state)" :label="stateLabel(detail.state)" />
+      <div class="res-summary head">
+        <span class="st" :class="statusClass(detail.state)">
+          <span class="dot" :class="statusDotClass(detail.state)"></span>
+          {{ stateLabel(detail.state) }}
+        </span>
         <span class="mono task-id">{{ detail.a2a_task_id }}</span>
-      </header>
+        <span class="spacer"></span>
+        <span class="mono muted">{{ formatTaskDuration(detail.duration_ms) }}</span>
+      </div>
 
-      <dl class="facts">
-        <div>
-          <dt>智能体</dt>
-          <dd>
-            {{ detail.agent.name }}
-            <span class="mono muted"> · {{ detail.agent.slug }}</span>
-          </dd>
-        </div>
-        <div>
-          <dt>所属会话</dt>
-          <dd>
-            <button
-              v-if="canOpenConversation"
-              type="button"
-              class="link"
-              @click="openConversation"
-            >
-              {{ detail.conversation?.title }}
-            </button>
-            <span v-else class="muted">—</span>
-          </dd>
-        </div>
-        <div>
-          <dt>Run</dt>
-          <dd class="mono ellipsis">{{ detail.run_id }}</dd>
-        </div>
-        <div>
-          <dt>耗时</dt>
-          <dd class="mono">{{ formatDuration(detail.duration_ms) }}</dd>
-        </div>
-        <div>
-          <dt>创建时间</dt>
-          <dd class="mono">{{ formatDateTime(detail.created_at) }}</dd>
-        </div>
-        <div>
-          <dt>更新时间</dt>
-          <dd class="mono">{{ formatDateTime(detail.updated_at) }}</dd>
-        </div>
+      <dl class="kv facts">
+        <dt>智能体</dt>
+        <dd>
+          {{ detail.agent.name }}
+          <span class="mono muted"> · {{ detail.agent.slug }}</span>
+        </dd>
+        <dt>所属会话</dt>
+        <dd>
+          <button v-if="canOpenConversation" type="button" class="link" @click="openConversation">
+            {{ detail.conversation?.title }}
+          </button>
+          <span v-else class="muted">—</span>
+        </dd>
+        <dt>Run</dt>
+        <dd class="mono ellipsis">{{ detail.run_id }}</dd>
+        <dt>创建时间</dt>
+        <dd class="mono">{{ formatDateTime(detail.created_at) }}</dd>
+        <dt>更新时间</dt>
+        <dd class="mono">{{ formatDateTime(detail.updated_at) }}</dd>
       </dl>
 
-      <section v-if="detail.request">
+      <section v-if="detail.request" class="res-section">
         <h3>请求</h3>
-        <p class="body-text">{{ detail.request.summary }}</p>
-        <details v-if="argsJson" class="raw">
+        <p class="res-note">{{ detail.request.summary }}</p>
+        <details v-if="argsJson" class="res-raw">
           <summary>请求参数</summary>
-          <pre>{{ argsJson }}</pre>
+          <pre class="res-json">{{ argsJson }}</pre>
         </details>
       </section>
 
-      <section v-if="detail.result">
+      <section v-if="detail.result" class="res-section">
         <h3>结果</h3>
-        <p class="body-text">{{ detail.result.summary }}</p>
+        <p class="res-note">{{ detail.result.summary }}</p>
         <template v-if="detail.result.artifact.summary">
-          <p class="artifact-summary">产出：{{ detail.result.artifact.summary }}</p>
+          <p class="res-note">产出：{{ detail.result.artifact.summary }}</p>
         </template>
         <template v-if="artifactEntries.length > 0">
-          <dl class="artifact-data">
-            <div v-for="[key, value] in artifactEntries" :key="key">
+          <dl class="artifact-data kv">
+            <template v-for="[key, value] in artifactEntries" :key="key">
               <dt class="mono">{{ key }}</dt>
               <dd class="mono">{{ value }}</dd>
-            </div>
+            </template>
           </dl>
         </template>
       </section>
 
-      <section v-if="detail.error" class="callout is-error">
+      <section v-if="detail.error" class="res-section">
         <h3>错误</h3>
-        <p class="body-text">
-          <span class="mono">{{ detail.error.code }}</span>
-          <span v-if="detail.error.retryable" class="tag">可重试</span>
-        </p>
-        <p class="body-text">{{ detail.error.message }}</p>
-        <p v-if="detail.error.at" class="muted mono">{{ formatDateTime(detail.error.at) }}</p>
+        <div class="res-error">
+          <p>
+            <span class="mono">{{ detail.error.code }}</span>
+            <span v-if="detail.error.retryable" class="tag">可重试</span>
+          </p>
+          <p>{{ detail.error.message }}</p>
+          <p v-if="detail.error.at" class="mono muted">{{ formatDateTime(detail.error.at) }}</p>
+        </div>
       </section>
 
       <section v-if="detail.input_request" class="callout">
         <h3>等待补充信息</h3>
-        <p class="body-text">{{ resumeQuestion }}</p>
+        <p class="res-note">{{ resumeQuestion }}</p>
         <p v-if="expiresAt" class="expires mono">到期时间：{{ formatDateTime(expiresAt) }}</p>
         <p v-if="expired" class="expired">已超时</p>
         <template v-else-if="canResume">
@@ -383,12 +407,7 @@ onUnmounted(() => {
             placeholder="请输入补充信息（2000 字以内）"
           ></textarea>
           <div class="hint mono">{{ resumeInput.length }} / 2000</div>
-          <button
-            type="button"
-            class="btn primary"
-            :disabled="busy !== null"
-            @click="submitResume"
-          >
+          <button type="button" class="btn btn-primary" :disabled="busy !== null" @click="submitResume">
             {{ busy === 'resume' ? '提交中…' : '提交补充信息' }}
           </button>
         </template>
@@ -396,7 +415,7 @@ onUnmounted(() => {
 
       <section v-if="detail.auth_request" class="callout">
         <h3>需要授权</h3>
-        <p class="body-text">
+        <p class="res-note">
           授权范围：
           <span class="mono">{{ authScopes.length ? authScopes.join('、') : '—' }}</span>
         </p>
@@ -404,14 +423,21 @@ onUnmounted(() => {
         <p v-if="expired" class="expired">已超时</p>
       </section>
 
-      <section>
+      <section class="res-section">
         <h3>状态时间线</h3>
-        <ol class="timeline">
-          <li v-for="entry in detail.timeline" :key="`${entry.state}-${entry.at}`">
-            <span class="dot" :class="`tone-${stateTone(entry.state)}`"></span>
-            <span class="timeline-state">{{ stateLabel(entry.state) }}</span>
-            <span class="muted mono">{{ formatDateTime(entry.at) }}</span>
-            <span v-if="entry.note" class="timeline-note">{{ entry.note }}</span>
+        <ol class="task-timeline">
+          <li
+            v-for="(entry, index) in detail.timeline"
+            :key="`${entry.state}-${entry.at}`"
+            :class="timelineTone(entry.state, index === detail.timeline.length - 1)"
+          >
+            <span class="tl-dot"></span>
+            <div>
+              <b>{{ timelineStateLabel(entry.state) }}</b>
+              <small>
+                {{ formatDateTime(entry.at) }}<template v-if="entry.note"> · {{ entry.note }}</template>
+              </small>
+            </div>
           </li>
         </ol>
       </section>
@@ -424,7 +450,7 @@ onUnmounted(() => {
         <button
           v-if="hasSafeAuthorizationUrl && canAuthorize"
           type="button"
-          class="btn"
+          class="btn btn-outline"
           :disabled="busy !== null"
           @click="goAuthorize"
         >
@@ -433,7 +459,7 @@ onUnmounted(() => {
         <button
           v-if="canAuthorize"
           type="button"
-          class="btn primary"
+          class="btn btn-primary"
           :disabled="busy !== null"
           @click="confirmAuthorize"
         >
@@ -442,7 +468,7 @@ onUnmounted(() => {
         <button
           v-if="canReject"
           type="button"
-          class="btn danger"
+          class="btn btn-outline is-danger-text"
           :disabled="busy !== null"
           @click="confirmReject"
         >
@@ -451,7 +477,7 @@ onUnmounted(() => {
         <button
           v-if="canCancel"
           type="button"
-          class="btn danger"
+          class="btn btn-outline is-danger-text"
           :disabled="busy !== null"
           @click="confirmCancel"
         >
@@ -460,7 +486,7 @@ onUnmounted(() => {
         <button
           v-if="canOpenConversation"
           type="button"
-          class="btn"
+          class="btn btn-ghost"
           :disabled="busy !== null"
           @click="openConversation"
         >
@@ -475,89 +501,27 @@ onUnmounted(() => {
 .detail {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 14px;
   color: var(--ink-2);
   font-size: 12px;
 }
 
 .head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--line-2);
 }
 
 .task-id {
   color: var(--ink-3);
-  font-size: 11px;
+  font-size: 10.5px;
+}
+
+.spacer {
+  flex: 1;
 }
 
 .facts {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px 14px;
-  margin: 0;
-  padding: 12px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--surface);
-}
-
-.facts dt {
-  color: var(--ink-3);
-  font-size: 10px;
-}
-
-.facts dd {
-  margin: 2px 0 0;
-  color: var(--ink);
-  font-size: 11.5px;
-}
-
-h3 {
-  margin: 0 0 5px;
-  color: var(--ink);
-  font-size: 11.5px;
-  font-weight: 600;
-}
-
-.body-text {
-  margin: 0;
-  line-height: 1.7;
-}
-
-.artifact-summary {
-  margin: 6px 0 0;
-  line-height: 1.7;
-}
-
-.artifact-data {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin-top: 8px;
-}
-
-.artifact-data div {
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-  padding: 5px 8px;
-  border: 1px solid var(--line-2);
-  border-radius: 6px;
-  background: var(--surface);
-}
-
-.artifact-data dt {
-  flex: none;
-  color: var(--ink-3);
-  font-size: 10px;
-}
-
-.artifact-data dd {
-  color: var(--ink);
-  font-size: 11px;
-  overflow-wrap: anywhere;
+  margin-top: 0;
 }
 
 .muted {
@@ -584,39 +548,16 @@ h3 {
   text-decoration: underline;
 }
 
-.raw summary {
-  margin-top: 6px;
-  color: var(--ink-3);
-  font-size: 10.5px;
-  cursor: pointer;
+.artifact-data {
+  margin-top: 8px;
 }
 
-.raw pre {
-  max-height: 240px;
-  margin: 6px 0 0;
-  padding: 8px;
-  overflow: auto;
-  border: 1px solid var(--line-2);
-  border-radius: 6px;
-  background: var(--surface);
-  font-family: var(--font-mono);
-  font-size: 10px;
-  line-height: 1.55;
-  white-space: pre-wrap;
+.artifact-data dt {
+  white-space: nowrap;
+}
+
+.artifact-data dd {
   overflow-wrap: anywhere;
-}
-
-.callout {
-  padding: 10px 12px;
-  border: 1px solid var(--amber-soft);
-  border-radius: 7px;
-  background: var(--amber-soft);
-}
-
-.callout.is-error {
-  border-color: var(--red-soft);
-  background: var(--red-soft);
-  color: var(--red);
 }
 
 .tag {
@@ -627,6 +568,17 @@ h3 {
   border-radius: 99px;
   color: var(--amber-text);
   font-size: 10px;
+}
+
+.callout {
+  padding: 10px 12px;
+  border: 1px solid var(--amber-soft);
+  border-radius: 7px;
+  background: var(--amber-soft);
+}
+
+.callout h3 {
+  margin-bottom: 5px;
 }
 
 .expires {
@@ -666,53 +618,8 @@ h3 {
   text-align: right;
 }
 
-.timeline {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.timeline li {
-  display: grid;
-  grid-template-columns: 8px auto auto 1fr;
-  gap: 8px;
-  align-items: center;
-}
-
-.timeline .dot {
-  width: 6px;
-  height: 6px;
-  background: var(--ink-3);
-}
-
-.timeline .tone-ok {
-  background: var(--green);
-}
-
-.timeline .tone-warn {
-  background: var(--amber);
-}
-
-.timeline .tone-error {
-  background: var(--red);
-}
-
-.timeline .tone-live {
-  background: var(--prussian);
-}
-
-.timeline-state {
-  color: var(--ink);
-  font-size: 11.5px;
-}
-
-.timeline-note {
-  color: var(--ink-3);
-  font-size: 10.5px;
-}
-
 .auth-unavailable {
-  margin: 0 0 8px;
+  margin: 0;
   padding: 7px 9px;
   border: 1px solid var(--amber-soft, var(--line));
   border-radius: 6px;
@@ -726,14 +633,5 @@ h3 {
   flex-wrap: wrap;
   gap: 8px;
   padding-top: 4px;
-}
-
-.btn.danger {
-  border-color: var(--red-soft);
-  color: var(--red);
-}
-
-.btn.danger:hover:not(:disabled) {
-  border-color: var(--red);
 }
 </style>

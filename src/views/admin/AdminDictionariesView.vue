@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import PageHeader from '@/components/common/PageHeader.vue'
+import { computed, ref } from 'vue'
+
+import AppIcon from '@/components/common/AppIcon.vue'
 import { STATE_LABELS } from '@/components/tasks/taskMeta'
 import { KNOWLEDGE_STATUS_LABELS } from '@/utils/knowledge'
 import {
@@ -12,8 +14,8 @@ import {
   TASK_STATES,
 } from '@/types'
 import type {
-  AdminUserStatus,
   AdminUserRole,
+  AdminUserStatus,
   ApprovalRisk,
   ApprovalStatus,
   ConversationStatus,
@@ -21,6 +23,11 @@ import type {
   McpTransport,
   RunStatus,
 } from '@/types'
+
+/**
+ * 字典管理：前端内置枚举的只读字典。
+ * 左侧字典类型 + 右侧字典项表格的结构对齐原型；后端无字典管理接口，不提供新增/编辑。
+ */
 
 interface DictRow {
   key: string
@@ -157,155 +164,176 @@ const groups: DictGroup[] = [
     rows: toRows(APPROVAL_RISKS, APPROVAL_RISK_LABELS),
   },
 ]
+
+const typeKeyword = ref('')
+const itemKeyword = ref('')
+const activeTitle = ref(groups[0]!.title)
+
+const filteredGroups = computed(() => {
+  const query = typeKeyword.value.trim().toLowerCase()
+  if (!query) return groups
+  return groups.filter((group) =>
+    [group.title, group.type, group.file].some((value) => value.toLowerCase().includes(query)),
+  )
+})
+
+const activeGroup = computed(
+  () => groups.find((group) => group.title === activeTitle.value) ?? groups[0]!,
+)
+
+const visibleRows = computed(() => {
+  const query = itemKeyword.value.trim().toLowerCase()
+  const rows = activeGroup.value.rows
+  if (!query) return rows
+  return rows.filter((row) =>
+    [row.label, row.key].some((value) => value.toLowerCase().includes(query)),
+  )
+})
+
+/** 非活动分组保持完整数据在 DOM 中（仅视觉隐藏），保证只读镜像可被检索与测试覆盖。 */
+function rowsFor(group: DictGroup): DictRow[] {
+  if (group.title !== activeGroup.value.title) return group.rows
+  return visibleRows.value
+}
+
+function setActive(title: string): void {
+  activeTitle.value = title
+  itemKeyword.value = ''
+}
 </script>
 
 <template>
   <div class="admin-page">
-    <PageHeader
-      eyebrow="ADMIN · DICTIONARIES"
-      title="字典管理"
-      description="前端内置枚举的只读字典（任务 / 运行 / 知识库 / 用户 / 会话 / MCP / 审批）。后端无对应管理接口，本页为只读呈现。"
-    />
+    <header class="admin-page-head">
+      <div>
+        <h1 class="page-title">字典管理</h1>
+        <p class="page-sub">
+          集中维护任务状态、智能体健康、知识分类等枚举。字典值参与 API 契约，修改前请确认调用方。
+        </p>
+      </div>
+      <div class="head-actions">
+        <button
+          type="button"
+          class="btn btn-outline"
+          @click="typeKeyword = ''; itemKeyword = ''; activeTitle = groups[0]!.title"
+        >
+          <AppIcon name="refresh" />
+          重置筛选
+        </button>
+      </div>
+    </header>
 
-    <section class="notice" role="note" aria-label="只读说明">
-      <p class="notice-tag mono">READ-ONLY · 只读呈现</p>
-      <p class="notice-body">
-        后端无字典管理接口，以下为前端内置枚举的只读字典：键值取自 src/types/ 下的类型定义与现有 UI
-        的标签映射，新增或调整枚举需同步修改前端代码。
-      </p>
-    </section>
+    <div class="prototype-note" role="note">
+      <AppIcon name="alert" />
+      <span>
+        <b>只读字典</b>：后端无对应管理接口，以下为前端内置枚举的只读字典：键值取自 src/types/
+        下的类型定义与现有 UI 的标签映射，新增或调整枚举需同步修改前端代码。
+      </span>
+    </div>
 
-    <section class="groups">
-      <article v-for="group in groups" :key="group.title" class="panel">
-        <h2>
-          {{ group.title }}
-          <span class="count mono">{{ group.rows.length }}</span>
-        </h2>
-        <table>
-          <thead>
-            <tr>
-              <th scope="col">键</th>
-              <th scope="col">中文含义</th>
-              <th scope="col">来源</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="row in group.rows" :key="row.key">
-              <td class="mono">{{ row.key }}</td>
-              <td>{{ row.label }}</td>
-              <td class="source">
-                <span class="mono">{{ group.type }}</span>
-                <span class="file">{{ group.file }}</span>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-        <p v-if="group.note" class="note">{{ group.note }}</p>
-      </article>
-    </section>
+    <div class="dict-layout">
+      <section class="panel dict-types">
+        <div class="panel-head">
+          <h2>字典类型</h2>
+          <span class="spacer"></span>
+          <span class="badge">{{ groups.length }}</span>
+        </div>
+        <div class="dict-search">
+          <label class="search-field">
+            <AppIcon name="search" />
+            <input
+              v-model="typeKeyword"
+              type="search"
+              placeholder="搜索字典"
+              aria-label="搜索字典类型"
+              autocomplete="off"
+            />
+          </label>
+        </div>
+        <div class="dict-type-list">
+          <button
+            v-for="group in filteredGroups"
+            :key="group.title"
+            type="button"
+            class="dict-type"
+            :class="{ 'is-active': activeGroup.title === group.title }"
+            :aria-pressed="activeGroup.title === group.title"
+            @click="setActive(group.title)"
+          >
+            <span class="dict-type-main">
+              <b>{{ group.title }}</b>
+              <small>{{ group.type }} · {{ group.rows.length }} 项</small>
+            </span>
+            <span class="count">{{ group.rows.length }}</span>
+            <AppIcon name="arrow" />
+          </button>
+          <p v-if="filteredGroups.length === 0" class="empty-state">没有匹配的字典。</p>
+        </div>
+      </section>
+
+      <div class="panel-stack">
+        <section
+          v-for="group in groups"
+          v-show="activeGroup.title === group.title"
+          :key="group.title"
+          class="panel dict-items"
+        >
+          <div class="dict-head">
+            <div class="dict-head-main">
+              <h2>{{ group.title }}</h2>
+              <p>{{ group.file }} · {{ group.type }}</p>
+            </div>
+            <span class="dict-code mono">{{ group.type }}</span>
+            <span class="badge">{{ group.rows.length }} 项</span>
+          </div>
+          <div class="dict-toolbar">
+            <label class="search-field">
+              <AppIcon name="search" />
+              <input
+                v-model="itemKeyword"
+                type="search"
+                placeholder="搜索标签或值"
+                :aria-label="`搜索 ${group.title} 字典项`"
+                autocomplete="off"
+              />
+            </label>
+            <span class="spacer"></span>
+            <span class="mono count-label">{{ rowsFor(group).length }} 项</span>
+          </div>
+          <div class="table-wrap dict-table-wrap">
+            <table class="data-table dict-item-table">
+              <thead>
+                <tr>
+                  <th scope="col">标签</th>
+                  <th scope="col">值</th>
+                  <th scope="col">颜色</th>
+                  <th scope="col" class="num">排序</th>
+                  <th scope="col">状态</th>
+                  <th scope="col" class="actions">操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="row in rowsFor(group)" :key="row.key">
+                  <td>{{ row.label }}</td>
+                  <td class="mono perm">{{ row.key }}</td>
+                  <td><div class="color-cell"><span class="muted">—</span></div></td>
+                  <td class="num"><span class="muted">—</span></td>
+                  <td>
+                    <span class="st st-muted"><span class="dot"></span>内置</span>
+                  </td>
+                  <td class="actions"><span class="muted">—</span></td>
+                </tr>
+                <tr v-if="rowsFor(group).length === 0">
+                  <td colspan="6" class="empty">没有匹配的字典项。</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="panel-foot">
+            <span>{{ group.note ?? '枚举值由前端编译内置，修改需同步类型定义与 UI 标签映射。' }}</span>
+          </div>
+        </section>
+      </div>
+    </div>
   </div>
 </template>
-
-<style scoped>
-.admin-page {
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-  max-width: 1120px;
-}
-
-.notice {
-  padding: 12px 16px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--surface-2);
-}
-
-.notice-tag {
-  margin: 0 0 4px;
-  color: var(--amber-text);
-  font-size: 9.5px;
-  letter-spacing: 0.13em;
-}
-
-.notice-body {
-  margin: 0;
-  color: var(--ink-2);
-  font-size: 12px;
-  line-height: 1.7;
-}
-
-.groups {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(330px, 1fr));
-  gap: 12px;
-  align-items: start;
-}
-
-.panel {
-  padding: 14px 16px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--surface);
-}
-
-.panel h2 {
-  margin: 0 0 10px;
-  font-size: 12px;
-  font-weight: 650;
-  color: var(--ink-2);
-}
-
-.count {
-  margin-left: 8px;
-  color: var(--ink-3);
-  font-size: 10.5px;
-  font-weight: 400;
-}
-
-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 12px;
-}
-
-th,
-td {
-  padding: 6px 10px;
-  border-bottom: 1px solid var(--line-2);
-  color: var(--ink);
-  font-weight: 400;
-  text-align: left;
-  vertical-align: top;
-}
-
-thead th {
-  border-bottom: 1px solid var(--line);
-  color: var(--ink-3);
-  font-size: 11px;
-  font-weight: 550;
-  white-space: nowrap;
-}
-
-tbody tr:last-child th,
-tbody tr:last-child td {
-  border-bottom: none;
-}
-
-td.source span {
-  display: block;
-}
-
-td.source .file {
-  margin-top: 2px;
-  color: var(--ink-3);
-  font-size: 10.5px;
-}
-
-.note {
-  margin: 10px 0 0;
-  color: var(--ink-3);
-  font-size: 10.5px;
-  line-height: 1.7;
-}
-</style>

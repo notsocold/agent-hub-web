@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
+import { RouterLink } from 'vue-router'
 
-import PageHeader from '@/components/common/PageHeader.vue'
+import AppIcon from '@/components/common/AppIcon.vue'
 import AdminAgentCard from '@/components/admin/AdminAgentCard.vue'
 import AdminInstructionCard from '@/components/admin/AdminInstructionCard.vue'
 import AdminMcpCard from '@/components/admin/AdminMcpCard.vue'
@@ -21,29 +22,76 @@ const auth = useAuthStore()
 
 // 管理台由路由守卫保证管理员进入；SecretPanel 仍按真实角色渲染，兜底降级场景。
 const isAdmin = computed(() => auth.isAdmin)
+
+interface SettingsSection {
+  id: string
+  label: string
+}
+
+const sections: SettingsSection[] = [
+  { id: 'admin-settings-instruction', label: '平台指令' },
+  { id: 'admin-settings-skills', label: '系统技能' },
+  { id: 'admin-settings-mcp', label: '系统 MCP' },
+  { id: 'admin-settings-agents', label: '全局 Agent' },
+  { id: 'admin-settings-secrets', label: '平台密钥' },
+]
+
+const activeSection = ref(sections[0]!.id)
+
+function scrollToSection(id: string): void {
+  activeSection.value = id
+  document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
 </script>
 
 <template>
   <div class="admin-page">
-    <PageHeader
-      eyebrow="ADMIN · SETTINGS"
-      title="系统设置"
-      description="平台默认指令、系统技能、系统 MCP、全局 Agent 与平台密钥。写操作均需确认并写入审计日志。"
-    />
+    <header class="admin-page-head">
+      <div>
+        <h1 class="page-title">系统设置</h1>
+        <p class="page-sub">
+          平台默认指令、系统技能、系统 MCP、全局 Agent 与平台密钥。写操作均需确认并写入审计日志。
+        </p>
+      </div>
+      <div class="head-actions">
+        <RouterLink class="btn btn-outline" :to="{ name: 'admin-audit' }">
+          <AppIcon name="audit" />
+          查看审计
+        </RouterLink>
+      </div>
+    </header>
 
-    <AdminInstructionCard />
-    <AdminSkillCard />
-    <AdminMcpCard />
-    <AdminAgentCard />
-    <SecretPanel :is-admin="isAdmin" />
+    <div class="settings-layout">
+      <nav class="settings-nav" aria-label="设置分区">
+        <button
+          v-for="section in sections"
+          :key="section.id"
+          type="button"
+          :class="{ 'is-active': activeSection === section.id }"
+          :aria-current="activeSection === section.id ? 'true' : undefined"
+          @click="scrollToSection(section.id)"
+        >
+          {{ section.label }}
+        </button>
+      </nav>
+
+      <div class="settings-form">
+        <section :id="sections[0]!.id" class="settings-section">
+          <AdminInstructionCard />
+        </section>
+        <section :id="sections[1]!.id" class="settings-section">
+          <AdminSkillCard />
+        </section>
+        <section :id="sections[2]!.id" class="settings-section">
+          <AdminMcpCard />
+        </section>
+        <section :id="sections[3]!.id" class="settings-section">
+          <AdminAgentCard />
+        </section>
+        <section :id="sections[4]!.id" class="settings-section">
+          <SecretPanel :is-admin="isAdmin" />
+        </section>
+      </div>
+    </div>
   </div>
 </template>
-
-<style scoped>
-.admin-page {
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-  max-width: 1120px;
-}
-</style>

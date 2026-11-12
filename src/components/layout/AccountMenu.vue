@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref } from 'vue'
 
+import AppIcon from '@/components/common/AppIcon.vue'
 import type { Theme } from '@/composables/useTheme'
 import type { User } from '@/types'
 
@@ -82,7 +83,7 @@ onUnmounted(() => {
 <template>
   <div ref="root" class="account-wrap">
     <button
-      class="account"
+      class="sb-account"
       type="button"
       data-testid="account-menu"
       aria-haspopup="menu"
@@ -90,27 +91,25 @@ onUnmounted(() => {
       @click="toggle"
     >
       <span class="avatar">{{ initials() }}</span>
-      <span class="account-text">
-        <span class="account-name">{{ user?.display_name || '未登录' }}</span>
-        <span class="account-sub">{{ user?.email || '' }}</span>
+      <span class="sb-account-text">
+        <span class="sb-account-name">{{ user?.display_name || '个人工作区' }}</span>
+        <span class="sb-account-sub">{{ user?.email || '' }}</span>
       </span>
-      <svg class="more" viewBox="0 0 24 24" aria-hidden="true">
-        <circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none" />
-        <circle cx="5" cy="12" r="1.4" fill="currentColor" stroke="none" />
-        <circle cx="19" cy="12" r="1.4" fill="currentColor" stroke="none" />
-      </svg>
+      <AppIcon name="more" class="sb-account-more" />
     </button>
 
-    <div v-if="open" class="menu" role="menu" aria-label="账号菜单">
-      <div class="menu-head">
+    <div v-if="open" class="account-menu is-open" role="menu" aria-label="账号菜单">
+      <div class="account-menu-head">
         <span class="avatar">{{ initials() }}</span>
-        <span class="head-text">
-          <span class="head-name">{{ user?.display_name || '未登录' }}</span>
-          <span class="head-sub">{{ user?.email || '' }}</span>
-        </span>
+        <div>
+          <div class="account-menu-name">{{ user?.display_name || '个人工作区' }}</div>
+          <div class="account-menu-sub">{{ user?.email || '' }}</div>
+        </div>
       </div>
-      <div class="sep"></div>
-      <button type="button" role="menuitem" class="menu-item" @click="openSettings">设置</button>
+      <div class="menu-sep"></div>
+      <button type="button" role="menuitem" class="menu-item" @click="openSettings">
+        <AppIcon name="user" />设置
+      </button>
       <button
         v-if="user?.role === 'admin'"
         type="button"
@@ -118,19 +117,19 @@ onUnmounted(() => {
         class="menu-item"
         @click="openAdmin"
       >
-        管理控制台
+        <AppIcon name="overview" />管理控制台
       </button>
       <button type="button" role="menuitem" class="menu-item" @click="openDiagnostics">
-        诊断信息
+        <AppIcon name="sliders" />诊断信息
       </button>
       <button type="button" role="menuitem" class="menu-item" @click="toggleTheme">
-        {{ theme === 'dark' ? '切换到浅色' : '切换到深色' }}
+        <AppIcon :name="theme === 'dark' ? 'sun' : 'moon'" />切换主题
       </button>
-      <div class="sep"></div>
+      <div class="menu-sep"></div>
       <button type="button" role="menuitem" class="menu-item is-danger" @click="logout">
-        退出登录
+        <AppIcon name="logout" />退出登录
       </button>
-      <p class="version mono">v0.1.0 · M1</p>
+      <div class="menu-version mono">Agent Hub v0.1.0 · 设计原型</div>
     </div>
   </div>
 </template>
@@ -141,131 +140,9 @@ onUnmounted(() => {
   width: 100%;
 }
 
-.account {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  padding: 6px 7px;
-  border-radius: 6px;
-  text-align: left;
-  transition: background 0.12s;
-}
-
-.account:hover {
-  background: var(--surface-2);
-}
-
-.avatar {
-  display: grid;
-  place-items: center;
-  flex: none;
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  background: var(--amber);
-  color: #191307;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-}
-
-.account-text {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  gap: 1px;
-  min-width: 0;
-}
-
-.account-name,
-.head-name {
-  overflow: hidden;
-  color: var(--ink);
-  font-size: 12px;
-  font-weight: 600;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.account-sub,
-.head-sub {
-  overflow: hidden;
-  color: var(--ink-3);
-  font-size: 10px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.more {
-  width: 15px;
-  height: 15px;
-  flex: none;
-  color: var(--ink-3);
-}
-
-.menu {
-  position: absolute;
-  right: 0;
-  bottom: 46px;
+.account-menu {
   left: 0;
-  z-index: 95;
-  padding: 6px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--surface);
-  box-shadow: var(--shadow-md);
-}
-
-.menu-head {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  padding: 6px 7px 9px;
-}
-
-.head-text {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  min-width: 0;
-}
-
-.sep {
-  height: 1px;
-  margin: 5px 4px;
-  background: var(--line-2);
-}
-
-.menu-item {
-  display: flex;
-  align-items: center;
-  width: 100%;
-  height: 33px;
-  padding: 0 7px;
-  border-radius: 5px;
-  color: var(--ink-2);
-  font-size: 12.5px;
-  text-align: left;
-  transition:
-    background 0.12s,
-    color 0.12s;
-}
-
-.menu-item:hover {
-  background: var(--surface-2);
-  color: var(--ink);
-}
-
-.menu-item.is-danger {
-  color: var(--red);
-}
-
-.version {
-  padding: 7px 7px 3px;
-  color: var(--ink-3);
-  font-size: 9px;
-  letter-spacing: 0.03em;
+  right: 0;
+  bottom: 42px;
 }
 </style>

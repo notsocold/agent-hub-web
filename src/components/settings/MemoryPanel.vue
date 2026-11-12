@@ -2,16 +2,15 @@
 import { computed, reactive, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
-import EmptyState from '@/components/common/EmptyState.vue'
+import AppIcon from '@/components/common/AppIcon.vue'
 import ErrorState from '@/components/common/ErrorState.vue'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
-import StatCard from '@/components/common/StatCard.vue'
 import { memoriesApi } from '@/api/memories'
 import type { MemoryListParams } from '@/api/memories'
 import { useSystemStore } from '@/stores/system'
 import { MEMORY_KIND_LABELS } from '@/types'
 import { formatDateTime } from '@/utils/format'
-import type { Memory, MemoryKind, MemoryStatus } from '@/types'
+import type { Memory, MemoryKind } from '@/types'
 import CapabilityGate from './CapabilityGate.vue'
 
 const system = useSystemStore()
@@ -25,14 +24,10 @@ const loaded = ref(false)
 const error = ref<string | null>(null)
 
 const q = ref('')
-const kindFilter = ref<'all' | MemoryKind>('all')
-const statusFilter = ref<'all' | MemoryStatus>('all')
 const nextCursor = ref<string | null>(null)
 const hasMore = ref(false)
 
 const total = computed(() => stats.value.total ?? items.value.length)
-const activeCount = computed(() => stats.value.active ?? 0)
-const archivedCount = computed(() => stats.value.archived ?? 0)
 
 const dialogOpen = ref(false)
 const editingId = ref<string | null>(null)
@@ -57,7 +52,7 @@ watch(
 
 let searchTimer: ReturnType<typeof setTimeout> | undefined
 
-watch([q, kindFilter, statusFilter], () => {
+watch(q, () => {
   if (!loaded.value) return
   if (searchTimer) clearTimeout(searchTimer)
   searchTimer = setTimeout(() => {
@@ -68,8 +63,6 @@ watch([q, kindFilter, statusFilter], () => {
 function listParams(cursor?: string | null): MemoryListParams {
   return {
     q: q.value.trim() || undefined,
-    kind: kindFilter.value === 'all' ? undefined : kindFilter.value,
-    status: statusFilter.value === 'all' ? undefined : statusFilter.value,
     limit: 20,
     cursor: cursor ?? undefined,
   }
@@ -163,11 +156,11 @@ async function submitMemory(): Promise<void> {
 
 async function removeMemory(memory: Memory): Promise<void> {
   try {
-    await ElMessageBox.confirm(
-      `将删除「${memory.title}」，该操作不可撤销。`,
-      '删除记忆？',
-      { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' },
-    )
+    await ElMessageBox.confirm(`将删除「${memory.title}」，该操作不可撤销。`, '删除记忆？', {
+      type: 'warning',
+      confirmButtonText: '删除',
+      cancelButtonText: '取消',
+    })
   } catch {
     return
   }
@@ -208,20 +201,20 @@ async function exportMemories(): Promise<void> {
 async function clearAll(): Promise<void> {
   if (clearing.value) return
   try {
-    await ElMessageBox.confirm(
-      '将删除全部记忆，且不可恢复。确定要继续吗？',
-      '清空全部记忆？',
-      { type: 'warning', confirmButtonText: '继续', cancelButtonText: '取消' },
-    )
+    await ElMessageBox.confirm('将删除全部记忆，且不可恢复。确定要继续吗？', '清空全部记忆？', {
+      type: 'warning',
+      confirmButtonText: '继续',
+      cancelButtonText: '取消',
+    })
   } catch {
     return
   }
   try {
-    await ElMessageBox.confirm(
-      '再次确认：此操作会清空所有个人记忆，无法撤销。',
-      '再次确认',
-      { type: 'error', confirmButtonText: '确认清空', cancelButtonText: '取消' },
-    )
+    await ElMessageBox.confirm('再次确认：此操作会清空所有个人记忆，无法撤销。', '再次确认', {
+      type: 'error',
+      confirmButtonText: '确认清空',
+      cancelButtonText: '取消',
+    })
   } catch {
     return
   }
@@ -239,94 +232,98 @@ async function clearAll(): Promise<void> {
 </script>
 
 <template>
-  <section class="card">
-    <header class="card-head">
-      <div class="head-title">
-        <h3>长期记忆</h3>
-        <span class="tag mono">{{ total }} 条</span>
-      </div>
-      <span class="mono hint">/api/v1/memories</span>
-    </header>
+  <section class="panel cap-card">
+    <div class="cap-inner">
+      <header class="cap-head">
+        <div class="cap-title">
+          <h3>长期记忆</h3>
+          <span class="tag mono">{{ total }} 条</span>
+        </div>
+        <span class="cap-hint">/api/v1/memories</span>
+      </header>
 
-    <CapabilityGate :enabled="enabled" name="长期记忆" hint="后端尚未开启记忆能力，无法查看或管理记忆。">
-      <div class="stat-row">
-        <StatCard label="总计" :value="total" />
-        <StatCard label="活跃" :value="activeCount" tone="ok" />
-        <StatCard label="已归档" :value="archivedCount" />
-      </div>
+      <CapabilityGate
+        :enabled="enabled"
+        name="长期记忆"
+        hint="后端尚未开启记忆能力，无法查看或管理记忆。"
+      >
+        <p class="cap-desc">
+          跨会话记住稳定事实与偏好。记忆作为参考信息注入，不覆盖系统规则；可编辑、归档、删除或清空。
+        </p>
 
-      <div class="toolbar">
-        <input
-          v-model="q"
-          class="input search"
-          type="search"
-          placeholder="搜索记忆标题或内容"
-          aria-label="搜索记忆"
-        />
-        <select v-model="kindFilter" class="input" aria-label="筛选记忆类型">
-          <option value="all">全部类型</option>
-          <option value="profile">{{ MEMORY_KIND_LABELS.profile }}</option>
-          <option value="preference">{{ MEMORY_KIND_LABELS.preference }}</option>
-          <option value="fact">{{ MEMORY_KIND_LABELS.fact }}</option>
-        </select>
-        <select v-model="statusFilter" class="input" aria-label="筛选记忆状态">
-          <option value="all">全部状态</option>
-          <option value="active">活跃</option>
-          <option value="archived">已归档</option>
-        </select>
-        <span class="spacer" />
-        <button type="button" class="btn primary" @click="openCreate">新增</button>
-        <button type="button" class="btn" :disabled="exporting" @click="exportMemories">
-          {{ exporting ? '导出中…' : '导出 JSON' }}
-        </button>
-        <button type="button" class="btn danger" :disabled="clearing" @click="clearAll">
-          {{ clearing ? '清空中…' : '清空全部' }}
-        </button>
-      </div>
+        <div class="cap-toolbar">
+          <label class="tool-search">
+            <AppIcon name="search" />
+            <input
+              v-model="q"
+              type="search"
+              placeholder="搜索记忆"
+              aria-label="搜索记忆"
+              autocomplete="off"
+            />
+          </label>
+          <button type="button" class="btn btn-outline btn-sm" @click="openCreate">新增</button>
+          <span class="spacer"></span>
+          <button type="button" class="text-link" :disabled="exporting" @click="exportMemories">
+            {{ exporting ? '导出中…' : '导出' }}
+          </button>
+          <button
+            type="button"
+            class="text-link is-danger-text"
+            :disabled="clearing"
+            @click="clearAll"
+          >
+            {{ clearing ? '清空中…' : '清空' }}
+          </button>
+        </div>
 
-      <ErrorState v-if="error" :message="error" @retry="load" />
-      <LoadingSkeleton v-else-if="loading" />
-      <EmptyState
-        v-else-if="items.length === 0"
-        title="暂无记忆"
-        description="点击「新增」保存第一条跨会话事实或偏好；也可以通过搜索/筛选缩小范围。"
-      />
+        <ErrorState v-if="error" :message="error" @retry="load" />
+        <LoadingSkeleton v-else-if="loading" />
+        <div v-else-if="items.length === 0" class="empty-state">没有匹配的记忆。</div>
 
-      <ul v-else class="mem-list">
-        <li v-for="memory in items" :key="memory.id" class="mem-item">
-          <div class="mem-main">
-            <p class="mem-title">
-              {{ memory.title }}
-              <span class="chip">{{ MEMORY_KIND_LABELS[memory.kind] ?? memory.kind }}</span>
-              <span v-if="memory.pinned" class="chip chip-pin">置顶</span>
-              <span v-if="memory.status === 'archived'" class="chip chip-archived">已归档</span>
-            </p>
-            <p class="mem-content">{{ memory.content }}</p>
-            <p class="mem-meta">
-              <span>来源：{{ sourceLabel(memory) }}</span>
-              <span class="mono">更新于 {{ formatDateTime(memory.updated_at) }}</span>
-            </p>
+        <div v-else class="cap-list">
+          <div v-for="memory in items" :key="memory.id" class="cap-item">
+            <div class="cap-item-main">
+              <div class="cap-item-title">
+                {{ memory.title }}
+                <span class="cap-chip">{{ MEMORY_KIND_LABELS[memory.kind] ?? memory.kind }}</span>
+                <span v-if="memory.pinned" class="cap-pin">置顶</span>
+                <span v-if="memory.status === 'archived'" class="cap-chip">已归档</span>
+              </div>
+              <p class="cap-item-text">{{ memory.content }}</p>
+              <div class="cap-item-meta">
+                来源：{{ sourceLabel(memory) }}
+                <template v-if="memory.updated_at">
+                  · 更新于 {{ formatDateTime(memory.updated_at) }}</template
+                >
+              </div>
+            </div>
+            <div class="cap-item-actions">
+              <button type="button" class="text-link" @click="openEdit(memory)">编辑</button>
+              <button
+                type="button"
+                class="text-link is-danger-text"
+                :disabled="deletingId === memory.id"
+                @click="removeMemory(memory)"
+              >
+                {{ deletingId === memory.id ? '删除中…' : '删除' }}
+              </button>
+            </div>
           </div>
-          <div class="mem-actions">
-            <button type="button" class="link" @click="openEdit(memory)">编辑</button>
-            <button
-              type="button"
-              class="link danger"
-              :disabled="deletingId === memory.id"
-              @click="removeMemory(memory)"
-            >
-              {{ deletingId === memory.id ? '删除中…' : '删除' }}
-            </button>
-          </div>
-        </li>
-      </ul>
+        </div>
 
-      <div v-if="hasMore && !loading && !error" class="load-more">
-        <button type="button" class="btn" :disabled="loadingMore" @click="loadMore">
-          {{ loadingMore ? '加载中…' : '加载更多' }}
-        </button>
-      </div>
-    </CapabilityGate>
+        <div v-if="hasMore && !loading && !error" class="load-more">
+          <button
+            type="button"
+            class="btn btn-outline btn-sm"
+            :disabled="loadingMore"
+            @click="loadMore"
+          >
+            {{ loadingMore ? '加载中…' : '加载更多' }}
+          </button>
+        </div>
+      </CapabilityGate>
+    </div>
 
     <el-dialog
       v-model="dialogOpen"
@@ -361,8 +358,8 @@ async function clearAll(): Promise<void> {
           <span class="form-label-inline">置顶显示</span>
         </label>
         <div class="dialog-actions">
-          <button type="button" class="btn" @click="dialogOpen = false">取消</button>
-          <button type="submit" class="btn primary" :disabled="savingMemory">
+          <button type="button" class="btn btn-outline" @click="dialogOpen = false">取消</button>
+          <button type="submit" class="btn btn-primary" :disabled="savingMemory">
             {{ savingMemory ? '保存中…' : '保存' }}
           </button>
         </div>
@@ -372,170 +369,25 @@ async function clearAll(): Promise<void> {
 </template>
 
 <style scoped>
-.card {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 16px;
-  border: 1px solid var(--line);
-  border-radius: 9px;
-  background: var(--surface);
-  box-shadow: var(--shadow-sm);
+.cap-inner {
+  padding: 14px;
 }
 
-.card-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 10px;
+.empty-state {
+  margin-top: 8px;
+  padding: 14px;
+  border-bottom: 0;
 }
 
-.head-title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-h3 {
-  font-size: 14px;
-  font-weight: 650;
-}
-
-.hint {
-  color: var(--ink-3);
-  font-size: 9.5px;
-}
-
-.tag {
-  padding: 1px 7px;
-  border: 1px solid var(--line-2);
-  border-radius: 99px;
-  color: var(--ink-3);
-  font-size: 9.5px;
-}
-
-.toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-}
-
-.search {
-  flex: 1;
-  min-width: 180px;
-}
-
-.spacer {
-  flex: 1;
-}
-
-.mem-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.mem-item {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 10px 12px;
-  border: 1px solid var(--line-2);
-  border-radius: 7px;
-  background: var(--surface-2);
-}
-
-.mem-main {
-  flex: 1;
-  min-width: 0;
-}
-
-.mem-title {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-  color: var(--ink);
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.chip {
-  padding: 0 6px;
-  border: 1px solid var(--line-2);
-  border-radius: 99px;
-  background: var(--surface);
-  color: var(--ink-3);
-  font-size: 9px;
-  font-weight: 500;
-}
-
-.chip-pin {
-  color: var(--amber-text);
-  border-color: var(--amber-soft);
-  background: var(--amber-soft);
-}
-
-.chip-archived {
-  color: var(--ink-3);
-  background: var(--surface);
-}
-
-.mem-content {
-  margin-top: 4px;
-  color: var(--ink-2);
-  font-size: 11.5px;
-  line-height: 1.6;
-  word-break: break-word;
-}
-
-.mem-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 12px;
-  margin-top: 5px;
-  color: var(--ink-3);
-  font-size: 10px;
-}
-
-.mem-actions {
-  display: flex;
-  flex: none;
-  gap: 10px;
-}
-
-.link {
-  color: var(--prussian);
-  font-size: 11.5px;
-}
-
-.link:hover:not(:disabled) {
-  text-decoration: underline;
-}
-
-.link.danger {
-  color: var(--red);
-}
-
-.link:disabled {
+.text-link:disabled {
   cursor: not-allowed;
   opacity: 0.5;
-}
-
-.btn.danger {
-  border-color: var(--red-soft);
-  color: var(--red);
-}
-
-.btn.danger:hover:not(:disabled) {
-  border-color: var(--red);
 }
 
 .load-more {
   display: flex;
   justify-content: center;
-  padding-top: 2px;
+  padding-top: 8px;
 }
 
 .mem-form {

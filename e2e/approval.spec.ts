@@ -18,7 +18,7 @@ test.describe('审批主链路', () => {
     await expect(page.getByRole('button', { name: '拒绝' }).first()).toBeVisible()
 
     // 状态胶囊定位审批卡并聚焦批准按钮（审批只在对话内完成）。
-    await page.getByRole('button', { name: '待审批' }).click()
+    await page.locator('.chat-actions .status-chip').click()
     await expect(approve).toBeFocused()
 
     await approve.click()

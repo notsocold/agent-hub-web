@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 
+import AppIcon from '@/components/common/AppIcon.vue'
 import A2ACard from './cards/A2ACard.vue'
 import ApprovalCard from './cards/ApprovalCard.vue'
 import NoticeCard from './cards/NoticeCard.vue'
@@ -40,22 +41,52 @@ const summary = computed(() => {
   if (approvals > 0) parts.push(`${approvals} 个审批`)
   return parts.length > 0 ? parts.join(' · ') : '执行过程'
 })
+
+const hasPendingApproval = computed(() =>
+  props.items.some((item) => item.kind === 'approval' && item.status === 'waiting'),
+)
+
+const hasRunning = computed(() => props.items.some((item) => item.status === 'running'))
+
+const stateChip = computed(() => {
+  if (hasPendingApproval.value) return { cls: 'st-warn', label: '待审批' }
+  if (hasRunning.value) return { cls: 'st-live', label: '运行中' }
+  return { cls: 'st-ok', label: '完成' }
+})
+
+/** 原型「处理审批 →」把视口带到审批卡。 */
+function focusApproval(): void {
+  const target = document.querySelector('.entry-approval')
+  target?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+}
 </script>
 
 <template>
-  <section class="process" aria-label="执行过程">
-    <header class="process-head">
-      <button class="process-toggle" type="button" :aria-expanded="open" @click="open = !open">
-        <span class="dot is-live"></span>
-        <span>{{ summary }}</span>
-        <svg class="chevron" :class="{ 'is-open': open }" viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M6 9l6 6 6-6" />
-        </svg>
+  <section class="turn-process" :class="{ 'is-collapsed': !open }" aria-label="执行过程">
+    <div class="run-viewbar">
+      <span class="run-view-icon"><AppIcon name="spark" /></span>
+      <span class="run-view-title">{{ open ? '执行过程' : '过程已收起' }}</span>
+      <span class="run-view-meta">{{ summary }}</span>
+      <span class="st" :class="stateChip.cls">
+        <span class="dot"></span>{{ stateChip.label }}
+      </span>
+      <span class="spacer"></span>
+      <button
+        v-if="hasPendingApproval"
+        type="button"
+        class="text-link run-approval-link"
+        @click="focusApproval"
+      >
+        处理审批
+        <AppIcon name="arrow" />
       </button>
-      <span class="process-note">按发生顺序排列</span>
-    </header>
+      <button class="run-toggle" type="button" :aria-expanded="open" @click="open = !open">
+        <span>{{ open ? '收起过程' : '展开过程' }}</span>
+        <AppIcon name="chevron" class="run-chev" />
+      </button>
+    </div>
 
-    <div v-if="open" class="process-list">
+    <ol v-if="open" class="thread">
       <template v-for="item in items" :key="item.id">
         <SkillCard v-if="item.kind === 'skill'" :item="item" />
         <ToolCard v-else-if="item.kind === 'tool'" :item="item" />
@@ -74,60 +105,16 @@ const summary = computed(() => {
           @reject="emit('reject', item.approvalId)"
         />
       </template>
-    </div>
+    </ol>
   </section>
 </template>
 
 <style scoped>
-.process {
-  margin-bottom: 14px;
+.turn-process {
+  margin-bottom: 18px;
 }
 
-.process-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 8px;
-}
-
-.process-toggle {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  color: var(--ink-2);
-  font-size: 11.5px;
-  font-weight: 600;
-}
-
-.process-toggle:hover {
-  color: var(--ink);
-}
-
-.chevron {
-  width: 13px;
-  height: 13px;
-  color: var(--ink-3);
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.7;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  transition: transform 0.15s;
-}
-
-.chevron.is-open {
-  transform: rotate(180deg);
-}
-
-.process-note {
-  color: var(--ink-3);
-  font-size: 10px;
-}
-
-.process-list {
-  display: flex;
-  flex-direction: column;
-  gap: 7px;
+.run-viewbar {
+  margin-left: 0;
 }
 </style>

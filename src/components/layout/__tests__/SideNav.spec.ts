@@ -71,7 +71,7 @@ describe('SideNav', () => {
       },
     })
 
-    await wrapper.get('button.account').trigger('click')
+    await wrapper.get('button.sb-account').trigger('click')
     const item = wrapper
       .findAll('button.menu-item')
       .find((button) => button.text().includes('诊断信息'))

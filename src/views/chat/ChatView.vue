@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, inject, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 
+import AppIcon from '@/components/common/AppIcon.vue'
 import ChatComposer from '@/components/chat/ChatComposer.vue'
 import AgentOutputDrawer from '@/components/chat/AgentOutputDrawer.vue'
 import ConnectionBanner from '@/components/chat/ConnectionBanner.vue'
@@ -34,10 +35,14 @@ const system = useSystemStore()
 const capabilityCatalog = useCapabilitiesStore()
 
 const traceOpen = ref(false)
+const traceCollapsed = ref(false)
 const agentOutputOpen = ref(false)
 const agentOutputId = ref<string | null>(null)
 /** 原型：>1180px 运行轨迹常驻右栏，窄屏回退为抽屉。 */
 const narrowTrace = useMediaQuery('(max-width: 1180px)')
+const isMobile = useMediaQuery('(max-width: 900px)')
+const sidebar = inject<{ open: () => void } | null>('appSidebar', null)
+const palette = inject<{ open: () => void } | null>('appPalette', null)
 const model = ref('')
 const reasoningEffort = ref<ReasoningEffortId>('low')
 const messageListRef = ref<InstanceType<typeof MessageList> | null>(null)
@@ -54,6 +59,28 @@ onUnmounted(() => {
   // 离开对话页只停前端重连，不取消后端 run（约定断线不取消）。
   if (chat.connection === 'reconnecting') chat.stopReconnect()
 })
+
+const chipTone = computed(() => {
+  const map: Record<string, string> = {
+    ok: 'is-ok',
+    live: 'is-live',
+    warn: 'is-wait',
+    error: 'is-warn',
+  }
+  return map[status.value.tone] ?? 'is-ok'
+})
+
+function openSidebarAction(): void {
+  sidebar?.open()
+}
+
+function toggleTrace(): void {
+  if (narrowTrace.value) {
+    traceOpen.value = true
+    return
+  }
+  traceCollapsed.value = !traceCollapsed.value
+}
 
 const suggestions = [
   '整理本周客服工单，生成一份团队周报',
@@ -75,7 +102,9 @@ const activeConversation = computed(
 const title = computed(
   () => chat.state.conversationTitle || activeConversation.value?.title || '新对话',
 )
-const isEmpty = computed(() => !activeId.value && chat.state.messages.length === 0)
+const isEmpty = computed(
+  () => chat.state.messages.length === 0 && !chat.state.streaming,
+)
 
 const status = computed(() => {
   if (chat.pendingApprovals.length > 0) return { label: '待审批', tone: 'warn' }
@@ -85,14 +114,6 @@ const status = computed(() => {
   if (chat.state.recovery?.kind === 'run_in_progress') return { label: '运行中', tone: 'live' }
   if (chat.state.error) return { label: '出错', tone: 'error' }
   return { label: '就绪', tone: 'ok' }
-})
-
-const subtitle = computed(() => {
-  const parts: string[] = []
-  const modelOption = system.models.find((item) => item.id === model.value)
-  if (modelOption) parts.push(modelOption.name)
-  parts.push(`${chat.state.messages.length} 条消息`)
-  return parts.join(' · ')
 })
 
 async function loadConversation(id: string): Promise<void> {
@@ -232,9 +253,26 @@ const modelSelection = computed(() => ({
   reasoningSupported: system.reasoningEfforts.length > 0,
 }))
 
+const runWorkflow = ref<Workflow | null>(null)
+
 function handleSend(payload: { text: string; context: ChatContextSelection }): void {
+  const workflowId = payload.context.workflow_id
+  runWorkflow.value = workflowId
+    ? (workflowOptions.value.find((item) => item.id === workflowId) ?? null)
+    : null
   void chat.send(payload.text, withModelSelection(payload.context, modelSelection.value))
 }
+
+const runWorkflowMeta = computed(() => {
+  const steps = runWorkflow.value?.steps ?? []
+  if (steps.length === 0) return ''
+  const parts = [`${steps.length} 步`]
+  const a2a = steps.filter((step) => step.type === 'a2a').length
+  if (a2a > 0) parts.push(`${a2a} 个远程智能体`)
+  const approvals = steps.filter((step) => step.type === 'approval').length
+  if (approvals > 0) parts.push(`${approvals} 个审批`)
+  return parts.join(' · ')
+})
 
 function useSuggestion(text: string): void {
   void chat.send(text, withModelSelection({}, modelSelection.value))
@@ -328,47 +366,81 @@ function handleRecoveryRefresh(): void {
 </script>
 
 <template>
-  <div class="chat-view">
-    <section class="chat-main">
+  <div
+    class="chat-layout"
+    :class="{ 'trace-collapsed': traceCollapsed && !narrowTrace, 'trace-open': traceOpen }"
+  >
+    <main class="chat">
       <header class="chat-head">
+        <button
+          v-if="isMobile"
+          class="mobile-sidebar-btn"
+          type="button"
+          aria-label="打开导航"
+          title="打开导航"
+          @click="openSidebarAction"
+        >
+          <AppIcon name="menu-burger" />
+        </button>
         <div class="chat-heading">
-          <h1>{{ title }}</h1>
-          <p class="chat-sub">{{ subtitle }}</p>
+          <h1 class="chat-title">{{ title }}</h1>
+          <div class="chat-sub">
+            <span>main-agent</span>
+            <span class="sep">/</span>
+            <span>{{ status.label }}</span>
+            <template v-if="chat.state.runId">
+              <span class="sep">/</span>
+              <span class="mono">{{ chat.state.runId }}</span>
+            </template>
+          </div>
         </div>
         <div class="chat-actions">
           <button
             v-if="chat.pendingApprovals.length > 0"
             type="button"
-            class="status-chip is-actionable"
-            :class="`tone-${status.tone}`"
+            class="status-chip"
+            :class="chipTone"
+            title="查看并处理待审批"
+            aria-label="待审批，点击处理"
             @click="focusPendingApproval"
           >
-            <span class="dot"></span>
-            {{ status.label }}
+            <span class="dot"></span>{{ status.label }}
           </button>
-          <span v-else class="status-chip" :class="`tone-${status.tone}`">
-            <span class="dot"></span>
-            {{ status.label }}
+          <span v-else class="status-chip" :class="chipTone">
+            <span class="dot"></span>{{ status.label }}
           </span>
-          <button v-if="narrowTrace" type="button" class="trace-btn" @click="traceOpen = true">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <rect x="3.5" y="4.5" width="17" height="15" rx="2" />
-              <path d="M15 4.5v15" />
-            </svg>
-            运行详情
+          <button
+            v-if="isMobile"
+            class="icon-btn"
+            type="button"
+            aria-label="全局搜索"
+            title="全局搜索"
+            @click="palette?.open()"
+          >
+            <AppIcon name="search" />
+          </button>
+          <button
+            class="icon-btn"
+            type="button"
+            title="运行详情"
+            :aria-label="narrowTrace ? '打开运行详情' : '切换运行详情面板'"
+            :aria-expanded="narrowTrace ? traceOpen : !traceCollapsed"
+            @click="toggleTrace"
+          >
+            <AppIcon name="panel" />
           </button>
         </div>
       </header>
 
-      <div v-if="chat.rateLimitActive" class="rate-limit" role="status" aria-live="polite">
+      <div v-if="chat.rateLimitActive" class="chat-banner is-warn" role="status" aria-live="polite">
         发送过于频繁，请 <strong>{{ chat.rateLimitRemaining }}</strong> 秒后重试。
       </div>
 
-      <div v-if="chat.pendingApprovals.length > 0" class="pending-approvals" role="status">
+      <div v-if="chat.pendingApprovals.length > 0" class="chat-banner is-warn" role="status">
         <span>
           有 <strong>{{ chat.pendingApprovals.length }}</strong> 项操作等待你在对话中审批，批准或拒绝后运行才会继续。
         </span>
-        <button type="button" class="pending-link" @click="focusPendingApproval">定位审批卡</button>
+        <button type="button" class="text-link" @click="focusPendingApproval">定位审批卡</button>
       </div>
 
       <RunRecoveryBanner
@@ -381,7 +453,6 @@ function handleRecoveryRefresh(): void {
         @focus-approval="focusPendingApproval"
       />
 
-      <!-- 仅重连中显示；降级后由 RunRecoveryBanner 接管，避免双横幅。 -->
       <ConnectionBanner
         v-if="chat.connection === 'reconnecting'"
         :connection="chat.connection"
@@ -398,6 +469,21 @@ function handleRecoveryRefresh(): void {
         :retryable="chat.state.error.retryable !== false"
         @retry="chat.retry()"
       />
+
+      <div v-if="runWorkflow" class="workflow-strip">
+        <span class="workflow-strip-icon"><AppIcon name="workflow" /></span>
+        <span class="workflow-strip-label">当前运行</span>
+        <span class="workflow-strip-name">
+          {{ runWorkflow.name }}
+          <span class="tag">v{{ runWorkflow.version }}</span>
+        </span>
+        <span class="workflow-strip-meta">{{ runWorkflowMeta }}</span>
+        <span class="spacer"></span>
+        <RouterLink class="text-link" :to="{ name: 'workflow-edit', params: { id: runWorkflow.id } }">
+          查看工作流
+          <AppIcon name="arrow" />
+        </RouterLink>
+      </div>
 
       <MessageList
         v-if="!isEmpty"
@@ -418,22 +504,26 @@ function handleRecoveryRefresh(): void {
         @open-output="openAgentOutput"
       />
 
-      <div v-else class="welcome">
-        <p class="eyebrow mono">DISPATCH DESK</p>
-        <h2>今天要调度什么？</h2>
-        <p class="lede">
-          描述任务，主智能体会按需调用技能、工具与远程 Agent；外部写操作会先请你审批。
-        </p>
-        <div class="suggestions">
-          <button
-            v-for="suggestion in suggestions"
-            :key="suggestion"
-            type="button"
-            class="suggestion"
-            @click="useSuggestion(suggestion)"
-          >
-            {{ suggestion }}
-          </button>
+      <div v-else class="stream">
+        <div class="stream-inner">
+          <div class="welcome">
+            <p class="eyebrow mono">DISPATCH DESK</p>
+            <h2>今天要调度什么？</h2>
+            <p class="lede">
+              描述任务，主智能体会按需调用技能、工具与远程 Agent；外部写操作会先请你审批。
+            </p>
+            <div class="suggestions">
+              <button
+                v-for="suggestion in suggestions"
+                :key="suggestion"
+                type="button"
+                class="suggestion"
+                @click="useSuggestion(suggestion)"
+              >
+                {{ suggestion }}
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -461,13 +551,9 @@ function handleRecoveryRefresh(): void {
         @update:model="model = $event"
         @update:reasoning-effort="reasoningEffort = $event"
       />
-    </section>
+    </main>
 
-    <aside v-if="!narrowTrace" class="chat-trace" aria-label="运行详情">
-      <header class="chat-trace-head">
-        <p class="eyebrow mono">TRACE</p>
-        <h2>运行轨迹</h2>
-      </header>
+    <aside v-if="!narrowTrace" class="trace" aria-label="运行详情">
       <RunTracePanel
         :items="chat.processItems"
         :run-id="chat.state.runId"
@@ -475,6 +561,8 @@ function handleRecoveryRefresh(): void {
         :usage="chat.state.usage"
         :finish-reason="chat.state.finishReason"
         :conversation-title="title"
+        mode="panel"
+        @open-events="traceOpen = true"
       />
     </aside>
 
@@ -495,198 +583,38 @@ function handleRecoveryRefresh(): void {
       :conversation-title="title"
       @close="traceOpen = false"
     />
-
   </div>
 </template>
 
 <style scoped>
-.chat-view {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 280px;
-  height: 100%;
-  min-height: 0;
-}
-
-.chat-trace {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  min-height: 0;
-  border-left: 1px solid var(--line);
-  background: var(--paper-2);
-}
-
-.chat-trace-head {
-  flex: none;
-  padding: 14px 16px 10px;
-  border-bottom: 1px solid var(--line);
-}
-
-.chat-trace-head .eyebrow {
-  margin-bottom: 3px;
-  color: var(--amber-text);
-  font-size: 9px;
-  letter-spacing: 0.12em;
-}
-
-.chat-trace-head h2 {
-  font-size: 14px;
-  font-weight: 650;
-}
-
-.chat-main {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  min-height: 0;
-  background: var(--paper);
-}
-
-.chat-head {
-  display: flex;
-  flex: none;
-  align-items: center;
-  justify-content: space-between;
-  gap: 20px;
-  min-height: 68px;
-  padding: 0 32px;
-  border-bottom: 1px solid var(--line);
-}
-
-.chat-heading {
-  flex: 1;
-  min-width: 0;
-}
-
-.chat-heading h1 {
-  overflow: hidden;
-  font-size: 17px;
-  font-weight: 650;
-  letter-spacing: -0.012em;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.chat-sub {
-  margin-top: 3px;
-  overflow: hidden;
-  color: var(--ink-3);
-  font-size: 11.5px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.chat-actions {
-  display: flex;
-  flex: none;
-  align-items: center;
-  gap: 8px;
-}
-
-.status-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 26px;
-  padding: 0 9px;
-  border: 1px solid var(--line);
-  border-radius: 5px;
-  background: var(--surface);
-  color: var(--ink-2);
-  font-size: 10.5px;
-  white-space: nowrap;
-}
-
-.status-chip.is-actionable {
-  cursor: pointer;
-  font-family: inherit;
-}
-
-.status-chip.is-actionable:hover {
-  border-color: var(--ink-3);
-  color: var(--ink);
-}
-
-.status-chip .dot {
-  width: 5px;
-  height: 5px;
-}
-
-.status-chip.tone-live .dot {
-  background: var(--amber);
-  animation: pulse 1.6s ease-in-out infinite;
-}
-
-.status-chip.tone-warn .dot {
-  background: var(--amber);
-}
-
-.status-chip.tone-ok .dot {
-  background: var(--green);
-}
-
-.status-chip.tone-error .dot {
-  background: var(--red);
-}
-
-.trace-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  height: 26px;
-  padding: 0 9px;
-  border: 1px solid var(--line);
-  border-radius: 5px;
-  color: var(--ink-2);
-  font-size: 10.5px;
-  white-space: nowrap;
-}
-
-.trace-btn:hover {
-  border-color: var(--ink-3);
-  color: var(--ink);
-}
-
-.trace-btn svg {
-  width: 13px;
-  height: 13px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.6;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
 .welcome {
   display: flex;
-  flex: 1;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 0;
-  padding: 32px;
+  gap: 10px;
+  padding: 12vh 20px 0;
   text-align: center;
 }
 
-.eyebrow {
-  margin-bottom: 14px;
+.welcome .eyebrow {
   color: var(--amber-text);
-  font-size: 10px;
-  letter-spacing: 0.16em;
+  font-size: 9.5px;
+  letter-spacing: 0.13em;
 }
 
 .welcome h2 {
-  font-size: clamp(26px, 3vw, 34px);
+  font-size: 26px;
   font-weight: 650;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
 }
 
-.lede {
-  max-width: 520px;
-  margin-top: 12px;
+.welcome .lede {
+  max-width: 52ch;
   color: var(--ink-3);
-  font-size: 13px;
-  line-height: 1.75;
+  font-size: 12.5px;
+  line-height: 1.7;
 }
 
 .suggestions {
@@ -694,18 +622,16 @@ function handleRecoveryRefresh(): void {
   flex-wrap: wrap;
   justify-content: center;
   gap: 8px;
-  max-width: 620px;
-  margin-top: 26px;
+  margin-top: 6px;
 }
 
 .suggestion {
-  padding: 8px 13px;
+  padding: 7px 12px;
   border: 1px solid var(--line);
   border-radius: 99px;
   background: var(--surface);
   color: var(--ink-2);
-  font-size: 12px;
-  box-shadow: var(--shadow-sm);
+  font-size: 11.5px;
   transition:
     border-color 0.15s,
     color 0.15s;
@@ -716,100 +642,35 @@ function handleRecoveryRefresh(): void {
   color: var(--ink);
 }
 
-.rate-limit {
+.workflow-strip {
   flex: none;
-  margin: 10px 32px 0;
-  padding: 9px 12px;
-  border: 1px solid var(--amber-soft);
-  border-radius: 8px;
-  background: var(--amber-soft);
-  color: var(--amber-text);
-  font-size: 11.5px;
+  width: min(100% - 72px, 812px);
+  margin: 0 auto;
 }
 
-.rate-limit strong {
-  font-family: var(--font-mono);
+.chat-banner {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 8px 24px 0;
+  padding: 8px 12px;
+  border-radius: 6px;
   font-size: 12px;
+  line-height: 1.5;
+}
+
+.chat-banner.is-warn {
+  background: var(--amber-soft);
+  color: var(--amber-text);
+}
+
+.chat-banner strong {
+  font-weight: 650;
 }
 
 .chat-error {
-  flex: none;
-  margin: 10px 32px 0;
-}
-
-.pending-approvals {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px;
-  flex: none;
-  margin: 10px 32px 0;
-  padding: 9px 12px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--surface-2);
-  color: var(--ink-2);
-  font-size: 11.5px;
-}
-
-.pending-approvals strong {
-  color: var(--amber-text);
-  font-family: var(--font-mono);
-}
-
-.pending-link {
-  margin-left: auto;
-  color: var(--prussian);
-  font-size: 11.5px;
-  font-weight: 600;
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-
-.pending-link:hover {
-  color: var(--ink);
-}
-
-.btn {
-  height: 28px;
-  padding: 0 11px;
-  border: 1px solid var(--line);
-  border-radius: 5px;
-  background: var(--surface);
-  color: var(--ink-2);
-  font-size: 11.5px;
-}
-
-.btn:hover:not(:disabled) {
-  border-color: var(--ink-3);
-  color: var(--ink);
-}
-
-.btn.primary {
-  border-color: var(--prussian);
-  background: var(--prussian);
-  color: var(--surface);
-}
-
-.btn:disabled {
-  cursor: not-allowed;
-  opacity: 0.55;
-}
-
-@media (max-width: 1180px) {
-  .chat-view {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-
-@media (max-width: 900px) {
-  .chat-view {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .chat-head {
-    min-height: 56px;
-    padding: 0 16px;
-  }
+  margin: 8px 24px 0;
 }
 </style>

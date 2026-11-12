@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
+import AppIcon from '@/components/common/AppIcon.vue'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
 import PageHeader from '@/components/common/PageHeader.vue'
 import PageShell from '@/components/common/PageShell.vue'
@@ -95,13 +96,13 @@ onBeforeRouteLeave(async () => {
 
 // ---------- 步骤数组操作（增删后重排 id，移动交换相邻元素） ----------
 
-/** 五类步骤文案与着色（answer 复用 skill 绿色系），与列表页芯片配色一致。 */
-const STEP_META: Record<WorkflowStepType, { label: string; kind: string }> = {
-  knowledge_search: { label: '检索', kind: 'kind-vector' },
-  tool: { label: '工具', kind: 'kind-tool' },
-  a2a: { label: '远程智能体', kind: 'kind-a2a' },
-  approval: { label: '审批', kind: 'kind-approval' },
-  answer: { label: '回答', kind: 'kind-skill' },
+/** 五类步骤文案，与列表页执行轨迹的步骤类型标签一致。 */
+const STEP_META: Record<WorkflowStepType, { label: string }> = {
+  knowledge_search: { label: '检索' },
+  tool: { label: '工具' },
+  a2a: { label: '远程智能体' },
+  approval: { label: '审批' },
+  answer: { label: '回答' },
 }
 
 const addType = ref<WorkflowStepType>('knowledge_search')
@@ -206,95 +207,106 @@ async function save(): Promise<void> {
 <template>
   <PageShell>
     <PageHeader
-      eyebrow="WORKFLOWS"
       :title="isNew ? '新建工作流' : '编辑工作流'"
-      description="按顺序编排检索、工具、远程智能体、审批与回答；步骤 id 由系统按顺序自动生成，顺序调整通过上移/下移完成。"
+      description="按顺序编排检索、工具、远程智能体、审批与回答；步骤顺序通过上移/下移调整，保存后在对话中使用。"
     >
       <template #actions>
-        <button type="button" class="btn" data-testid="editor-back" @click="router.push('/workflows')">
-          返回列表
+        <button type="button" class="btn btn-outline" data-testid="editor-back" @click="router.push('/workflows')">
+          <AppIcon name="back" />返回列表
         </button>
         <button
           type="button"
-          class="btn primary"
+          class="btn btn-primary"
           data-testid="editor-save"
           :disabled="saving || loading"
           @click="save"
         >
-          {{ saving ? '保存中…' : '保存' }}
+          <AppIcon name="check" />{{ saving ? '保存中…' : '保存' }}
         </button>
       </template>
     </PageHeader>
 
-    <div v-if="loadError" class="load-error">
+    <div v-if="loadError" class="res-error load-error" role="alert">
       <span>加载工作流失败：{{ loadError }}</span>
-      <button type="button" class="btn" @click="router.push('/workflows')">返回列表</button>
+      <button type="button" class="btn btn-outline btn-sm" @click="router.push('/workflows')">返回列表</button>
     </div>
     <LoadingSkeleton v-else-if="loading" />
 
     <div v-else class="editor-form">
-      <section class="form-card">
-        <h2 class="card-title">基本信息</h2>
-        <label class="field">
-          <span class="field-label">名称（必填，1–100 字符，不含双引号或换行）</span>
-          <input
-            class="input"
-            type="text"
-            data-testid="editor-name"
-            :value="name"
-            aria-label="工作流名称"
-            @input="onNameInput"
-          />
-        </label>
-        <label class="field">
-          <span class="field-label">描述（选填，≤500 字符）</span>
-          <textarea
-            class="input form-description"
-            rows="2"
-            data-testid="editor-description"
-            :value="description"
-            aria-label="工作流描述"
-            @input="onDescriptionInput"
-          ></textarea>
-        </label>
+      <section class="panel">
+        <header class="panel-head">
+          <h2>基本信息</h2>
+          <span class="count">WORKFLOW</span>
+        </header>
+        <div class="panel-body">
+          <label class="field">
+            <span>名称（必填，1–100 字符，不含双引号或换行）</span>
+            <input
+              class="input"
+              type="text"
+              data-testid="editor-name"
+              :value="name"
+              aria-label="工作流名称"
+              @input="onNameInput"
+            />
+          </label>
+          <label class="field">
+            <span>描述（选填，≤500 字符）</span>
+            <textarea
+              class="input editor-desc"
+              rows="3"
+              data-testid="editor-description"
+              :value="description"
+              aria-label="工作流描述"
+              @input="onDescriptionInput"
+            ></textarea>
+          </label>
+        </div>
       </section>
 
       <div
         v-if="errors.length > 0"
-        class="editor-errors"
+        class="res-error"
         data-testid="editor-errors"
         role="alert"
       >
         <p v-for="(item, offset) in errors" :key="offset" class="error-line">{{ item }}</p>
       </div>
 
-      <section class="form-card">
-        <h2 class="card-title">执行步骤（{{ steps.length }}）</h2>
-        <ol class="step-list">
-          <li v-for="(step, index) in steps" :key="step.id" class="step-item">
-            <WorkflowStepCard
-              :step="step"
-              :index="index"
-              :total="steps.length"
-              @update="updateStep(index, $event)"
-              @remove="removeStep(index)"
-              @move-up="moveStep(index, -1)"
-              @move-down="moveStep(index, 1)"
-            />
-          </li>
-        </ol>
-        <p v-if="steps.length === 0" class="steps-empty">还没有步骤，从下方选择类型添加第一步。</p>
-
-        <div class="step-add-row">
-          <select v-model="addType" class="input" data-testid="step-add-type" aria-label="选择步骤类型">
+      <section class="panel">
+        <header class="panel-head">
+          <h2>执行步骤</h2>
+          <span class="count">{{ steps.length }}</span>
+          <span class="spacer"></span>
+          <span class="note">按顺序执行 · 最多 12 步</span>
+        </header>
+        <div class="step-list">
+          <p v-if="steps.length === 0" class="wf-edit-empty">还没有步骤，从下方选择类型添加第一步。</p>
+          <WorkflowStepCard
+            v-for="(step, index) in steps"
+            :key="step.id"
+            :step="step"
+            :index="index"
+            :total="steps.length"
+            @update="updateStep(index, $event)"
+            @remove="removeStep(index)"
+            @move-up="moveStep(index, -1)"
+            @move-down="moveStep(index, 1)"
+          />
+        </div>
+        <footer class="step-add-row">
+          <span class="step-add-label">添加步骤</span>
+          <select v-model="addType" class="select" data-testid="step-add-type" aria-label="选择步骤类型">
             <option v-for="type in WORKFLOW_STEP_TYPES" :key="type" :value="type">
               {{ STEP_META[type].label }}（{{ type }}）
             </option>
           </select>
-          <button type="button" class="btn primary" data-testid="step-add" @click="addStep">
-            添加步骤
+          <button type="button" class="btn btn-primary btn-sm" data-testid="step-add" @click="addStep">
+            <AppIcon name="plus" />添加步骤
           </button>
-        </div>
+          <span class="spacer"></span>
+          <span class="note">步骤 id 由系统按顺序自动生成</span>
+        </footer>
       </section>
     </div>
   </PageShell>
@@ -304,14 +316,8 @@ async function save(): Promise<void> {
 .load-error {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 12px;
-  padding: 14px 16px;
-  border: 1px solid var(--line);
-  border-left: 3px solid var(--red);
-  border-radius: 10px;
-  background: var(--surface);
-  color: var(--ink-2);
-  font-size: 12px;
 }
 
 .editor-form {
@@ -320,112 +326,56 @@ async function save(): Promise<void> {
   gap: 14px;
 }
 
-.form-card {
+.panel-body {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 14px 16px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--surface);
+  gap: 12px;
+  padding: 15px;
 }
 
-.card-title {
-  margin: 0;
-  color: var(--ink);
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.field-label {
-  color: var(--ink-3);
-  font-size: 10px;
-  letter-spacing: 0.03em;
-}
-
-.form-description {
+.editor-desc {
   height: auto;
-  padding: 7px 10px;
-  line-height: 1.6;
+  min-height: 64px;
+  padding: 8px 10px;
+  line-height: 1.55;
   resize: vertical;
 }
 
-.editor-errors {
-  padding: 10px 14px;
-  border: 1px solid var(--line);
-  border-left: 3px solid var(--red);
-  border-radius: 10px;
-  background: var(--surface);
-}
-
 .error-line {
-  margin: 2px 0;
-  color: var(--red);
-  font-size: 11.5px;
+  margin: 0;
+  font-size: 11px;
   line-height: 1.6;
 }
 
-/* 线性步骤列表：左侧轨道圆点 + 连接竖线，不做拖拽。 */
+.error-line + .error-line {
+  margin-top: 4px;
+}
+
 .step-list {
   display: flex;
   flex-direction: column;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.step-item {
-  position: relative;
-  padding: 0 0 14px 24px;
-}
-
-.step-item:last-child {
-  padding-bottom: 0;
-}
-
-.step-item::after {
-  content: '';
-  position: absolute;
-  left: 4px;
-  top: 13px;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  border: 2px solid var(--ink-3);
-  background: var(--surface);
-}
-
-.step-item:not(:last-child)::before {
-  content: '';
-  position: absolute;
-  left: 9px;
-  top: 26px;
-  bottom: 0;
-  width: 2px;
-  background: var(--line);
-}
-
-.steps-empty {
-  margin: 0;
-  color: var(--ink-3);
-  font-size: 11.5px;
+  gap: 8px;
+  padding: 14px 15px 0;
 }
 
 .step-add-row {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding-top: 12px;
-  border-top: 1px dashed var(--line);
+  flex-wrap: wrap;
+  margin-top: 14px;
+  padding: 10px 15px;
+  border-top: 1px solid var(--line-2);
+  background: var(--surface-2);
 }
 
-.step-add-row .input {
-  min-width: 220px;
+.step-add-label {
+  font-size: 10px;
+  color: var(--ink-3);
+}
+
+.step-add-row .select {
+  height: 28px;
+  font-size: 11px;
 }
 </style>

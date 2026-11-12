@@ -78,7 +78,7 @@ test.describe('工作流主链路', () => {
     // 6. 发送（不含审批关键词）→ 时间线出现 workflow.step 步骤卡（检索步骤命中）。
     await page.getByRole('textbox', { name: '输入消息' }).fill('整理本周客服工单，检索相关规范并总结')
     await page.getByRole('button', { name: '发送' }).click()
-    const workflowCard = page.locator('.pcard.kind-workflow', { hasText: '检索工单' })
+    const workflowCard = page.locator('.entry.kind-workflow', { hasText: '检索工单' })
     await expect(workflowCard.first()).toBeVisible({ timeout: 30_000 })
 
     // 7. 运行历史：SPA 导航回列表（goto 整页重载会重置 mock 内存数据，新建模板会消失）。

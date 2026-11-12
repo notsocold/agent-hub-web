@@ -1,18 +1,26 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 
+import AppIcon from '@/components/common/AppIcon.vue'
 import { runsApi } from '@/api/runs'
 import { formatDuration, formatTokens } from '@/utils/format'
-import type { ProcessItem, Run, RunEvent, Usage } from '@/types'
+import type { Citation, ProcessItem, Run, RunEvent, Usage } from '@/types'
 
-const props = defineProps<{
-  items: ProcessItem[]
-  runId: string | null
-  streaming: boolean
-  usage: Usage | null
-  finishReason: string | null
-  conversationTitle: string
-}>()
+const props = withDefaults(
+  defineProps<{
+    items: ProcessItem[]
+    runId: string | null
+    streaming: boolean
+    usage: Usage | null
+    finishReason: string | null
+    conversationTitle: string
+    /** panel：常驻右栏；drawer：窄屏抽屉，额外展示服务端事件回放。 */
+    mode?: 'panel' | 'drawer'
+  }>(),
+  { mode: 'panel' },
+)
+
+const emit = defineEmits<{ 'open-events': [] }>()
 
 const serverRun = ref<Run | null>(null)
 const serverEvents = ref<RunEvent[]>([])
@@ -33,13 +41,11 @@ const serverTotalTokens = computed(() => {
 
 let loadSeq = 0
 
-/**
- * run 开始和结束都刷新：开始时事件可能还没落库，结束时才能拿到完整回放。
- * runId 变化时先清空旧数据，避免切换会话后短暂显示上一个 run 的摘要。
- */
+/** 只有抽屉模式需要服务端事件回放，常驻面板不额外拉接口。 */
 watch(
-  () => [props.runId, props.streaming] as const,
-  async ([runId]) => {
+  () => [props.runId, props.streaming, props.mode] as const,
+  async ([runId, , mode]) => {
+    if (mode !== 'drawer') return
     const seq = ++loadSeq
     serverRun.value = null
     serverEvents.value = []
@@ -74,19 +80,101 @@ function eventTokens(event: RunEvent): string {
   return `${formatTokens(input ?? 0)} / ${formatTokens(output ?? 0)}`
 }
 
-function kindLabel(kind: ProcessItem['kind']): string {
-  return (
-    {
-      reasoning: '思考',
-      skill: '技能',
-      tool: '工具',
-      a2a: 'A2A',
-      approval: '审批',
-      workflow: '工作流',
-      notice: '提示',
-      error: '错误',
-    } as const
-  )[kind]
+/** 执行轨道不展示思考/提示/错误这三类，它们不构成可执行步骤。 */
+const trackItems = computed(() =>
+  props.items.filter(
+    (item) => item.kind !== 'reasoning' && item.kind !== 'notice' && item.kind !== 'error',
+  ),
+)
+
+const citations = computed<Citation[]>(() => {
+  const seen = new Set<string>()
+  const list: Citation[] = []
+  for (const item of props.items) {
+    if (item.kind !== 'tool' || !item.citations) continue
+    for (const citation of item.citations) {
+      if (seen.has(citation.chunk_id)) continue
+      seen.add(citation.chunk_id)
+      list.push(citation)
+    }
+  }
+  return list
+})
+
+interface AgentEntry {
+  key: string
+  name: string
+  badge: string
+  kind: string
+  ok: boolean
+}
+
+function badgeOf(name: string): string {
+  const cleaned = name.replace(/[-_.]/g, ' ').trim()
+  const parts = cleaned.split(/\s+/).filter(Boolean)
+  if (parts.length === 0) return 'AH'
+  return parts
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? '')
+    .join('')
+}
+
+const agents = computed<AgentEntry[]>(() => {
+  const map = new Map<string, AgentEntry>()
+  map.set('main-agent', {
+    key: 'main-agent',
+    name: 'main-agent',
+    badge: 'MA',
+    kind: '调度员 · local',
+    ok: true,
+  })
+  for (const item of props.items) {
+    if (item.kind !== 'a2a') continue
+    const name = item.agentName || item.agent
+    if (!name) continue
+    map.set(name, {
+      key: name,
+      name,
+      badge: badgeOf(name),
+      kind: `A2A · ${item.state}`,
+      ok: item.status === 'ok',
+    })
+  }
+  return [...map.values()]
+})
+
+function kindClass(item: ProcessItem): string {
+  switch (item.kind) {
+    case 'skill':
+      return 'kind-skill'
+    case 'a2a':
+      return 'kind-a2a'
+    case 'approval':
+      return 'kind-approval'
+    case 'workflow':
+      return 'kind-tool'
+    case 'tool':
+      return item.source.includes('mcp') ? 'kind-mcp' : 'kind-tool'
+    default:
+      return ''
+  }
+}
+
+function stateClass(item: ProcessItem): string {
+  switch (item.status) {
+    case 'ok':
+      return 'is-done'
+    case 'running':
+      return 'is-now'
+    case 'error':
+      return 'is-canceled'
+    case 'waiting':
+      return 'is-wait'
+    case 'canceled':
+      return 'is-canceled'
+    default:
+      return 'is-wait'
+  }
 }
 
 function titleOf(item: ProcessItem): string {
@@ -101,28 +189,26 @@ function titleOf(item: ProcessItem): string {
       return item.toolDisplayName || item.tool
     case 'workflow':
       return item.stepTitle
-    case 'notice':
-      return item.message
-    case 'error':
-      return item.message
-    case 'reasoning':
-      return '思考摘要'
     default:
       return ''
   }
 }
 
-function statusLabel(item: ProcessItem): string {
-  return (
-    {
-      running: '运行中',
-      waiting: '等待',
-      ok: '完成',
-      error: '失败',
-      skipped: '跳过',
-      canceled: '已取消',
-    } as const
-  )[item.status]
+function subOf(item: ProcessItem): string {
+  switch (item.kind) {
+    case 'skill':
+      return `skill · ${item.slug}`
+    case 'tool':
+      return item.summary || item.resultPreview || `tool · ${item.tool}`
+    case 'a2a':
+      return `A2A · ${item.taskId || item.a2aTaskId}`
+    case 'approval':
+      return `HITL · ${item.tool}`
+    case 'workflow':
+      return `workflow · ${item.stepType}`
+    default:
+      return ''
+  }
 }
 
 function durationOf(item: ProcessItem): string {
@@ -131,259 +217,216 @@ function durationOf(item: ProcessItem): string {
 </script>
 
 <template>
-  <div class="trace-panel">
-    <div class="trace-scroll" tabindex="0" aria-label="运行轨迹滚动区">
-      <section class="summary">
-        <p class="conv">{{ conversationTitle || '未命名会话' }}</p>
-        <dl>
-          <div>
-            <dt>状态</dt>
-            <dd>
-              {{
-                serverRun?.status ??
-                (streaming ? '运行中' : finishReason === 'canceled' ? '已取消' : '已结束')
-              }}
-            </dd>
+  <div class="trace-scroll" tabindex="0" aria-label="运行轨迹滚动区">
+    <section class="trace-section">
+      <div class="trace-section-head">
+        <h3>执行轨道</h3>
+        <span class="spacer"></span>
+        <span class="count">{{ trackItems.length }}</span>
+      </div>
+      <ol v-if="trackItems.length > 0" class="track">
+        <li
+          v-for="item in trackItems"
+          :key="item.id"
+          :class="[kindClass(item), stateClass(item)]"
+        >
+          <span class="marker">
+            <AppIcon v-if="item.status === 'ok'" name="check" />
+          </span>
+          <div class="label">
+            {{ titleOf(item) }}
+            <span class="mono">{{ durationOf(item) }}</span>
           </div>
-          <div>
-            <dt>Run ID</dt>
-            <dd class="mono ellipsis">{{ runId ?? '—' }}</dd>
-          </div>
-          <div>
-            <dt>模型</dt>
-            <dd class="mono">{{ serverRun?.model ?? '—' }}</dd>
-          </div>
-          <div>
-            <dt>总 tokens</dt>
-            <dd class="mono">{{ formatTokens(serverTotalTokens ?? totalTokens) }}</dd>
-          </div>
-          <div>
-            <dt>耗时</dt>
-            <dd class="mono">{{ formatDuration(serverRun?.duration_ms ?? null) }}</dd>
-          </div>
-          <div>
-            <dt>结束原因</dt>
-            <dd class="mono">{{ finishReason ?? serverRun?.error?.code ?? '—' }}</dd>
-          </div>
-        </dl>
-      </section>
+          <div class="sub">{{ subOf(item) }}</div>
+        </li>
+      </ol>
+      <p v-else class="trace-empty">本轮还没有可展示的执行步骤。</p>
+    </section>
 
-      <section class="events">
-        <p class="block-label">服务端事件回放 · {{ serverEvents.length }}</p>
-        <p v-if="eventsLoading" class="empty">正在加载运行事件…</p>
-        <p v-else-if="eventsError" class="empty is-error">{{ eventsError }}</p>
-        <ol v-else-if="serverEvents.length > 0" class="server-events">
-          <li v-for="event in serverEvents" :key="event.id">
-            <span class="seq mono">#{{ event.seq }}</span>
-            <span class="kind" :class="`kind-${event.type}`">{{ event.type }}</span>
-            <span class="event-name mono" :class="{ 'is-unknown': !event.event }">
-              {{ event.event || '未知事件' }}
-            </span>
-            <span class="title">{{ event.title || event.subtitle || event.id }}</span>
-            <span class="status mono">{{ event.status }}</span>
-            <span class="duration mono">{{ formatDuration(event.duration_ms) }}</span>
-            <span class="tokens mono">{{ eventTokens(event) }}</span>
-            <span v-if="event.error" class="event-error">{{ event.error }}</span>
-          </li>
-        </ol>
-        <p v-else-if="runId" class="empty">该运行暂无可回放事件。</p>
-      </section>
+    <section v-if="citations.length > 0" class="trace-section">
+      <div class="trace-section-head">
+        <h3>引用来源</h3>
+        <span class="spacer"></span>
+        <span class="count">{{ citations.length }}</span>
+      </div>
+      <ul class="cite-list">
+        <li v-for="citation in citations" :key="citation.chunk_id">
+          <div class="cite-top">
+            <span class="cite-name">{{ citation.title }}</span>
+            <span class="cite-score">{{ citation.score.toFixed(2) }}</span>
+          </div>
+          <div class="cite-src">
+            {{ citation.category }} · {{ citation.updated_at.slice(0, 10) }} · 知识库
+          </div>
+        </li>
+      </ul>
+    </section>
 
-      <section class="events">
-        <p class="block-label">本轮过程 · {{ items.length }}</p>
-        <ol v-if="items.length > 0">
-          <li v-for="item in items" :key="item.id">
-            <span class="kind" :class="`kind-${item.kind}`">{{ kindLabel(item.kind) }}</span>
-            <span class="title">{{ titleOf(item) }}</span>
-            <span class="status mono">{{ statusLabel(item) }}</span>
-            <span class="duration mono">{{ durationOf(item) }}</span>
-          </li>
-        </ol>
-        <p v-else class="empty">本轮还没有可展示的实时过程。发送一条消息后再打开这里。</p>
-      </section>
+    <section class="trace-section">
+      <div class="trace-section-head">
+        <h3>本轮智能体</h3>
+        <span class="spacer"></span>
+        <span class="count">{{ agents.length }}</span>
+      </div>
+      <div v-for="agent in agents" :key="agent.key" class="agent-row">
+        <span class="agent-badge" aria-hidden="true">{{ agent.badge }}</span>
+        <div class="agent-ident">
+          <div class="agent-name">
+            {{ agent.name }}
+            <span class="mono">{{ agent.key === 'main-agent' ? 'local' : 'a2a' }}</span>
+          </div>
+          <div class="agent-kind">{{ agent.kind }}</div>
+        </div>
+        <span class="agent-state">
+          <span class="dot" :class="agent.ok ? 'is-ok' : 'is-live'"></span>
+          {{ agent.ok ? '空闲' : '运行中' }}
+        </span>
+      </div>
+    </section>
+
+    <section v-if="mode === 'drawer'" class="trace-section">
+      <div class="trace-section-head">
+        <h3>服务端事件回放</h3>
+        <span class="spacer"></span>
+        <span class="count">{{ serverEvents.length }}</span>
+      </div>
+      <p v-if="eventsLoading" class="trace-empty">正在加载运行事件…</p>
+      <p v-else-if="eventsError" class="trace-empty is-error">{{ eventsError }}</p>
+      <ol v-else-if="serverEvents.length > 0" class="server-events">
+        <li v-for="event in serverEvents" :key="event.id">
+          <span class="seq mono">#{{ event.seq }}</span>
+          <span class="event-name mono" :class="{ 'is-unknown': !event.event }">
+            {{ event.event || event.type }}
+          </span>
+          <span class="title">{{ event.title || event.subtitle || event.id }}</span>
+          <span class="status mono">{{ event.status }}</span>
+          <span class="duration mono">{{ formatDuration(event.duration_ms) }}</span>
+          <span class="tokens mono">{{ eventTokens(event) }}</span>
+          <span v-if="event.error" class="event-error">{{ event.error }}</span>
+        </li>
+      </ol>
+      <p v-else class="trace-empty">该运行暂无可回放事件。</p>
+
+      <dl class="run-meta">
+        <div>
+          <dt>状态</dt>
+          <dd>{{ serverRun?.status ?? (streaming ? '运行中' : '已结束') }}</dd>
+        </div>
+        <div>
+          <dt>模型</dt>
+          <dd class="mono">{{ serverRun?.model ?? '—' }}</dd>
+        </div>
+        <div>
+          <dt>tokens</dt>
+          <dd class="mono">{{ formatTokens(serverTotalTokens ?? totalTokens) }}</dd>
+        </div>
+        <div>
+          <dt>耗时</dt>
+          <dd class="mono">{{ formatDuration(serverRun?.duration_ms ?? null) }}</dd>
+        </div>
+        <div>
+          <dt>结束原因</dt>
+          <dd class="mono">{{ finishReason ?? serverRun?.error?.code ?? '—' }}</dd>
+        </div>
+        <div>
+          <dt>Run ID</dt>
+          <dd class="mono ellipsis">{{ runId ?? '—' }}</dd>
+        </div>
+      </dl>
+    </section>
+
+    <div v-if="mode === 'panel'" class="trace-foot">
+      <button type="button" class="text-link" @click="emit('open-events')">
+        查看运行事件
+        <AppIcon name="arrow" />
+      </button>
     </div>
   </div>
 </template>
 
 <style scoped>
-.trace-panel {
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  height: 100%;
+.trace-empty {
+  margin: 2px 0 0;
+  color: var(--ink-3);
+  font-size: 11px;
+  line-height: 1.6;
 }
 
-.trace-scroll {
-  flex: 1;
-  min-height: 0;
-  padding: 14px 18px 24px;
-  overflow-y: auto;
+.trace-empty.is-error {
+  color: var(--red);
 }
 
-.trace-scroll:focus-visible {
-  outline: 2px solid var(--prussian);
-  outline-offset: -2px;
-}
-
-.summary {
-  padding: 12px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--surface);
-}
-
-.conv {
-  margin-bottom: 9px;
-  overflow: hidden;
-  font-size: 12.5px;
-  font-weight: 600;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.summary dl {
+.server-events li {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px 12px;
-  margin: 0;
+  grid-template-columns: 34px 1fr auto auto auto;
+  gap: 6px;
+  align-items: baseline;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--line-2);
+  font-size: 11px;
 }
 
-.summary dt {
+.server-events li:last-child {
+  border-bottom: 0;
+}
+
+.server-events .seq {
   color: var(--ink-3);
   font-size: 9.5px;
 }
 
-.summary dd {
+.server-events .event-name {
+  color: var(--ink-2);
+  font-size: 10px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.server-events .event-name.is-unknown {
+  color: var(--amber-text);
+}
+
+.server-events .title {
+  grid-column: 2 / -1;
+  color: var(--ink-3);
+  font-size: 10px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.server-events .status,
+.server-events .duration,
+.server-events .tokens {
+  color: var(--ink-3);
+  font-size: 9.5px;
+}
+
+.server-events .event-error {
+  grid-column: 2 / -1;
+  color: var(--red);
+  font-size: 10px;
+}
+
+.run-meta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 12px;
+  margin: 12px 0 0;
+}
+
+.run-meta dt {
+  color: var(--ink-3);
+  font-size: 9.5px;
+}
+
+.run-meta dd {
   margin: 2px 0 0;
   overflow: hidden;
   color: var(--ink-2);
   font-size: 11px;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.events {
-  margin-top: 18px;
-}
-
-.block-label {
-  margin-bottom: 8px;
-  color: var(--ink-3);
-  font-size: 10.5px;
-  font-weight: 600;
-  letter-spacing: 0.03em;
-}
-
-.events li {
-  display: grid;
-  grid-template-columns: 48px minmax(0, 1fr) auto auto;
-  gap: 8px;
-  align-items: center;
-  padding: 7px 0;
-  border-bottom: 1px solid var(--line-2);
-  font-size: 11px;
-}
-
-.server-events li {
-  grid-template-columns: 30px 48px 108px minmax(0, 1fr) auto auto auto;
-}
-
-.event-name {
-  overflow: hidden;
-  max-width: 100%;
-  color: var(--prussian);
-  font-size: 9.5px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.event-name.is-unknown {
-  color: var(--ink-3);
-}
-
-.seq {
-  color: var(--ink-3);
-  font-size: 9px;
-}
-
-.tokens {
-  color: var(--ink-3);
-  font-size: 9px;
-}
-
-.event-error {
-  grid-column: 1 / -1;
-  padding: 4px 6px;
-  border-radius: 4px;
-  background: var(--red-soft);
-  color: var(--red);
-  font-size: 10px;
-}
-
-.empty.is-error {
-  color: var(--red);
-}
-
-.ellipsis {
-  display: inline-block;
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  vertical-align: bottom;
-}
-
-.kind {
-  padding: 1px 5px;
-  border-radius: 4px;
-  background: var(--surface-2);
-  color: var(--ink-3);
-  font-size: 9px;
-  text-align: center;
-}
-
-.kind-tool {
-  /* 9px 小字：amber 在 amber-soft 上仅 3.34:1，改用为文字设计的 amber-text。 */
-  color: var(--amber-text);
-  background: var(--kind-tool-soft);
-}
-
-.kind-skill {
-  color: var(--kind-skill);
-  background: var(--kind-skill-soft);
-}
-
-.kind-a2a {
-  color: var(--kind-a2a);
-  background: var(--kind-a2a-soft);
-}
-
-.kind-approval {
-  color: var(--kind-approval);
-  background: var(--kind-approval-soft);
-}
-
-.title {
-  overflow: hidden;
-  color: var(--ink-2);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.status {
-  color: var(--ink-3);
-  font-size: 9px;
-}
-
-.duration {
-  color: var(--ink-3);
-  font-size: 9px;
-}
-
-.empty {
-  padding: 20px 0;
-  color: var(--ink-3);
-  font-size: 11.5px;
-  line-height: 1.7;
 }
 </style>

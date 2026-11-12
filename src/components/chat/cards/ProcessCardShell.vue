@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 
+import AppIcon from '@/components/common/AppIcon.vue'
 import type { ProcessStatus } from '@/types'
 
 const props = defineProps<{
@@ -9,6 +10,10 @@ const props = defineProps<{
   status: ProcessStatus
   statusLabel?: string
   duration?: string
+  /** summary 行里的参数摘要，对应原型 .tool-args。 */
+  args?: string
+  /** tool.result 的图标：检索用 search，其余用 check。 */
+  resultIcon?: string
 }>()
 
 const kindLabel = computed(
@@ -37,161 +42,34 @@ const statusText = computed(
       canceled: '已取消',
     })[props.status],
 )
+
+const resultIconName = computed(() => {
+  if (props.status === 'error') return 'x'
+  if (props.status === 'running' || props.status === 'waiting') return 'clock'
+  return props.resultIcon ?? 'check'
+})
 </script>
 
 <template>
-  <article class="pcard" :class="`kind-${kind}`">
-    <header class="pcard-head">
-      <span class="badge">{{ kindLabel }}</span>
-      <span class="title">{{ title }}</span>
-      <span class="status" :class="`is-${status}`">
-        <span class="dot"></span>
-        {{ statusLabel ?? statusText }}
-      </span>
-      <span v-if="duration" class="duration mono">{{ duration }}</span>
-    </header>
-    <div class="pcard-body">
-      <slot />
+  <li class="entry entry-proc" :class="`kind-${kind}`">
+    <span class="node" aria-hidden="true"></span>
+    <div class="entry-body">
+      <details class="tool-card" open>
+        <summary>
+          <span class="kind">{{ kindLabel }}</span>
+          <span class="tool-name">{{ title }}</span>
+          <span v-if="args" class="tool-args">{{ args }}</span>
+          <span class="tool-result">
+            <AppIcon :name="resultIconName" />
+            {{ statusLabel ?? statusText }}
+          </span>
+          <span v-if="duration" class="tool-time mono">{{ duration }}</span>
+          <AppIcon name="chevron" class="chev" />
+        </summary>
+        <div class="tool-body">
+          <slot />
+        </div>
+      </details>
     </div>
-  </article>
+  </li>
 </template>
-
-<style scoped>
-.pcard {
-  --kind-color: var(--ink-2);
-  --kind-bg: var(--surface-2);
-  overflow: hidden;
-  border: 1px solid var(--line);
-  border-left: 3px solid var(--kind-color);
-  border-radius: 8px;
-  background: var(--surface);
-  box-shadow: var(--shadow-sm);
-}
-
-.kind-skill {
-  --kind-color: var(--kind-skill);
-  --kind-bg: var(--kind-skill-soft);
-}
-
-.kind-tool {
-  /* 徽标为 10px 小字：amber 在 amber-soft 上仅 3.34:1，改用为文字设计的 amber-text。 */
-  --kind-color: var(--amber-text);
-  --kind-bg: var(--kind-tool-soft);
-}
-
-.kind-vector {
-  --kind-color: var(--kind-vector);
-  --kind-bg: var(--kind-vector-soft);
-}
-
-.kind-a2a {
-  --kind-color: var(--kind-a2a);
-  --kind-bg: var(--kind-a2a-soft);
-}
-
-.kind-mcp {
-  --kind-color: var(--kind-mcp);
-  --kind-bg: var(--kind-mcp-soft);
-}
-
-.kind-approval {
-  --kind-color: var(--kind-approval);
-  --kind-bg: var(--kind-approval-soft);
-}
-
-.kind-workflow {
-  --kind-color: var(--kind-vector);
-  --kind-bg: var(--kind-vector-soft);
-}
-
-.kind-notice {
-  --kind-color: var(--ink-3);
-  --kind-bg: var(--surface-2);
-}
-
-.kind-error {
-  --kind-color: var(--red);
-  --kind-bg: var(--red-soft);
-}
-
-.pcard-head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 9px 12px;
-  border-bottom: 1px solid var(--line-2);
-  background: color-mix(in srgb, var(--kind-bg) 48%, var(--surface));
-}
-
-.badge {
-  flex: none;
-  padding: 1px 6px;
-  border-radius: 4px;
-  background: var(--kind-bg);
-  color: var(--kind-color);
-  font-size: 10px;
-  font-weight: 650;
-  letter-spacing: 0.03em;
-}
-
-.title {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  color: var(--ink);
-  font-size: 12.5px;
-  font-weight: 600;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.status {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  gap: 5px;
-  color: var(--ink-3);
-  font-size: 10.5px;
-  white-space: nowrap;
-}
-
-.status .dot {
-  width: 5px;
-  height: 5px;
-  background: var(--ink-3);
-}
-
-.status.is-running .dot {
-  background: var(--amber);
-  animation: pulse 1.6s ease-in-out infinite;
-}
-
-.status.is-waiting .dot {
-  background: var(--amber);
-}
-
-.status.is-ok .dot {
-  background: var(--green);
-}
-
-.status.is-error .dot {
-  background: var(--red);
-}
-
-.status.is-canceled .dot {
-  background: var(--ink-3);
-}
-
-.duration {
-  flex: none;
-  color: var(--ink-3);
-  font-size: 10px;
-}
-
-.pcard-body {
-  padding: 10px 12px;
-  color: var(--ink-2);
-  font-size: 12px;
-  line-height: 1.65;
-}
-</style>

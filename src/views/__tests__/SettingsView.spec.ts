@@ -229,7 +229,7 @@ describe('SettingsView 长滚动信息架构', () => {
 
   it('滚动时按阅读位置同步左侧高亮', async () => {
     const wrapper = mountSettings()
-    const shell = wrapper.find('.page-shell').element as HTMLElement
+    const shell = wrapper.find('.page-scroll').element as HTMLElement
     Object.defineProperty(shell, 'clientHeight', { configurable: true, value: 800 })
     Object.defineProperty(shell, 'scrollHeight', { configurable: true, value: 3200 })
     Object.defineProperty(shell, 'scrollTop', {

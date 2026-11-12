@@ -1,0 +1,3048 @@
+/*
+ * 管理台样式 · 取自 docs/prototypes/ui-v8-admin.html（v8 定稿）
+ * ------------------------------------------------------------------
+ * 来源：.tmp/pixel/ui-v8-admin.css（原型 CSS 提取，未作用域化）。
+ * 本文件把管理台用到的规则全部加 `.admin-shell` 前缀，避免与业务页
+ * 的全局同名类（.panel/.btn/.st/.data-table 等）冲突。
+ * 仅用于 AdminLayout 内部页面与 /admin/forbidden；通过 index.css 引入一次。
+ */
+
+/* ---------------------------------------------------------------- tokens */
+.admin-shell {
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB',
+    'Noto Sans SC', 'Source Han Sans SC', 'Microsoft YaHei', sans-serif;
+  --font-mono:
+    ui-monospace, 'SF Mono', 'JetBrains Mono', 'Cascadia Mono', 'Roboto Mono', Menlo, Consolas,
+    monospace;
+
+  --paper: #f0efe8;
+  --paper-2: #e9e7dd;
+  --surface: #fbfaf5;
+  --surface-2: #f4f3ec;
+  --ink: #141b20;
+  --ink-2: #4f5b63;
+  --ink-3: #606b72;
+  --line: #d7d5c9;
+  --line-2: #e3e1d6;
+
+  --prussian: #17465e;
+  --prussian-soft: #e4ecef;
+  --amber: #a9741f;
+  --amber-text: #8a5d14;
+  --amber-soft: #f3e9d3;
+  --red: #9c3a2b;
+  --red-soft: #f6e5e0;
+  --green: #3d6a4e;
+  --green-soft: #e4ede6;
+  --mcp: #5a4e72;
+  --mcp-soft: #ece8f1;
+
+  --btn-bg: #141b20;
+  --btn-fg: #fbfaf5;
+
+  --shadow-sm: 0 1px 2px rgba(20, 27, 32, 0.05);
+  --shadow-md: 0 1px 2px rgba(20, 27, 32, 0.04), 0 10px 28px -18px rgba(20, 27, 32, 0.35);
+  --shadow-lg: 0 20px 50px -30px rgba(20, 27, 32, 0.45);
+
+  --rail: #11181d;
+  --rail-2: #0c1216;
+  --rail-text: #ecebe4;
+  --rail-muted: rgba(236, 235, 228, 0.55);
+  --rail-faint: rgba(236, 235, 228, 0.36);
+  --rail-line: rgba(236, 235, 228, 0.09);
+  --rail-active: rgba(236, 235, 228, 0.075);
+  --rail-amber: #d4a04a;
+
+  display: grid;
+  grid-template-columns: 252px minmax(0, 1fr);
+  height: 100vh;
+  overflow: hidden;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 13.5px;
+  line-height: 1.5;
+  color-scheme: light;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html[data-theme='dark'] .admin-shell {
+  --paper: #0f1418;
+  --paper-2: #141a1f;
+  --surface: #171f24;
+  --surface-2: #1a2329;
+  --ink: #e8e7df;
+  --ink-2: #a3aeb4;
+  --ink-3: #85929a;
+  --line: #2a353c;
+  --line-2: #212b31;
+
+  --prussian: #93bed1;
+  --prussian-soft: rgba(147, 190, 209, 0.12);
+  --amber: #d4a04a;
+  --amber-text: #e0b76e;
+  --amber-soft: rgba(212, 160, 74, 0.13);
+  --red: #de907e;
+  --red-soft: rgba(222, 144, 126, 0.12);
+  --green: #8dbba0;
+  --green-soft: rgba(141, 187, 160, 0.12);
+  --mcp: #b3a4c9;
+  --mcp-soft: rgba(179, 164, 201, 0.12);
+
+  --btn-bg: #e8e7df;
+  --btn-fg: #10171b;
+
+  --shadow-sm: 0 1px 0 rgba(255, 255, 255, 0.03);
+  --shadow-md: 0 1px 0 rgba(255, 255, 255, 0.03), 0 16px 40px -24px rgba(0, 0, 0, 0.9);
+  --shadow-lg: 0 28px 60px -32px rgba(0, 0, 0, 0.95);
+
+  --rail: #0a0f12;
+  --rail-2: #070b0d;
+  color-scheme: dark;
+}
+
+/* ---------------------------------------------------------------- base */
+.admin-shell *,
+.admin-shell *::before,
+.admin-shell *::after {
+  box-sizing: border-box;
+}
+
+.admin-shell .ic {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  display: block;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.admin-shell .mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-shell .spacer {
+  flex: 1;
+}
+
+.admin-shell .sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.admin-shell a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.admin-shell h1,
+.admin-shell h2,
+.admin-shell h3,
+.admin-shell h4,
+.admin-shell p,
+.admin-shell dl,
+.admin-shell dd {
+  margin: 0;
+}
+
+.admin-shell ul,
+.admin-shell ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-shell .admin-skip {
+  position: absolute;
+  left: 8px;
+  top: -48px;
+  z-index: 130;
+  padding: 8px 12px;
+  border-radius: 5px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 11px;
+}
+
+.admin-shell .admin-skip:focus {
+  top: 8px;
+}
+
+/* ---------------------------------------------------------------- rail */
+.admin-shell .rail {
+  position: relative;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 12px 10px 10px;
+  color: var(--rail-text);
+  background: var(--rail);
+  border-right: 1px solid var(--rail-line);
+}
+
+.admin-shell .rail-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 6px 12px;
+}
+
+.admin-shell .brand-lockup {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+
+.admin-shell .brand-mark {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--rail-line);
+  border-radius: 6px;
+  background: var(--rail-2);
+  color: var(--rail-amber);
+}
+
+.admin-shell .brand-mark .ic {
+  width: 18px;
+  height: 18px;
+  stroke-width: 1.6;
+}
+
+.admin-shell .brand-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.admin-shell .brand-text b {
+  font-size: 13.5px;
+  font-weight: 650;
+  letter-spacing: -0.015em;
+  white-space: nowrap;
+}
+
+.admin-shell .brand-text small {
+  font-size: 9.5px;
+  color: var(--rail-muted);
+  letter-spacing: 0.02em;
+}
+
+.admin-shell .admin-badge {
+  flex: none;
+  margin-left: auto;
+  padding: 2px 5px;
+  border: 1px solid rgba(212, 160, 74, 0.34);
+  border-radius: 3px;
+  color: var(--rail-amber);
+  font-size: 8.5px;
+  line-height: 1.3;
+}
+
+.admin-shell .rail-back {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 4px 12px;
+  padding: 6px 7px;
+  border: 1px solid var(--rail-line);
+  border-radius: 5px;
+  color: var(--rail-muted);
+  font-size: 10.5px;
+  transition:
+    color 0.12s,
+    background 0.12s;
+}
+
+.admin-shell .rail-back:hover {
+  color: var(--rail-text);
+  background: var(--rail-active);
+}
+
+.admin-shell .rail-back .ic {
+  width: 13px;
+  height: 13px;
+}
+
+.admin-shell .rail-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 2px 12px;
+}
+
+.admin-shell .rail-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.admin-shell .rail-label {
+  padding: 0 8px 4px;
+  font-size: 9px;
+  color: var(--rail-muted);
+  letter-spacing: 0.03em;
+}
+
+.admin-shell .rail-link {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  height: 31px;
+  padding: 0 8px;
+  border-radius: 5px;
+  text-align: left;
+  color: var(--rail-muted);
+  font-size: 11.5px;
+  transition:
+    background 0.12s,
+    color 0.12s;
+}
+
+.admin-shell .rail-link .ic {
+  width: 15px;
+  height: 15px;
+  color: var(--rail-faint);
+  transition: color 0.12s;
+}
+
+.admin-shell .rail-link:hover {
+  background: var(--rail-active);
+  color: var(--rail-text);
+}
+
+.admin-shell .rail-link:hover .ic {
+  color: var(--rail-muted);
+}
+
+.admin-shell .rail-link.is-active {
+  background: var(--rail-active);
+  color: var(--rail-text);
+  font-weight: 550;
+}
+
+.admin-shell .rail-link.is-active::before {
+  content: '';
+  position: absolute;
+  left: -2px;
+  top: 7px;
+  bottom: 7px;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--rail-amber);
+}
+
+.admin-shell .rail-link.is-active .ic {
+  color: var(--rail-amber);
+}
+
+.admin-shell .rail-count {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  color: var(--rail-muted);
+}
+
+.admin-shell .rail-link.is-active .rail-count {
+  color: var(--rail-muted);
+}
+
+.admin-shell .rail-foot {
+  margin-top: auto;
+  padding: 9px 2px 2px;
+  border-top: 1px solid var(--rail-line);
+}
+
+.admin-shell .rail-health {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 7px 10px;
+  font-size: 9.5px;
+  color: var(--rail-muted);
+}
+
+.admin-shell .rail-health .dot {
+  width: 5px;
+  height: 5px;
+  background: #8dbba0;
+  border-radius: 50%;
+  box-shadow: 0 0 0 3px rgba(141, 187, 160, 0.12);
+}
+
+.admin-shell .rail-health .mono {
+  margin-left: auto;
+  font-size: 8.5px;
+  color: var(--rail-faint);
+}
+
+.admin-shell .rail-account {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 7px;
+  border-top: 1px solid var(--rail-line);
+}
+
+.admin-shell .rail-avatar {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 27px;
+  height: 27px;
+  border-radius: 50%;
+  background: var(--rail-2);
+  border: 1px solid var(--rail-line);
+  color: var(--rail-text);
+  font-family: var(--font-mono);
+  font-size: 9px;
+}
+
+.admin-shell .rail-account-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.admin-shell .rail-account-main b {
+  display: block;
+  font-size: 11px;
+  font-weight: 550;
+  color: var(--rail-text);
+}
+
+.admin-shell .rail-account-main small {
+  display: block;
+  margin-top: 1px;
+  font-size: 8.5px;
+  color: var(--rail-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-shell .rail-logout {
+  display: grid;
+  place-items: center;
+  width: 25px;
+  height: 25px;
+  border-radius: 4px;
+  color: var(--rail-faint);
+}
+
+.admin-shell .rail-logout:hover {
+  background: var(--rail-active);
+  color: var(--rail-text);
+}
+
+.admin-shell .rail-logout .ic {
+  width: 14px;
+  height: 14px;
+}
+
+.admin-shell .rail-scrim {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgba(7, 11, 13, 0.55);
+}
+
+/* ---------------------------------------------------------------- main / topbar */
+.admin-shell .admin-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background: var(--paper);
+}
+
+.admin-shell .topbar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  height: 58px;
+  padding: 0 26px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+}
+
+.admin-shell .mobile-menu {
+  display: grid;
+}
+
+.admin-shell .crumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-size: 10.5px;
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+
+.admin-shell .crumb .ic {
+  width: 11px;
+  height: 11px;
+  color: var(--line);
+}
+
+.admin-shell .crumb b {
+  font-weight: 550;
+  color: var(--ink-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.admin-shell .crumb-sep {
+  color: var(--line);
+  font-size: 10px;
+}
+
+.admin-shell .topbar-tools {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-left: auto;
+  min-width: 0;
+}
+
+.admin-shell .icon-btn {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 29px;
+  height: 29px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  color: var(--ink-3);
+  transition:
+    background 0.12s,
+    color 0.12s,
+    border-color 0.12s;
+}
+
+.admin-shell .icon-btn:hover {
+  background: var(--surface-2);
+  color: var(--ink);
+  border-color: var(--line-2);
+}
+
+.admin-shell .icon-btn .ic {
+  width: 15px;
+  height: 15px;
+}
+
+.admin-shell .topbar-avatar {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  margin-left: 2px;
+  padding: 0;
+  border-radius: 50%;
+  background: var(--ink);
+  color: var(--paper);
+  font-family: var(--font-mono);
+  font-size: 9px;
+}
+
+.admin-shell .admin-account-pop {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 40;
+  width: 196px;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
+}
+
+.admin-shell .account-pop-head {
+  padding: 7px 8px 9px;
+  border-bottom: 1px solid var(--line-2);
+}
+
+.admin-shell .account-pop-head b {
+  display: block;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.admin-shell .account-pop-head small {
+  display: block;
+  margin-top: 2px;
+  color: var(--ink-3);
+  font-size: 9px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-shell .account-pop-item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  height: 29px;
+  padding: 0 8px;
+  border-radius: 4px;
+  color: var(--ink-2);
+  font-size: 10.5px;
+  text-align: left;
+}
+
+.admin-shell .account-pop-item:hover {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+.admin-shell .account-pop-item .ic {
+  width: 13px;
+  height: 13px;
+  color: var(--ink-3);
+}
+
+.admin-shell .account-pop-item.is-danger {
+  color: var(--red);
+}
+
+.admin-shell .account-pop-item.is-danger .ic {
+  color: var(--red);
+}
+
+/* ---------------------------------------------------------------- page scaffold */
+.admin-shell .admin-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  outline: none;
+}
+
+.admin-shell .admin-page {
+  width: 100%;
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 28px 34px 64px;
+}
+
+.admin-shell .admin-page-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.admin-shell .page-title {
+  font-size: 23px;
+  font-weight: 650;
+  letter-spacing: -0.022em;
+  line-height: 1.2;
+}
+
+.admin-shell .page-sub {
+  margin-top: 5px;
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: var(--ink-3);
+  max-width: 68ch;
+}
+
+.admin-shell .head-actions {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex: none;
+  flex-wrap: wrap;
+}
+
+.admin-shell .prototype-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 14px;
+  padding: 9px 12px;
+  border: 1px solid var(--amber-soft);
+  border-radius: 6px;
+  background: var(--amber-soft);
+  font-size: 10.5px;
+  line-height: 1.6;
+  color: var(--amber-text);
+}
+
+.admin-shell .prototype-note .ic {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  margin-top: 1px;
+}
+
+.admin-shell .prototype-note .text-link {
+  margin-left: auto;
+  flex: none;
+  white-space: nowrap;
+  color: var(--amber-text);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.admin-shell .generated-line {
+  margin-top: 12px;
+  color: var(--ink-3);
+  font-size: 9.5px;
+}
+
+/* ---------------------------------------------------------------- buttons */
+.admin-shell .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  height: 30px;
+  padding: 0 11px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+  transition:
+    background 0.12s,
+    color 0.12s,
+    border-color 0.12s;
+}
+
+.admin-shell .btn .ic {
+  width: 13px;
+  height: 13px;
+}
+
+.admin-shell .btn-primary {
+  background: var(--btn-bg);
+  color: var(--btn-fg);
+}
+
+.admin-shell .btn-primary:hover {
+  background: var(--prussian);
+  color: var(--surface);
+}
+
+html[data-theme='dark'] .admin-shell .btn-primary:hover {
+  background: var(--amber);
+  color: #11181d;
+}
+
+.admin-shell .btn-outline {
+  border-color: var(--line);
+  background: var(--surface);
+  color: var(--ink-2);
+}
+
+.admin-shell .btn-outline:hover {
+  border-color: var(--ink-3);
+  color: var(--ink);
+  background: var(--surface-2);
+}
+
+.admin-shell .btn-ghost {
+  border-color: transparent;
+  background: transparent;
+  color: var(--ink-2);
+}
+
+.admin-shell .btn-ghost:hover {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+.admin-shell .btn-danger {
+  background: var(--red-soft);
+  color: var(--red);
+}
+
+.admin-shell .btn-sm {
+  height: 25px;
+  padding: 0 8px;
+  font-size: 10px;
+  border-radius: 3px;
+}
+
+.admin-shell .btn-sm .ic {
+  width: 11px;
+  height: 11px;
+}
+
+.admin-shell .btn[disabled] {
+  opacity: 0.42;
+  cursor: not-allowed;
+}
+
+.admin-shell .text-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--prussian);
+  font-size: 10px;
+}
+
+.admin-shell .text-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.admin-shell .text-link .ic {
+  width: 10px;
+  height: 10px;
+}
+
+.admin-shell .text-link.is-danger {
+  color: var(--red);
+}
+
+.admin-shell .text-link[disabled] {
+  color: var(--ink-3);
+  cursor: not-allowed;
+  text-decoration: none;
+}
+
+/* ---------------------------------------------------------------- status / badges */
+.admin-shell .st {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 19px;
+  padding: 0 6px;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  font-size: 9px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.admin-shell .st .dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+}
+
+.admin-shell .st-ok {
+  background: var(--green-soft);
+  color: var(--green);
+}
+
+.admin-shell .st-ok .dot {
+  background: var(--green);
+}
+
+.admin-shell .st-live {
+  background: var(--amber-soft);
+  color: var(--amber-text);
+}
+
+.admin-shell .st-live .dot {
+  background: var(--amber);
+}
+
+.admin-shell .st-warn {
+  background: var(--amber-soft);
+  color: var(--amber-text);
+}
+
+.admin-shell .st-warn .dot {
+  background: var(--amber);
+}
+
+.admin-shell .st-error {
+  background: var(--red-soft);
+  color: var(--red);
+}
+
+.admin-shell .st-error .dot {
+  background: var(--red);
+}
+
+.admin-shell .st-muted {
+  background: var(--surface-2);
+  color: var(--ink-3);
+  border-color: var(--line-2);
+}
+
+.admin-shell .st-muted .dot {
+  background: var(--ink-3);
+}
+
+@keyframes admin-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.admin-shell .st-live .dot {
+  animation: admin-pulse 2.4s ease-in-out infinite;
+}
+
+.admin-shell .role-badge {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 6px;
+  border: 1px solid var(--line-2);
+  border-radius: 3px;
+  background: var(--surface-2);
+  font-size: 9px;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+
+.admin-shell .role-badge.admin {
+  background: var(--amber-soft);
+  border-color: rgba(169, 116, 31, 0.2);
+  color: var(--amber-text);
+}
+
+.admin-shell .role-badge.ops {
+  background: var(--prussian-soft);
+  border-color: rgba(23, 70, 94, 0.16);
+  color: var(--prussian);
+}
+
+.admin-shell .role-badge.support {
+  background: var(--green-soft);
+  border-color: rgba(61, 106, 78, 0.14);
+  color: var(--green);
+}
+
+.admin-shell .role-badge.editor {
+  background: var(--mcp-soft);
+  border-color: rgba(90, 78, 114, 0.16);
+  color: var(--mcp);
+}
+
+.admin-shell .role-badge.auditor {
+  background: var(--surface-2);
+  color: var(--ink-3);
+}
+
+.admin-shell .type-chip {
+  display: inline-flex;
+  align-items: center;
+  height: 18px;
+  padding: 0 5px;
+  border: 1px solid var(--line-2);
+  border-radius: 3px;
+  background: var(--surface-2);
+  font-size: 8.5px;
+  color: var(--ink-3);
+}
+
+.admin-shell .type-chip.directory {
+  background: var(--prussian-soft);
+  border-color: transparent;
+  color: var(--prussian);
+}
+
+.admin-shell .type-chip.button {
+  background: var(--amber-soft);
+  border-color: transparent;
+  color: var(--amber-text);
+}
+
+.admin-shell .badge {
+  display: inline-flex;
+  align-items: center;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 3px;
+  background: var(--surface-2);
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  color: var(--ink-3);
+}
+
+.admin-shell .tag {
+  display: inline-flex;
+  align-items: center;
+  height: 17px;
+  padding: 0 4px;
+  border: 1px solid var(--line-2);
+  border-radius: 3px;
+  background: var(--surface-2);
+  font-family: var(--font-mono);
+  font-size: 8px;
+  color: var(--ink-3);
+}
+
+/* ---------------------------------------------------------------- metric strip */
+.admin-shell .metric-strip {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  margin: 18px 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.admin-shell .metric {
+  padding: 12px 16px 11px;
+  border-right: 1px solid var(--line-2);
+}
+
+.admin-shell .metric:last-child {
+  border-right: 0;
+}
+
+.admin-shell .metric-label {
+  display: block;
+  font-size: 9px;
+  color: var(--ink-3);
+  letter-spacing: 0.02em;
+}
+
+.admin-shell .metric-value {
+  display: block;
+  margin-top: 2px;
+  font-family: var(--font-mono);
+  font-size: 22px;
+  font-weight: 500;
+  line-height: 1.2;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-shell .metric-value small {
+  margin-left: 4px;
+  font-family: var(--font-sans);
+  font-size: 9px;
+  font-weight: 400;
+  color: var(--ink-3);
+}
+
+.admin-shell .metric-foot {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 3px;
+  font-size: 8.5px;
+  color: var(--ink-3);
+}
+
+.admin-shell .delta {
+  color: var(--green);
+  font-family: var(--font-mono);
+}
+
+.admin-shell .delta.is-warn {
+  color: var(--amber-text);
+}
+
+.admin-shell .delta.is-bad {
+  color: var(--red);
+}
+
+/* ---------------------------------------------------------------- panels */
+.admin-shell .grid-2 {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.admin-shell .grid-2.is-single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.admin-shell .panel-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+.admin-shell .split-lists {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+}
+
+.admin-shell .list-title {
+  margin: 0 0 6px;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--ink-3);
+}
+
+.admin-shell .split-lists .status-row {
+  padding: 4px 0;
+}
+
+.admin-shell .split-lists .status-row:first-child {
+  padding-top: 0;
+}
+
+.admin-shell .split-lists .status-row:last-child {
+  padding-bottom: 0;
+}
+
+.admin-shell .panel {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.admin-shell .panel-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  min-height: 44px;
+  padding: 9px 14px;
+  border-bottom: 1px solid var(--line-2);
+}
+
+.admin-shell .panel-head h2 {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+}
+
+.admin-shell .panel-head p {
+  margin-top: 1px;
+  font-size: 9.5px;
+  color: var(--ink-3);
+}
+
+.admin-shell .panel-meta {
+  font-size: 9px;
+  color: var(--ink-3);
+}
+
+.admin-shell .panel-head .spacer {
+  flex: 1;
+}
+
+.admin-shell .panel-body {
+  padding: 14px;
+}
+
+.admin-shell .panel-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-top: 1px solid var(--line-2);
+  background: var(--surface-2);
+  font-size: 9px;
+  color: var(--ink-3);
+}
+
+/* status list */
+.admin-shell .status-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.admin-shell .status-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line-2);
+  font-size: 10.5px;
+}
+
+.admin-shell .status-row:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.admin-shell .status-row:first-child {
+  padding-top: 0;
+}
+
+.admin-shell .status-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  flex: none;
+  background: var(--ink-3);
+}
+
+.admin-shell .status-dot.ok {
+  background: var(--green);
+}
+
+.admin-shell .status-dot.warn {
+  background: var(--amber);
+}
+
+.admin-shell .status-dot.bad {
+  background: var(--red);
+}
+
+.admin-shell .status-name {
+  flex: 1;
+  color: var(--ink-2);
+}
+
+.admin-shell .status-meta {
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  color: var(--ink-3);
+}
+
+.admin-shell .status-state {
+  font-size: 9px;
+  color: var(--green);
+  white-space: nowrap;
+}
+
+.admin-shell .status-state.warn {
+  color: var(--amber-text);
+}
+
+.admin-shell .status-state.bad {
+  color: var(--red);
+}
+
+/* recent audit mini */
+.admin-shell .audit-mini {
+  display: flex;
+  flex-direction: column;
+}
+
+.admin-shell .audit-mini-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line-2);
+}
+
+.admin-shell .audit-mini-row:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.admin-shell .audit-mini-row:first-child {
+  padding-top: 0;
+}
+
+.admin-shell .audit-mini-time {
+  width: 58px;
+  flex: none;
+  padding-top: 2px;
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  color: var(--ink-3);
+}
+
+.admin-shell .audit-mini-main {
+  flex: 1;
+  min-width: 0;
+  font-size: 10.5px;
+  line-height: 1.5;
+  color: var(--ink-3);
+}
+
+.admin-shell .audit-mini-main b {
+  font-weight: 550;
+  color: var(--ink-2);
+}
+
+.admin-shell .audit-mini-res {
+  margin-top: 2px;
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  color: var(--ink-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* todo */
+.admin-shell .todo-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.admin-shell .todo-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--line-2);
+  font-size: 10.5px;
+  color: var(--ink-2);
+}
+
+.admin-shell .todo-row:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.admin-shell .todo-row:first-child {
+  padding-top: 0;
+}
+
+.admin-shell .todo-row .ic {
+  width: 14px;
+  height: 14px;
+  color: var(--ink-3);
+}
+
+.admin-shell .todo-row b {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  color: var(--ink);
+  font-size: 10px;
+}
+
+.admin-shell .todo-row .spacer {
+  flex: 1;
+}
+
+.admin-shell .todo-row .text-link {
+  flex: none;
+}
+
+/* ---------------------------------------------------------------- toolbar / forms */
+.admin-shell .toolbar {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+  margin: 14px 0 10px;
+}
+
+.admin-shell .summary-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+  font-size: 10px;
+  color: var(--ink-3);
+}
+
+.admin-shell .summary-line b {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--ink-2);
+}
+
+.admin-shell .summary-line .sep {
+  opacity: 0.45;
+}
+
+.admin-shell .search-field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 29px;
+  min-width: 210px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--surface);
+}
+
+.admin-shell .search-field .ic {
+  width: 13px;
+  height: 13px;
+  color: var(--ink-3);
+  flex: none;
+}
+
+.admin-shell .search-field input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  font: inherit;
+  font-size: 10.5px;
+  color: var(--ink);
+}
+
+.admin-shell .search-field input::placeholder {
+  color: var(--ink-3);
+}
+
+.admin-shell .select,
+.admin-shell .input,
+.admin-shell .textarea {
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: 10.5px;
+  outline: none;
+  transition: border-color 0.12s;
+}
+
+.admin-shell .select:focus,
+.admin-shell .input:focus,
+.admin-shell .textarea:focus {
+  border-color: var(--ink-3);
+}
+
+.admin-shell .select {
+  cursor: pointer;
+}
+
+.admin-shell .textarea {
+  height: auto;
+  min-height: 70px;
+  padding: 7px 8px;
+  resize: vertical;
+  line-height: 1.55;
+}
+
+.admin-shell .field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.admin-shell .field > span {
+  font-size: 9px;
+  color: var(--ink-3);
+}
+
+.admin-shell .field > small {
+  font-size: 8.5px;
+  color: var(--ink-3);
+}
+
+.admin-shell .form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 11px;
+}
+
+.admin-shell .field-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line-2);
+}
+
+.admin-shell .field-row:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.admin-shell .field-row:first-child {
+  padding-top: 0;
+}
+
+.admin-shell .field-row-main {
+  min-width: 0;
+}
+
+.admin-shell .field-row-main b {
+  display: block;
+  font-size: 10.5px;
+  font-weight: 550;
+  color: var(--ink-2);
+}
+
+.admin-shell .field-row-main small {
+  display: block;
+  margin-top: 1px;
+  font-size: 9px;
+  color: var(--ink-3);
+  line-height: 1.5;
+}
+
+.admin-shell .seg {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  padding: 2px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--surface);
+}
+
+.admin-shell .seg button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 23px;
+  padding: 0 8px;
+  border-radius: 3px;
+  font-size: 9.5px;
+  color: var(--ink-3);
+  white-space: nowrap;
+  transition:
+    background 0.12s,
+    color 0.12s;
+}
+
+.admin-shell .seg button:hover {
+  color: var(--ink);
+}
+
+.admin-shell .seg button.is-active {
+  background: var(--surface-2);
+  color: var(--ink);
+  font-weight: 550;
+}
+
+.admin-shell .seg button .count {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  color: var(--ink-3);
+}
+
+/* switch */
+.admin-shell .switch {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  width: 30px;
+  height: 17px;
+  cursor: pointer;
+}
+
+.admin-shell .switch input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}
+
+.admin-shell .switch span {
+  position: absolute;
+  inset: 0;
+  border-radius: 9px;
+  border: 1px solid var(--line);
+  background: var(--line-2);
+  transition:
+    background 0.15s,
+    border-color 0.15s;
+}
+
+.admin-shell .switch span::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--surface);
+  box-shadow: 0 1px 1px rgba(20, 27, 32, 0.18);
+  transition: transform 0.15s;
+}
+
+.admin-shell .switch input:checked + span {
+  background: var(--prussian);
+  border-color: var(--prussian);
+}
+
+.admin-shell .switch input:checked + span::after {
+  transform: translateX(13px);
+}
+
+.admin-shell .switch input:focus-visible + span {
+  outline: 2px solid var(--prussian);
+  outline-offset: 2px;
+}
+
+/* ---------------------------------------------------------------- tables */
+.admin-shell .table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+}
+
+.admin-shell .data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 10.5px;
+  min-width: 720px;
+}
+
+.admin-shell .data-table th {
+  height: 34px;
+  padding: 0 11px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface-2);
+  text-align: left;
+  font-size: 8.5px;
+  font-weight: 500;
+  color: var(--ink-3);
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.admin-shell .data-table td {
+  padding: 9px 11px;
+  border-bottom: 1px solid var(--line-2);
+  color: var(--ink-2);
+  vertical-align: middle;
+}
+
+.admin-shell .data-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.admin-shell .data-table tbody tr:hover td {
+  background: rgba(20, 27, 32, 0.022);
+}
+
+html[data-theme='dark'] .admin-shell .data-table tbody tr:hover td {
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.admin-shell .data-table .num {
+  text-align: right;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+}
+
+.admin-shell .data-table .actions {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.admin-shell .data-table .actions button {
+  margin-left: 7px;
+}
+
+.admin-shell .data-table .actions > * + * {
+  margin-left: 7px;
+}
+
+.admin-shell .data-table .empty {
+  padding: 34px 18px;
+  text-align: center;
+  font-size: 10.5px;
+  color: var(--ink-3);
+}
+
+.admin-shell .table-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 8px 11px;
+  border-top: 1px solid var(--line-2);
+  background: var(--surface-2);
+  font-size: 9px;
+  color: var(--ink-3);
+}
+
+.admin-shell .table-foot .spacer {
+  flex: 1;
+}
+
+.admin-shell .pagination {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.admin-shell .pagination button {
+  display: grid;
+  place-items: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: var(--surface);
+  font-size: 9px;
+  color: var(--ink-3);
+}
+
+.admin-shell .pagination button.is-active {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--paper);
+}
+
+.admin-shell .pagination button[disabled] {
+  opacity: 0.42;
+  cursor: not-allowed;
+}
+
+.admin-shell .page-indicator {
+  display: grid;
+  place-items: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border: 1px solid var(--ink);
+  border-radius: 3px;
+  background: var(--ink);
+  color: var(--paper);
+  font-size: 9px;
+}
+
+.admin-shell .empty-state {
+  padding: 34px 18px;
+  text-align: center;
+  font-size: 10.5px;
+  color: var(--ink-3);
+}
+
+/* user cell */
+.admin-shell .user-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 160px;
+}
+
+.admin-shell .avatar {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  color: var(--ink-2);
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+}
+
+.admin-shell .avatar.sm {
+  width: 25px;
+  height: 25px;
+  font-size: 8px;
+}
+
+.admin-shell .avatar.admin {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--paper);
+}
+
+.admin-shell .user-cell-main {
+  min-width: 0;
+}
+
+.admin-shell .user-cell-main b {
+  display: block;
+  font-size: 10.5px;
+  font-weight: 550;
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+.admin-shell .user-cell-main span {
+  display: block;
+  margin-top: 1px;
+  font-size: 9px;
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+
+.admin-shell .user-cell.is-self b::after {
+  content: '你';
+  margin-left: 4px;
+  padding: 0 3px;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  font-family: var(--font-sans);
+  font-size: 7.5px;
+  color: var(--ink-3);
+}
+
+.admin-shell .self-tag {
+  flex: none;
+  margin-left: 2px;
+  padding: 0 4px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  color: var(--ink-3);
+  font-size: 7.5px;
+  line-height: 1.6;
+}
+
+.admin-shell .role-cell {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  min-width: 76px;
+}
+
+.admin-shell .role-select {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  border: 0;
+  background: transparent;
+}
+
+.admin-shell .role-select:disabled {
+  cursor: not-allowed;
+}
+
+.admin-shell .role-cell:focus-within .role-badge {
+  outline: 2px solid var(--prussian);
+  outline-offset: 2px;
+}
+
+.admin-shell .count-label {
+  font-size: 9px;
+  color: var(--ink-3);
+}
+
+.admin-shell .muted {
+  color: var(--ink-3);
+  font-size: 9.5px;
+  white-space: nowrap;
+}
+
+/* ---------------------------------------------------------------- roles */
+.admin-shell .roles-layout {
+  display: grid;
+  grid-template-columns: 268px minmax(0, 1fr);
+  gap: 14px;
+  margin-top: 14px;
+  align-items: start;
+}
+
+.admin-shell .role-panel {
+  overflow: hidden;
+}
+
+.admin-shell .role-list {
+  display: flex;
+  flex-direction: column;
+  padding: 6px;
+}
+
+.admin-shell .role-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  width: 100%;
+  padding: 8px;
+  border-radius: 5px;
+  text-align: left;
+  transition: background 0.12s;
+}
+
+.admin-shell .role-item:hover {
+  background: var(--surface-2);
+}
+
+.admin-shell .role-item.is-active {
+  background: var(--surface-2);
+}
+
+.admin-shell .role-item-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.admin-shell .role-item-main b {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10.5px;
+  font-weight: 550;
+  color: var(--ink-2);
+}
+
+.admin-shell .role-item-main small {
+  display: block;
+  margin-top: 2px;
+  font-size: 8.5px;
+  line-height: 1.4;
+  color: var(--ink-3);
+}
+
+.admin-shell .role-item .ic {
+  width: 12px;
+  height: 12px;
+  color: var(--ink-3);
+  margin-top: 2px;
+  flex: none;
+}
+
+.admin-shell .role-item.is-active .role-item-main b {
+  color: var(--ink);
+}
+
+.admin-shell .lock-mini {
+  padding: 0 3px;
+  border: 1px solid rgba(169, 116, 31, 0.22);
+  border-radius: 2px;
+  font-size: 7.5px;
+  color: var(--amber-text);
+}
+
+.admin-shell .permission-panel .panel-head {
+  align-items: flex-start;
+}
+
+.admin-shell .permission-panel .panel-head h2 {
+  font-size: 13px;
+}
+
+.admin-shell .permission-panel .panel-head p {
+  margin-top: 2px;
+  max-width: 66ch;
+}
+
+.admin-shell .lock-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 5px;
+  border: 1px solid rgba(169, 116, 31, 0.22);
+  border-radius: 3px;
+  font-size: 8.5px;
+  color: var(--amber-text);
+}
+
+.admin-shell .lock-note .ic {
+  width: 10px;
+  height: 10px;
+}
+
+.admin-shell .perm-table {
+  min-width: 560px;
+}
+
+.admin-shell .perm-table th {
+  text-align: center;
+}
+
+.admin-shell .perm-table th:first-child {
+  text-align: left;
+}
+
+.admin-shell .perm-table td {
+  text-align: center;
+  padding-top: 7px;
+  padding-bottom: 7px;
+}
+
+.admin-shell .perm-table td:first-child {
+  text-align: left;
+  color: var(--ink-2);
+}
+
+.admin-shell .perm-table .perm-group td {
+  background: var(--surface-2);
+  color: var(--ink-3);
+  font-size: 8.5px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+.admin-shell .perm-table input[type='checkbox'] {
+  accent-color: var(--prussian);
+  width: 13px;
+  height: 13px;
+}
+
+.admin-shell .perm-table input[type='checkbox']:disabled {
+  opacity: 0.55;
+}
+
+.admin-shell .perm-note {
+  padding: 8px 14px;
+  font-size: 9px;
+  color: var(--ink-3);
+  background: var(--surface-2);
+  border-top: 1px solid var(--line-2);
+}
+
+.admin-shell .role-dist {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  margin: 8px 6px 4px;
+  padding-top: 9px;
+  border-top: 1px solid var(--line-2);
+  font-size: 9px;
+  color: var(--ink-3);
+}
+
+.admin-shell .role-dist > div {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.admin-shell .role-dist dt {
+  color: var(--ink-3);
+}
+
+.admin-shell .role-dist dd {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--ink-2);
+}
+
+.admin-shell .matrix-block {
+  margin-top: 14px;
+}
+
+.admin-shell .matrix-block .panel-head {
+  border-bottom: 1px solid var(--line-2);
+}
+
+.admin-shell .matrix-table th,
+.admin-shell .matrix-table td {
+  text-align: left;
+}
+
+/* ---------------------------------------------------------------- menus */
+.admin-shell .menu-table {
+  min-width: 900px;
+  table-layout: fixed;
+}
+
+.admin-shell .menu-table caption {
+  padding: 8px 11px;
+  border-bottom: 1px solid var(--line-2);
+  background: var(--surface-2);
+  text-align: left;
+  caption-side: top;
+}
+
+.admin-shell .menu-section + .menu-section {
+  margin-top: 14px;
+}
+
+.admin-shell .menu-table .tree-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10.5px;
+  font-weight: 550;
+  color: var(--ink);
+}
+
+.admin-shell .menu-table .tree-group .ic {
+  width: 12px;
+  height: 12px;
+  color: var(--ink-3);
+}
+
+.admin-shell .menu-table .tree-group .badge {
+  margin-left: 6px;
+}
+
+.admin-shell .menu-table td:first-child {
+  min-width: 220px;
+}
+
+.admin-shell .tree-group-row td {
+  background: var(--surface-2);
+  font-weight: 550;
+  color: var(--ink-2);
+}
+
+.admin-shell .tree-indent {
+  display: inline-block;
+  width: 18px;
+}
+
+.admin-shell .tree-indent.x2 {
+  width: 36px;
+}
+
+.admin-shell .tree-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--ink-2);
+}
+
+.admin-shell .tree-name .ic {
+  width: 12px;
+  height: 12px;
+  color: var(--ink-3);
+}
+
+.admin-shell .menu-table .path {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--ink-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-shell .menu-table .perm {
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  color: var(--ink-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-shell .menu-table .visibility {
+  font-size: 9px;
+  color: var(--ink-3);
+}
+
+/* ---------------------------------------------------------------- dictionaries */
+.admin-shell .dict-layout {
+  display: grid;
+  grid-template-columns: 286px minmax(0, 1fr);
+  gap: 14px;
+  margin-top: 14px;
+  align-items: start;
+}
+
+.admin-shell .dict-types {
+  overflow: hidden;
+}
+
+.admin-shell .dict-search {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line-2);
+}
+
+.admin-shell .dict-search .search-field {
+  width: 100%;
+  min-width: 0;
+  height: 27px;
+}
+
+.admin-shell .dict-type-list {
+  display: flex;
+  flex-direction: column;
+  padding: 5px;
+  max-height: 560px;
+  overflow-y: auto;
+}
+
+.admin-shell .dict-type {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  padding: 8px 7px;
+  border-radius: 4px;
+  text-align: left;
+}
+
+.admin-shell .dict-type:hover {
+  background: var(--surface-2);
+}
+
+.admin-shell .dict-type.is-active {
+  background: var(--surface-2);
+}
+
+.admin-shell .dict-type-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.admin-shell .dict-type-main b {
+  display: block;
+  font-size: 10.5px;
+  font-weight: 550;
+  color: var(--ink-2);
+}
+
+.admin-shell .dict-type-main small {
+  display: block;
+  margin-top: 1px;
+  font-family: var(--font-mono);
+  font-size: 8px;
+  color: var(--ink-3);
+}
+
+.admin-shell .dict-type .count {
+  flex: none;
+  padding: 1px 4px;
+  border: 1px solid var(--line-2);
+  border-radius: 3px;
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  color: var(--ink-3);
+}
+
+.admin-shell .dict-type .ic {
+  width: 10px;
+  height: 10px;
+  color: var(--ink-3);
+  flex: none;
+}
+
+.admin-shell .dict-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--line-2);
+}
+
+.admin-shell .dict-head-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.admin-shell .dict-head h2 {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.admin-shell .dict-head p {
+  margin-top: 2px;
+  font-size: 9.5px;
+  color: var(--ink-3);
+  line-height: 1.5;
+}
+
+.admin-shell .dict-code {
+  height: 19px;
+  padding: 2px 5px;
+  border: 1px solid var(--line-2);
+  border-radius: 3px;
+  background: var(--surface-2);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--ink-3);
+}
+
+.admin-shell .dict-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--line-2);
+}
+
+.admin-shell .dict-toolbar .search-field {
+  height: 27px;
+  min-width: 180px;
+}
+
+.admin-shell .dict-toolbar .spacer {
+  flex: 1;
+}
+
+.admin-shell .dict-panel-body {
+  padding: 0;
+}
+
+.admin-shell .dict-item-table {
+  min-width: 520px;
+}
+
+.admin-shell .swatch {
+  display: inline-block;
+  width: 11px;
+  height: 11px;
+  border-radius: 3px;
+  flex: none;
+  border: 1px solid rgba(20, 27, 32, 0.08);
+}
+
+.admin-shell .color-cell {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 9px;
+  color: var(--ink-3);
+}
+
+.admin-shell .item-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.admin-shell .item-status .st {
+  height: 18px;
+  font-size: 8.5px;
+}
+
+/* ---------------------------------------------------------------- audit */
+.admin-shell .audit-table {
+  min-width: 880px;
+}
+
+.admin-shell .audit-actor {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 95px;
+}
+
+.admin-shell .audit-actor .avatar {
+  width: 22px;
+  height: 22px;
+  font-size: 7.5px;
+}
+
+.admin-shell .audit-actor b {
+  font-size: 9.5px;
+  font-weight: 500;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+
+.admin-shell .audit-action {
+  font-size: 9.5px;
+  color: var(--ink-2);
+}
+
+.admin-shell .audit-action small {
+  display: block;
+  margin-top: 2px;
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  color: var(--ink-3);
+}
+
+.admin-shell .audit-resource {
+  display: block;
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  color: var(--ink-3);
+}
+
+.admin-shell .audit-ip {
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  color: var(--ink-3);
+}
+
+.admin-shell .audit-json {
+  margin: 0;
+  padding: 10px;
+  border: 1px solid var(--line-2);
+  border-radius: 5px;
+  background: var(--surface-2);
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  line-height: 1.6;
+  color: var(--ink-2);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 260px;
+  overflow: auto;
+}
+
+.admin-shell .audit-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.admin-shell .audit-meta {
+  display: grid;
+  grid-template-columns: 90px minmax(0, 1fr);
+  gap: 5px 10px;
+  font-size: 10px;
+}
+
+.admin-shell .audit-meta dt {
+  color: var(--ink-3);
+}
+
+.admin-shell .audit-meta dd {
+  color: var(--ink-2);
+  overflow-wrap: anywhere;
+}
+
+.admin-shell .audit-meta dd.mono {
+  font-family: var(--font-mono);
+  font-size: 9px;
+}
+
+.admin-shell .audit-advanced {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+  width: 100%;
+  margin-top: 2px;
+  padding: 10px 12px;
+  border: 1px solid var(--line-2);
+  border-radius: 6px;
+  background: var(--surface-2);
+}
+
+.admin-shell .audit-advanced .field > span {
+  color: var(--ink-3);
+}
+
+.admin-shell .audit-advanced .actions {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+/* ---------------------------------------------------------------- settings */
+.admin-shell .settings-layout {
+  display: grid;
+  grid-template-columns: 176px minmax(0, 1fr);
+  gap: 22px;
+  margin-top: 16px;
+  align-items: start;
+}
+
+.admin-shell .settings-nav {
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding-right: 12px;
+  border-right: 1px solid var(--line-2);
+}
+
+.admin-shell .settings-nav button {
+  display: flex;
+  align-items: center;
+  height: 30px;
+  padding: 0 9px;
+  border-radius: 4px;
+  text-align: left;
+  font-size: 10px;
+  color: var(--ink-3);
+}
+
+.admin-shell .settings-nav button:hover {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+.admin-shell .settings-nav button.is-active {
+  background: var(--surface-2);
+  color: var(--ink);
+  font-weight: 550;
+}
+
+.admin-shell .settings-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+.admin-shell .settings-section {
+  scroll-margin-top: 12px;
+}
+
+.admin-shell .settings-section .panel-head {
+  align-items: flex-start;
+}
+
+.admin-shell .settings-section .panel-head h2 {
+  font-size: 12.5px;
+}
+
+.admin-shell .settings-section .panel-head p {
+  margin-top: 2px;
+  max-width: 70ch;
+}
+
+.admin-shell .settings-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.admin-shell .settings-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 8px 10px;
+  border: 1px solid var(--line-2);
+  border-radius: 4px;
+  background: var(--surface-2);
+  font-size: 9px;
+  line-height: 1.5;
+  color: var(--ink-3);
+}
+
+.admin-shell .settings-note .ic {
+  width: 12px;
+  height: 12px;
+  flex: none;
+  margin-top: 1px;
+  color: var(--ink-3);
+}
+
+.admin-shell .danger-zone {
+  border-color: rgba(156, 58, 43, 0.28);
+}
+
+.admin-shell .danger-zone .panel-head h2 {
+  color: var(--red);
+}
+
+.admin-shell .danger-zone .panel-head .ic {
+  color: var(--red);
+}
+
+/* ---------------------------------------------------------------- drawer */
+.admin-shell .drawer-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  background: rgba(12, 18, 22, 0.42);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
+}
+
+.admin-shell .drawer-scrim.is-open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.admin-shell .drawer {
+  position: fixed;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  z-index: 90;
+  display: flex;
+  flex-direction: column;
+  width: min(520px, 96vw);
+  background: var(--surface);
+  border-left: 1px solid var(--line);
+  box-shadow: -24px 0 48px -32px rgba(0, 0, 0, 0.45);
+  transform: translateX(102%);
+  transition: transform 0.24s ease;
+  outline: none;
+}
+
+.admin-shell .drawer.is-open {
+  transform: none;
+}
+
+.admin-shell .drawer-head {
+  flex: none;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 15px 18px;
+  border-bottom: 1px solid var(--line);
+}
+
+.admin-shell .drawer-head h2 {
+  font-size: 14px;
+  font-weight: 650;
+  letter-spacing: -0.012em;
+}
+
+.admin-shell .drawer-sub {
+  margin-top: 3px;
+  font-size: 9.5px;
+  color: var(--ink-3);
+  line-height: 1.5;
+}
+
+.admin-shell .drawer-close {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--ink-2);
+}
+
+.admin-shell .drawer-close:hover {
+  color: var(--ink);
+  border-color: var(--ink-3);
+}
+
+.admin-shell .drawer-close .ic {
+  width: 14px;
+  height: 14px;
+}
+
+.admin-shell .drawer-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 16px 18px 24px;
+}
+
+.admin-shell .drawer-foot {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 18px;
+  border-top: 1px solid var(--line);
+  background: var(--surface-2);
+}
+
+.admin-shell .drawer-note {
+  margin-top: 12px;
+  padding: 8px 10px;
+  border: 1px dashed var(--line);
+  border-radius: 4px;
+  font-size: 9px;
+  line-height: 1.5;
+  color: var(--ink-3);
+}
+
+.admin-shell .user-summary {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding-bottom: 12px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--line-2);
+}
+
+.admin-shell .user-summary .avatar {
+  width: 34px;
+  height: 34px;
+  font-size: 10px;
+}
+
+.admin-shell .user-summary b {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.admin-shell .user-summary span {
+  display: block;
+  margin-top: 1px;
+  font-size: 9.5px;
+  color: var(--ink-3);
+}
+
+.admin-shell .user-edit-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 14px;
+}
+
+.admin-shell .user-meta {
+  display: grid;
+  grid-template-columns: 90px minmax(0, 1fr);
+  gap: 6px 10px;
+  font-size: 10px;
+}
+
+.admin-shell .user-meta dt {
+  color: var(--ink-3);
+}
+
+.admin-shell .user-meta dd {
+  color: var(--ink-2);
+}
+
+/* ---------------------------------------------------------------- toast */
+.admin-shell .admin-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 23px;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  max-width: min(460px, calc(100vw - 32px));
+  padding: 8px 12px;
+  border-radius: 5px;
+  background: var(--ink);
+  color: var(--paper);
+  font-size: 10.5px;
+  line-height: 1.5;
+  box-shadow: var(--shadow-lg);
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, 10px);
+  transition:
+    opacity 0.18s,
+    transform 0.18s;
+}
+
+.admin-shell .admin-toast.is-visible {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+.admin-shell .admin-toast .ic {
+  width: 13px;
+  height: 13px;
+  flex: none;
+  color: var(--amber);
+}
+
+html[data-theme='dark'] .admin-shell .admin-toast {
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--line);
+}
+
+/* ---------------------------------------------------------------- forbidden */
+.admin-shell.admin-forbidden {
+  display: grid;
+  grid-template-columns: 1fr;
+  place-items: center;
+  height: 100vh;
+  overflow: auto;
+  padding: 24px;
+}
+
+.admin-shell .forbidden-card {
+  width: min(460px, 100%);
+  padding: 28px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
+}
+
+.admin-shell .forbidden-brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 18px;
+  color: var(--ink-3);
+  font-size: 11px;
+}
+
+.admin-shell .forbidden-brand .brand-mark {
+  width: 28px;
+  height: 28px;
+  border-color: var(--line);
+  background: var(--surface-2);
+  color: var(--amber-text);
+}
+
+.admin-shell .forbidden-card h1 {
+  margin: 0 0 10px;
+  font-size: 23px;
+  font-weight: 650;
+  letter-spacing: -0.022em;
+}
+
+.admin-shell .forbidden-card .eyebrow {
+  margin-bottom: 8px;
+  color: var(--ink-3);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+}
+
+.admin-shell .forbidden-card .hint {
+  margin: 0 0 20px;
+  color: var(--ink-2);
+  font-size: 11.5px;
+  line-height: 1.7;
+}
+
+/* ---------------------------------------------------------------- responsive */
+@media (max-width: 1180px) {
+  .admin-shell .admin-page {
+    padding: 24px 24px 56px;
+  }
+
+  .admin-shell .metric-strip {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .admin-shell .metric:nth-child(3n) {
+    border-right: 0;
+  }
+
+  .admin-shell .grid-2 {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-shell .roles-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-shell .dict-layout {
+    grid-template-columns: 250px minmax(0, 1fr);
+  }
+
+  .admin-shell .settings-layout {
+    grid-template-columns: 150px minmax(0, 1fr);
+    gap: 16px;
+  }
+}
+
+@media (max-width: 900px) {
+  .admin-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-shell .rail {
+    position: fixed;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 252px;
+    transform: translateX(-102%);
+    transition: transform 0.22s ease;
+    z-index: 60;
+  }
+
+  .admin-shell .rail.is-open {
+    transform: none;
+  }
+
+  .admin-shell .rail-scrim {
+    display: block;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+  }
+
+  .admin-shell .rail-scrim.is-open {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .admin-shell .topbar {
+    padding: 0 16px;
+    height: 54px;
+  }
+
+  .admin-shell .admin-page {
+    padding: 22px 18px 48px;
+  }
+
+  .admin-shell .admin-page-head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .admin-shell .head-actions {
+    width: 100%;
+  }
+
+  .admin-shell .settings-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-shell .settings-nav {
+    position: static;
+    flex-direction: row;
+    gap: 2px;
+    overflow-x: auto;
+    border-right: 0;
+    border-bottom: 1px solid var(--line-2);
+    padding: 0 0 6px;
+  }
+
+  .admin-shell .settings-nav button {
+    flex: none;
+  }
+
+  .admin-shell .dict-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-shell .dict-type-list {
+    max-height: 220px;
+  }
+}
+
+@media (max-width: 720px) {
+  .admin-shell .topbar {
+    gap: 8px;
+  }
+
+  .admin-shell .crumb span {
+    display: none;
+  }
+
+  .admin-shell .crumb .ic {
+    display: none;
+  }
+
+  .admin-shell .metric-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-shell .metric:nth-child(2n) {
+    border-right: 0;
+  }
+
+  .admin-shell .metric:nth-child(3),
+  .admin-shell .metric:nth-child(4),
+  .admin-shell .metric:nth-child(5) {
+    border-top: 1px solid var(--line-2);
+  }
+
+  .admin-shell .metric:nth-child(5) {
+    border-right: 0;
+  }
+
+  .admin-shell .form-grid,
+  .admin-shell .settings-grid,
+  .admin-shell .split-lists {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-shell .drawer {
+    width: 100vw;
+  }
+
+  .admin-shell .toolbar {
+    gap: 6px;
+  }
+
+  .admin-shell .search-field {
+    flex: 1;
+    min-width: 150px;
+  }
+
+  .admin-shell .data-table {
+    font-size: 10px;
+  }
+
+  .admin-shell .admin-page-head .head-actions .btn {
+    flex: 1;
+  }
+
+  .admin-shell .page-title {
+    font-size: 21px;
+  }
+
+  .admin-shell .panel-head {
+    padding: 8px 12px;
+  }
+
+  .admin-shell .panel-body {
+    padding: 12px;
+  }
+
+  .admin-shell .role-item {
+    padding: 7px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-shell *,
+  .admin-shell *::before,
+  .admin-shell *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ---------------------------------------------------------------- view-specific */
+.admin-shell .perm-wrap,
+.admin-shell .matrix-wrap,
+.admin-shell .dict-table-wrap {
+  border: 0;
+  border-radius: 0;
+}
+
+.admin-shell .matrix-table {
+  min-width: 560px;
+}
+
+.admin-shell .time-cell {
+  white-space: nowrap;
+  font-size: 9px;
+  color: var(--ink-2);
+}
+
+.admin-shell .audit-advanced {
+  margin: 0 0 12px;
+  border: 1px solid var(--line-2);
+}
+
+.admin-shell .audit-advanced-hint {
+  grid-column: 1 / -1;
+  font-size: 8.5px;
+  line-height: 1.5;
+  color: var(--ink-3);
+}
+
+.admin-shell .detail-section-title {
+  margin: 0 0 6px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--ink-3);
+  letter-spacing: 0.02em;
+}
+
+.admin-shell .audit-detail > section {
+  min-width: 0;
+}
+
+.admin-shell .menu-table caption .tree-group {
+  vertical-align: middle;
+}
+
+.admin-shell .menu-table caption .badge {
+  margin-left: 6px;
+  vertical-align: middle;
+}
+
+.admin-shell .account-entry {
+  display: inline-flex;
+}

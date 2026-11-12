@@ -196,10 +196,12 @@ async function submit(): Promise<void> {
       <p v-if="errorText" class="form-error" role="alert">{{ errorText }}</p>
 
       <div class="dialog-actions">
-        <button type="button" class="btn" :disabled="submitting" @click="close">取消</button>
+        <button type="button" class="btn btn-outline" :disabled="submitting" @click="close">
+          取消
+        </button>
         <button
           type="button"
-          class="btn primary"
+          class="btn btn-primary"
           data-testid="submit-password"
           :disabled="submitting"
           @click="submit"

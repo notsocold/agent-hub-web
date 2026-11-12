@@ -1,23 +1,22 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 import DocumentDetailDrawer from '@/components/knowledge/DocumentDetailDrawer.vue'
 import SearchDebugPanel from '@/components/knowledge/SearchDebugPanel.vue'
 import UploadDialog from '@/components/knowledge/UploadDialog.vue'
-import EmptyState from '@/components/common/EmptyState.vue'
+import AppIcon from '@/components/common/AppIcon.vue'
 import ErrorState from '@/components/common/ErrorState.vue'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
 import PageHeader from '@/components/common/PageHeader.vue'
 import PageShell from '@/components/common/PageShell.vue'
 import StatCard from '@/components/common/StatCard.vue'
-import StatusBadge from '@/components/common/StatusBadge.vue'
 import { ApiRequestError } from '@/api/client'
 import { knowledgeApi, type KnowledgeListParams } from '@/api/knowledge'
 import { useAuthStore } from '@/stores/auth'
 import { useCapabilitiesStore } from '@/stores/capabilities'
-import { formatBytes, formatDateTime } from '@/utils/format'
+import { formatDateTime } from '@/utils/format'
 import {
   aggregateCategories,
   applyPolledDocuments,
@@ -56,10 +55,13 @@ const drawerOpen = ref(false)
 const selected = ref<KnowledgeDocument | null>(null)
 const highlightId = ref<string | null>(null)
 const rebuildScope = ref<'all' | 'system' | 'own'>('all')
+const rebuildOpen = ref(false)
 const rebuilding = ref(false)
 const retryingId = ref<string | null>(null)
 const pollFailures = ref(0)
 let pollInFlight = false
+/** 「查看全部」一次性重置多个筛选时，抑制各个 watch 的重复请求。 */
+let suppressAutoLoad = false
 
 const debugPanel = ref<InstanceType<typeof SearchDebugPanel> | null>(null)
 let pollTimer: ReturnType<typeof setInterval> | null = null
@@ -68,6 +70,19 @@ let keywordTimer: ReturnType<typeof setTimeout> | null = null
 // M7：统一走 auth store 的角色判断，避免各页各自实现。
 const isAdmin = computed(() => auth.isAdmin)
 const interim = computed(() => items.value.some((document) => isInterimStatus(document.status)))
+const isFiltered = computed(
+  () =>
+    keyword.value.trim().length > 0 ||
+    categoryFilter.value !== 'all' ||
+    statusFilter.value !== 'all',
+)
+
+/** 页头副标题只放真实元信息；统计未返回时不显示文档数。 */
+const description = computed(() =>
+  stats.value
+    ? `pgvector HNSW · cosine · ${stats.value.documents} 篇文档，按 category 过滤。`
+    : 'pgvector HNSW · cosine 向量检索，按 category 过滤。',
+)
 
 function mergeCategories(documents: KnowledgeDocument[]): void {
   const merged = new Set([...categoryOptions.value, ...aggregateCategories(documents)])
@@ -78,6 +93,21 @@ function canWrite(document: KnowledgeDocument): boolean {
   if (!auth.user) return false
   if (auth.user.role === 'admin') return true
   return document.owner !== null && document.owner.id === auth.user.id
+}
+
+/** 行内日期只保留 MM-DD，与原型「09-30 更新」口径一致。 */
+function shortDate(iso: string): string {
+  const formatted = formatDateTime(iso)
+  return formatted === '—' ? '' : formatted.slice(5, 10)
+}
+
+/** 行元信息口径与原型一致：分类 · N chunks · 更新时间（未完成入库用「上传」）。 */
+function documentMeta(document: KnowledgeDocument): string {
+  const category = document.category || '未分类'
+  const chunks = `${document.chunk_count} ${document.chunk_count === 1 ? 'chunk' : 'chunks'}`
+  const time = shortDate(document.updated_at)
+  const suffix = document.status === 'ready' ? '更新' : '上传'
+  return `${category} · ${chunks} · ${time ? `${time} ${suffix}` : '时间未知'}`
 }
 
 function listParams(reset: boolean): KnowledgeListParams {
@@ -216,6 +246,7 @@ function onVisibilityChange(): void {
 watch(interim, syncPolling)
 
 watch(keyword, () => {
+  if (suppressAutoLoad) return
   if (keywordTimer) clearTimeout(keywordTimer)
   keywordTimer = setTimeout(() => {
     void load({ reset: true })
@@ -223,8 +254,28 @@ watch(keyword, () => {
 })
 
 watch([statusFilter, categoryFilter, ownerScope], () => {
+  if (suppressAutoLoad) return
   void load({ reset: true })
 })
+
+/** 头部「查看全部」：清空搜索与两个筛选，一次性按无筛选口径重载。 */
+async function showAll(): Promise<void> {
+  if (keywordTimer) {
+    clearTimeout(keywordTimer)
+    keywordTimer = null
+  }
+  if (!isFiltered.value) {
+    await load({ reset: true })
+    return
+  }
+  suppressAutoLoad = true
+  keyword.value = ''
+  categoryFilter.value = 'all'
+  statusFilter.value = 'all'
+  await nextTick()
+  suppressAutoLoad = false
+  await load({ reset: true })
+}
 
 async function openDocument(id: string, searchFallback = ''): Promise<void> {
   try {
@@ -319,6 +370,7 @@ async function rebuildIndex(): Promise<void> {
   rebuilding.value = true
   try {
     const result = await knowledgeApi.rebuild({ scope: rebuildScope.value })
+    rebuildOpen.value = false
     ElMessage.success(
       `重建完成：${result.documents} 篇文档、${result.chunks} 个分块，失败 ${result.failed} 篇`,
     )
@@ -349,29 +401,11 @@ onUnmounted(() => {
 
 <template>
   <PageShell>
-    <PageHeader
-      eyebrow="KNOWLEDGE"
-      title="知识库"
-      description="上传文档、查看索引状态、调试检索；对话中的引用与来源会回链到这里。"
-    >
+    <PageHeader title="知识库" :description="description">
       <template #actions>
-        <template v-if="isAdmin">
-          <select v-model="rebuildScope" class="input" aria-label="重建范围">
-            <option value="all">全部文档</option>
-            <option value="system">系统文档</option>
-            <option value="own">所有用户私有文档</option>
-          </select>
-          <button
-            type="button"
-            class="btn"
-            data-testid="knowledge-rebuild"
-            :disabled="rebuilding"
-            @click="rebuildIndex"
-          >
-            {{ rebuilding ? '重建中…' : '重建索引' }}
-          </button>
-        </template>
-        <button type="button" class="btn primary" @click="openUpload">上传文档</button>
+        <button type="button" class="btn btn-primary" @click="openUpload">
+          <AppIcon name="upload" />上传文档
+        </button>
       </template>
     </PageHeader>
 
@@ -384,43 +418,92 @@ onUnmounted(() => {
     </div>
 
     <template v-else>
-      <div class="stat-row" data-testid="knowledge-stats">
+      <div class="stats" data-testid="knowledge-stats">
         <StatCard label="文档" :value="stats?.documents ?? 0" />
-        <StatCard label="分块" :value="stats?.chunks ?? 0" />
+        <StatCard label="片段" :value="stats?.chunks ?? 0" />
         <StatCard label="就绪" :value="stats?.ready ?? 0" tone="ok" />
-        <StatCard label="索引中" :value="stats?.indexing ?? 0" tone="warn" />
-        <StatCard label="待处理" :value="stats?.pending ?? 0" />
         <StatCard label="失败" :value="stats?.failed ?? 0" tone="error" />
       </div>
 
       <div class="knowledge-grid">
-        <section class="panel docs" aria-label="文档列表">
-          <header class="panel-head">
+        <section class="panel doc-panel" aria-label="文档列表">
+          <div class="panel-head">
             <h2>文档</h2>
-            <span class="count mono">{{ items.length }}{{ hasMore ? '+' : '' }}</span>
+            <span class="count mono">{{ items.length }} / {{ stats?.documents ?? '—' }}</span>
             <span class="spacer" />
-            <label v-if="isAdmin" class="owner-toggle">
-              <input v-model="ownerScope" type="checkbox" true-value="all" false-value="visible" />
-              <span>全部用户</span>
-            </label>
-          </header>
+            <button
+              v-if="isAdmin"
+              type="button"
+              class="text-link owner-link"
+              :class="{ 'is-active': ownerScope === 'all' }"
+              :aria-pressed="ownerScope === 'all'"
+              title="是否包含所有用户的私有文档"
+              @click="ownerScope = ownerScope === 'all' ? 'visible' : 'all'"
+            >
+              <AppIcon v-if="ownerScope === 'all'" name="check" />全部用户
+            </button>
+            <button
+              v-if="isAdmin"
+              type="button"
+              class="text-link"
+              data-testid="knowledge-rebuild"
+              :disabled="rebuilding"
+              @click="rebuildOpen = !rebuildOpen"
+            >
+              {{ rebuilding ? '重建中…' : '重建索引' }}
+            </button>
+            <button type="button" class="text-link" title="清除筛选，重新加载" @click="showAll">
+              查看全部
+            </button>
+          </div>
 
-          <div class="toolbar">
-            <input
-              v-model="keyword"
-              class="input search"
-              type="search"
-              data-testid="doc-search"
-              placeholder="搜索标题或来源路径"
-              aria-label="搜索知识库文档"
-            />
-            <select v-model="categoryFilter" class="input" aria-label="筛选分类">
+          <div v-if="isAdmin && rebuildOpen" class="rebuild-bar">
+            <label class="field rebuild-field">
+              <span>重建范围</span>
+              <select v-model="rebuildScope" class="select" aria-label="重建范围">
+                <option value="all">全部文档</option>
+                <option value="system">系统文档</option>
+                <option value="own">所有用户私有文档</option>
+              </select>
+            </label>
+            <button
+              type="button"
+              class="btn btn-primary btn-sm"
+              :disabled="rebuilding"
+              @click="rebuildIndex"
+            >
+              开始重建
+            </button>
+            <button
+              type="button"
+              class="text-link"
+              :disabled="rebuilding"
+              @click="rebuildOpen = false"
+            >
+              取消
+            </button>
+          </div>
+
+          <div class="doc-toolbar">
+            <label class="tool-search">
+              <AppIcon name="search" />
+              <input
+                v-model="keyword"
+                type="search"
+                data-testid="doc-search"
+                placeholder="搜索文档"
+                aria-label="搜索知识库文档"
+                title="搜索标题或来源路径"
+                autocomplete="off"
+              />
+            </label>
+            <select v-model="categoryFilter" class="select" aria-label="筛选分类">
               <option value="all">全部分类</option>
               <option v-for="item in categoryOptions" :key="item" :value="item">{{ item }}</option>
             </select>
             <select
               v-model="statusFilter"
-              class="input"
+              class="select"
               data-testid="status-filter"
               aria-label="筛选状态"
             >
@@ -432,69 +515,65 @@ onUnmounted(() => {
             </select>
           </div>
 
-          <ErrorState v-if="error" :message="error" @retry="load({ reset: true })" />
-          <LoadingSkeleton v-else-if="loading" />
-          <EmptyState
-            v-else-if="items.length === 0"
-            title="还没有匹配的文档"
-            description="支持 Markdown、TXT、PDF、CSV 与 JSON；入库完成后可被对话检索与引用。"
-          />
-          <div v-else class="doc-table">
-            <div class="doc-head" aria-hidden="true">
-              <span>标题</span>
-              <span>分类</span>
-              <span>状态</span>
-              <span class="num">分块</span>
-              <span class="num">大小</span>
-              <span>归属</span>
-              <span>更新时间</span>
-              <span class="num">操作</span>
-            </div>
+          <div v-if="error" class="doc-state">
+            <ErrorState :message="error" @retry="load({ reset: true })" />
+          </div>
+          <div v-else-if="loading" class="doc-state">
+            <LoadingSkeleton />
+          </div>
+          <div v-else-if="items.length === 0" class="empty-state">
+            <p>{{ isFiltered ? '没有匹配的文档。' : '还没有文档，上传后即可被对话检索与引用。' }}</p>
+            <button v-if="isFiltered" type="button" class="text-link" @click="showAll">
+              清除筛选
+            </button>
+            <button v-else type="button" class="text-link" @click="openUpload">
+              上传第一篇文档
+            </button>
+          </div>
+          <div v-else class="doc-list">
             <div
               v-for="row in items"
               :key="row.id"
               class="doc-row"
               :class="{ 'is-new': row.id === highlightId }"
+              :data-category="row.category"
               data-testid="doc-row"
             >
               <div class="doc-main">
                 <button type="button" class="doc-title" @click="openDetail(row)">
                   {{ row.title }}
                 </button>
-                <span class="doc-source mono">{{ row.source_uri }}</span>
+                <div class="doc-meta">{{ documentMeta(row) }}</div>
               </div>
-              <span class="category">{{ row.category || '未分类' }}</span>
-              <StatusBadge :tone="statusTone(row.status)" :label="statusLabel(row.status)" />
-              <span class="num mono">{{ row.chunk_count }}</span>
-              <span class="num mono">{{ formatBytes(row.size_bytes) }}</span>
-              <span class="owner">{{ row.owner?.display_name ?? '系统' }}</span>
-              <span class="time mono">{{ formatDateTime(row.updated_at) }}</span>
-              <span class="ops">
-                <button type="button" class="link" @click="openDetail(row)">详情</button>
-                <button
-                  v-if="row.status === 'failed' && canWrite(row)"
-                  type="button"
-                  class="link"
-                  :disabled="retryingId === row.id"
-                  @click="retryDocument(row)"
-                >
-                  重试
-                </button>
+              <span class="st" :class="`st-${statusTone(row.status)}`">
+                {{ statusLabel(row.status) }}
               </span>
+              <button
+                v-if="row.status === 'failed' && canWrite(row)"
+                type="button"
+                class="text-link"
+                :disabled="retryingId === row.id"
+                :aria-label="`重试入库 ${row.title}`"
+                @click="retryDocument(row)"
+              >
+                {{ retryingId === row.id ? '重试中…' : '重试' }}
+              </button>
             </div>
           </div>
 
-          <footer v-if="hasMore" class="panel-foot">
+          <div class="panel-foot doc-foot">
+            <span>支持 Markdown / TXT / PDF · 异步入库，失败可重试。</span>
             <button
+              v-if="hasMore"
               type="button"
-              class="btn"
+              class="text-link"
               data-testid="load-more"
               :disabled="loadingMore"
               @click="load({ reset: false })"
             >
               {{ loadingMore ? '加载中…' : '加载更多' }}
             </button>
-          </footer>
+          </div>
         </section>
 
         <SearchDebugPanel ref="debugPanel" :categories="categoryOptions" :initial-query="keyword" />
@@ -543,133 +622,51 @@ onUnmounted(() => {
   line-height: 1.7;
 }
 
-.knowledge-grid {
-  display: grid;
-  gap: 14px;
-  grid-template-columns: minmax(0, 1.6fr) minmax(320px, 1fr);
-  align-items: start;
-}
-
-@media (max-width: 1100px) {
-  .knowledge-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-
-.panel {
-  overflow: hidden;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--surface);
-}
-
-.docs {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  min-width: 0;
-  padding: 16px;
-}
-
-.panel-head {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-}
-
-.panel-head h2 {
-  margin: 0;
-  color: var(--ink);
-  font-size: 13.5px;
-  font-weight: 650;
-}
-
-.count {
+.owner-link {
+  padding: 0;
   color: var(--ink-3);
-  font-size: 10px;
 }
 
-.spacer {
-  flex: 1;
+.owner-link.is-active {
+  color: var(--prussian);
 }
 
-.owner-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  color: var(--ink-3);
-  font-size: 11px;
+.owner-link .ic {
+  width: 12px;
+  height: 12px;
 }
 
-.toolbar {
+.rebuild-bar {
   display: flex;
-  flex-wrap: wrap;
+  align-items: flex-end;
   gap: 8px;
-}
-
-.search {
-  flex: 1;
-  min-width: 180px;
-}
-
-.doc-table {
-  display: flex;
-  flex-direction: column;
-  border-top: 1px solid var(--line-2);
-  /* 固定列总宽超过面板宽度时横向滚动，避免第一列（标题）被挤成 0 宽。 */
-  overflow-x: auto;
-}
-
-.doc-head,
-.doc-row {
-  display: grid;
-  grid-template-columns: minmax(160px, 1.9fr) 76px 84px 52px 74px 76px 118px 82px;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 4px;
-  min-width: 780px;
-}
-
-.doc-head {
+  padding: 9px 12px;
   border-bottom: 1px solid var(--line-2);
-  color: var(--ink-3);
-  font-size: 9.5px;
-  letter-spacing: 0.02em;
-}
-
-.doc-row {
-  border-bottom: 1px solid var(--line-2);
-  font-size: 11px;
-}
-
-.doc-row:last-child {
-  border-bottom: none;
-}
-
-.doc-row:hover {
   background: var(--surface-2);
+}
+
+.rebuild-field {
+  flex: 1;
+  min-width: 0;
+}
+
+.rebuild-field .select {
+  width: 100%;
+}
+
+.doc-state {
+  padding: 12px;
 }
 
 .doc-row.is-new {
   background: var(--green-soft);
 }
 
-.doc-main {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  min-width: 0;
-}
-
 .doc-title {
-  overflow: hidden;
+  display: block;
+  width: 100%;
   padding: 0;
-  color: var(--ink);
-  font-size: 12px;
-  font-weight: 550;
   text-align: left;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .doc-title:hover {
@@ -677,72 +674,28 @@ onUnmounted(() => {
   text-decoration: underline;
 }
 
-.doc-source {
-  overflow: hidden;
-  color: var(--ink-3);
-  font-size: 9.5px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.category {
-  overflow: hidden;
-  color: var(--ink-2);
-  font-size: 10.5px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.num {
-  text-align: right;
-}
-
-.owner,
-.time {
-  overflow: hidden;
-  color: var(--ink-3);
-  font-size: 10.5px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.ops {
+.doc-foot {
   display: flex;
-  justify-content: flex-end;
-  gap: 2px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
 }
 
-.link {
-  padding: 0 3px;
-  color: var(--prussian);
-  font-size: 10.5px;
+.doc-foot .text-link {
+  flex: none;
+  padding: 0;
 }
 
-.link:hover {
-  text-decoration: underline;
+.empty-state p {
+  margin: 0;
 }
 
-.panel-foot {
-  display: flex;
-  justify-content: center;
-  padding-top: 2px;
+.empty-state .text-link {
+  margin-top: 8px;
 }
 
-@media (max-width: 900px) {
-  .doc-head {
-    display: none;
-  }
-
-  .doc-row {
-    grid-template-columns: minmax(0, 1fr) auto;
-    row-gap: 4px;
-  }
-
-  .doc-row > .category,
-  .doc-row > .num,
-  .doc-row > .owner,
-  .doc-row > .time {
-    display: none;
-  }
+.text-link:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 </style>

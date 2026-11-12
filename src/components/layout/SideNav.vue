@@ -2,10 +2,11 @@
 import { RouterLink } from 'vue-router'
 
 import AccountMenu from './AccountMenu.vue'
+import AppIcon from '@/components/common/AppIcon.vue'
 import type { Theme } from '@/composables/useTheme'
 import type { SystemCapabilities, User } from '@/types'
 
-const props = defineProps<{
+defineProps<{
   collapsed: boolean
   mobile: boolean
   open: boolean
@@ -13,9 +14,12 @@ const props = defineProps<{
   theme: Theme
   /** 未加载时传 undefined，导航按可用处理；加载后由能力开关决定置灰。 */
   capabilities?: SystemCapabilities
+  /** 侧栏底部 A2A 连接概览。 */
+  connection?: { online: number; degraded: number }
 }>()
 
 const emit = defineEmits<{
+  home: []
   toggle: []
   navigate: []
   search: []
@@ -32,56 +36,26 @@ interface NavItem {
   icon: string
   capability?: keyof SystemCapabilities
   stage?: string
-  /** M8：仅管理员可见（不参与能力开关判断）。 */
-  adminOnly?: boolean
 }
 
 const items: NavItem[] = [
-  {
-    name: 'chat',
-    label: '对话',
-    icon: 'M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v8a2.5 2.5 0 0 1-2.5 2.5H9l-5 3.5V6.5Z',
-  },
+  { name: 'chat', label: '对话', icon: 'chat' },
   {
     name: 'workflows',
     label: '工作流',
-    icon: 'M4 6h4M4 12h4M4 18h4M8 6h3a3 3 0 0 1 3 3v6a3 3 0 0 0 3 3h3M16 6h4M16 18h4',
+    icon: 'workflow',
     capability: 'workflows',
     stage: 'M9',
   },
-  {
-    name: 'agents',
-    label: '智能体',
-    icon: 'M4 7h16v12H4zM12 3v4M8 12h.01M16 12h.01M9 16h6',
-    capability: 'agents',
-    stage: 'M2',
-  },
-  {
-    name: 'tasks',
-    label: '任务',
-    icon: 'M4 7h16M4 12h16M4 17h10',
-    capability: 'tasks',
-    stage: 'M2',
-  },
-  {
-    name: 'knowledge',
-    label: '知识库',
-    icon: 'M4 5c0-1 3.6-2 8-2s8 1 8 2v14c0 1-3.6 2-8 2s-8-1-8-2V5ZM4 5c0 1 3.6 2 8 2s8-1 8-2',
-    capability: 'knowledge',
-    stage: 'M4',
-  },
-  {
-    name: 'admin-overview',
-    label: '管理控制台',
-    icon: 'M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Zm8-3.5-1.9-.7-.5-1.2 1-1.8-1.4-1.4-1.8 1-1.2-.5L13.5 4h-2l-.7 1.9-1.2.5-1.8-1L6.4 6.8l1 1.8-.5 1.2L5 10.5v2l1.9.7.5 1.2-1 1.8 1.4 1.4 1.8-1 1.2.5.7 1.9h2l.7-1.9 1.2-.5 1.8 1 1.4-1.4-1-1.8.5-1.2 1.9-.7v-2Z',
-    adminOnly: true,
-  },
+  { name: 'agents', label: '智能体', icon: 'bot', capability: 'agents', stage: 'M2' },
+  { name: 'tasks', label: '任务', icon: 'flow', capability: 'tasks', stage: 'M2' },
+  { name: 'knowledge', label: '知识库', icon: 'db', capability: 'knowledge', stage: 'M4' },
 ]
 
-function isEnabled(item: NavItem): boolean {
+function isEnabled(item: NavItem, capabilities?: SystemCapabilities): boolean {
   if (!item.capability) return true
-  if (!props.capabilities) return true
-  return props.capabilities[item.capability] === true
+  if (!capabilities) return true
+  return capabilities[item.capability] === true
 }
 
 function disabledHint(item: NavItem): string {
@@ -92,97 +66,91 @@ function disabledHint(item: NavItem): string {
 <template>
   <aside
     class="sidebar"
-    :class="{ 'is-collapsed': collapsed, 'is-open': open, 'is-mobile': mobile }"
     aria-label="主导航"
     :inert="mobile && !open"
     :aria-hidden="mobile && !open ? 'true' : undefined"
   >
     <div class="sb-top">
-      <span class="brand">
-        <span class="brand-mark">A</span>
-        <span class="brand-name">Agent Hub</span>
-      </span>
+      <a
+        class="sb-brand"
+        href="/chat"
+        aria-label="Agent Hub 首页"
+        @click.prevent="emit('home')"
+      >
+        <svg class="sb-brand-mark" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M4.5 6.5h5.2a3.8 3.8 0 0 1 3.8 3.8v3.4a3.8 3.8 0 0 0 3.8 3.8h2.2" />
+          <circle cx="4.5" cy="6.5" r="1.9" />
+          <circle class="hot" cx="19.5" cy="17.5" r="2" />
+        </svg>
+        <span>Agent Hub</span>
+      </a>
       <button
         v-if="!mobile"
         class="sb-toggle"
         type="button"
         :aria-label="collapsed ? '展开侧栏' : '收起侧栏'"
         :aria-expanded="!collapsed"
+        title="收起侧栏"
         @click="emit('toggle')"
       >
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <rect x="3.5" y="4.5" width="17" height="15" rx="2" />
-          <path d="M9 4.5v15" />
-        </svg>
+        <AppIcon name="panel-left" />
       </button>
-      <button
-        v-else
-        class="sb-toggle"
-        type="button"
-        aria-label="关闭侧栏"
-        @click="emit('navigate')"
-      >
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M6 6l12 12M18 6L6 18" />
-        </svg>
+      <button v-else class="sb-toggle" type="button" aria-label="关闭侧栏" @click="emit('navigate')">
+        <AppIcon name="x" />
       </button>
     </div>
 
-    <div class="sb-new">
-      <slot name="new-session" />
-    </div>
+    <slot name="new-session" />
 
-    <nav class="sb-nav">
-      <button type="button" class="sb-nav-item sb-search" aria-label="搜索 ⌘K" @click="emit('search')">
-        <svg class="ic" viewBox="0 0 24 24" aria-hidden="true">
-          <circle cx="11" cy="11" r="6" />
-          <path d="m15.5 15.5 4.5 4.5" />
-        </svg>
-        <span>搜索</span>
-        <kbd class="sb-kbd">⌘K</kbd>
-      </button>
+    <nav class="sb-nav" aria-label="主导航">
       <template v-for="item in items" :key="item.name">
-        <template v-if="item.adminOnly ? user?.role === 'admin' : true">
         <RouterLink
-          v-if="isEnabled(item)"
+          v-if="isEnabled(item, capabilities)"
           :to="{ name: item.name }"
           class="sb-nav-item"
+          active-class="is-active"
+          :aria-label="item.label"
           :title="item.label"
           @click="emit('navigate')"
         >
-          <svg class="ic" viewBox="0 0 24 24" aria-hidden="true">
-            <path :d="item.icon" />
-          </svg>
+          <AppIcon :name="item.icon" />
           <span>{{ item.label }}</span>
         </RouterLink>
         <button
           v-else
           type="button"
           class="sb-nav-item is-disabled"
+          :aria-label="item.label"
           :title="disabledHint(item)"
           disabled
         >
-          <svg class="ic" viewBox="0 0 24 24" aria-hidden="true">
-            <path :d="item.icon" />
-          </svg>
+          <AppIcon :name="item.icon" />
           <span>{{ item.label }}</span>
-          <span class="stage mono">{{ item.stage }}</span>
+          <span v-if="item.stage" class="stage mono">{{ item.stage }}</span>
         </button>
-        </template>
       </template>
     </nav>
 
-    <div class="sb-sessions">
-      <slot name="sessions" />
-    </div>
+    <slot name="sessions" />
 
     <div class="sb-foot">
+      <div class="sb-conn">
+        <span class="dot" :class="connection?.degraded ? 'is-warn' : 'is-ok'"></span>
+        <span>A2A 已连接</span>
+        <span class="spacer"></span>
+        <span class="mono">
+          {{ connection?.online ?? 0 }} ONLINE
+          <template v-if="connection?.degraded">
+            · {{ connection.degraded }} 降级
+          </template>
+        </span>
+      </div>
       <AccountMenu
         :user="user"
         :theme="theme"
         @settings="emit('settings')"
-        @diagnostics="emit('diagnostics')"
         @admin="emit('admin')"
+        @diagnostics="emit('diagnostics')"
         @theme="emit('toggle-theme')"
         @logout="emit('logout')"
       />
@@ -191,291 +159,14 @@ function disabledHint(item: NavItem): string {
 </template>
 
 <style scoped>
-.sidebar {
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  padding: 6px 8px;
-  background: var(--paper-2);
-  border-right: 1px solid var(--line);
-  z-index: 30;
-  overflow: hidden;
-}
-
-.sb-top {
-  display: flex;
-  flex: none;
-  align-items: center;
-  justify-content: space-between;
-  gap: 6px;
-  height: 44px;
-  padding: 0 2px 0 6px;
-}
-
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-  color: var(--ink);
-  font-size: 14px;
-  font-weight: 650;
-  letter-spacing: -0.01em;
-  white-space: nowrap;
-}
-
-.brand-mark {
-  display: grid;
-  place-items: center;
-  width: 22px;
-  height: 22px;
-  flex: none;
-  border-radius: 5px;
-  background: var(--btn-bg);
-  color: var(--btn-fg);
-  font-family: var(--font-mono);
-  font-size: 11px;
-}
-
-.sb-toggle {
-  display: grid;
-  place-items: center;
-  flex: none;
-  width: 28px;
-  height: 28px;
-  border-radius: 5px;
-  color: var(--ink-3);
-  transition:
-    color 0.15s,
-    background 0.15s;
-}
-
-.sb-toggle:hover {
-  background: var(--surface-2);
-  color: var(--ink);
-}
-
-.sb-toggle svg {
-  width: 16px;
-  height: 16px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.6;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.sb-nav {
-  display: flex;
-  flex: none;
-  flex-direction: column;
-  gap: 1px;
-  margin-top: 6px;
-}
-
-.sb-new {
-  flex: none;
-  padding: 6px 2px 2px;
-}
-
-.sb-new :deep(button) {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  width: 100%;
-  height: 34px;
-  padding: 0 10px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: var(--surface);
-  color: var(--ink);
-  font-size: 12.5px;
-  font-weight: 550;
-  white-space: nowrap;
-  box-shadow: var(--shadow-sm);
-  transition:
-    border-color 0.15s,
-    background 0.15s;
-}
-
-.sb-new :deep(button:hover) {
-  border-color: var(--ink-3);
-}
-
-.sb-new :deep(svg) {
-  width: 15px;
-  height: 15px;
-  flex: none;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.8;
-  stroke-linecap: round;
-}
-
-.sb-sessions {
-  display: flex;
-  flex: 1;
-  min-height: 0;
-  margin-top: 8px;
-  overflow: hidden;
-}
-
-.sb-sessions > :deep(*) {
-  flex: 1;
-  min-height: 0;
-}
-
-.sb-nav-item {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  height: 31px;
-  padding: 0 9px;
-  border-radius: 5px;
-  color: var(--ink-2);
-  font-size: 12.5px;
-  white-space: nowrap;
-  transition:
-    background 0.12s,
-    color 0.12s;
-}
-
-.sb-nav-item .ic {
-  width: 16px;
-  height: 16px;
-  flex: none;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.6;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  color: var(--ink-3);
-}
-
-.sb-nav-item:hover {
-  background: rgba(20, 27, 32, 0.045);
-  color: var(--ink);
-}
-
-html[data-theme='dark'] .sb-nav-item:hover {
-  background: rgba(255, 255, 255, 0.05);
-}
-
-.sb-nav-item.router-link-active {
-  background: var(--surface);
-  color: var(--ink);
-  font-weight: 600;
-  box-shadow: var(--shadow-sm);
-}
-
 .sb-nav-item.is-disabled {
+  opacity: 0.5;
   cursor: not-allowed;
-  opacity: 0.52;
-}
-
-.sb-nav-item.is-disabled:hover {
-  background: transparent;
-  color: var(--ink-2);
 }
 
 .sb-nav-item .stage {
   margin-left: auto;
-  padding: 1px 4px;
-  border: 1px solid var(--line-2);
-  border-radius: 3px;
   color: var(--ink-3);
-  font-size: 8px;
-}
-
-.sb-search {
-  margin-bottom: 4px;
-}
-
-.sb-kbd {
-  margin-left: auto;
-  padding: 1px 4px;
-  border: 1px solid var(--line-2);
-  border-radius: 3px;
-  color: var(--ink-3);
-  font-family: var(--font-mono);
   font-size: 9px;
-}
-
-.sb-nav-item.router-link-active .ic {
-  color: var(--prussian);
-}
-
-.sb-foot {
-  flex: none;
-  margin-top: auto;
-  padding-top: 8px;
-  border-top: 1px solid var(--line);
-}
-
-/* 折叠为图标栏 */
-.sidebar.is-collapsed:not(.is-mobile) {
-  padding: 6px 0;
-  align-items: center;
-}
-
-.sidebar.is-collapsed:not(.is-mobile) .sb-new,
-.sidebar.is-collapsed:not(.is-mobile) .sb-sessions {
-  display: none;
-}
-
-.sidebar.is-collapsed .sb-top {
-  width: 100%;
-  justify-content: center;
-  padding: 0;
-}
-
-.sidebar.is-collapsed .brand-name {
-  display: none;
-}
-
-.sidebar.is-collapsed .sb-nav {
-  width: 100%;
-  align-items: center;
-  gap: 2px;
-}
-
-.sidebar.is-collapsed .sb-nav-item {
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  padding: 0;
-  border-radius: 7px;
-}
-
-.sidebar.is-collapsed .sb-nav-item span {
-  display: none;
-}
-
-.sidebar.is-collapsed .sb-nav-item .stage {
-  display: none;
-}
-
-.sidebar.is-collapsed .sb-nav-item .sb-kbd {
-  display: none;
-}
-
-.sidebar.is-collapsed .sb-foot {
-  width: 100%;
-  display: flex;
-  justify-content: center;
-}
-
-/* 移动端抽屉 */
-.sidebar.is-mobile {
-  position: fixed;
-  inset: 0 auto 0 0;
-  width: var(--sidebar-w);
-  transform: translateX(-100%);
-  transition: transform 0.22s ease;
-  box-shadow: var(--shadow-lg);
-}
-
-.sidebar.is-mobile.is-open {
-  transform: translateX(0);
 }
 </style>

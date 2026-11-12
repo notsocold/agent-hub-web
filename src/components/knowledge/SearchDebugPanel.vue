@@ -38,6 +38,12 @@ watch(
 
 const canSubmit = computed(() => query.value.trim().length > 0 && !loading.value)
 
+/** chunk 子行只展示 MM-DD，避免长 chunk_id 撑出第二行。 */
+function shortDate(iso: string): string {
+  const formatted = formatDateTime(iso)
+  return formatted === '—' ? '—' : formatted.slice(5, 10)
+}
+
 function errorMessage(cause: unknown): string {
   if (cause instanceof ApiRequestError) {
     if (cause.code === 'capability_disabled') {
@@ -100,14 +106,16 @@ defineExpose({ run })
 </script>
 
 <template>
-  <section class="panel" aria-label="检索调试">
-    <header class="panel-head">
+  <section class="panel debug-panel" aria-label="检索调试">
+    <div class="panel-head">
       <h2>检索调试</h2>
-      <span class="tag mono">POST /knowledge/search</span>
-    </header>
-    <p class="desc">直接调用后端检索接口，验证召回片段与相似度分数。</p>
+      <span class="tag">pgvector</span>
+    </div>
+    <p class="panel-desc">
+      直接调用 <span class="mono">POST /api/v1/knowledge/search</span>，验证召回与相似度。
+    </p>
 
-    <form class="form" @submit.prevent="run()">
+    <form class="debug-form" @submit.prevent="run()">
       <label class="field">
         <span>查询</span>
         <input
@@ -118,204 +126,72 @@ defineExpose({ run })
           placeholder="如：退款需要保留吊牌吗"
         />
       </label>
-      <div class="row">
-        <label class="field is-narrow">
+      <div class="debug-row">
+        <label class="field">
           <span>top_k</span>
-          <select v-model.number="topK" class="input">
+          <select v-model.number="topK" class="select">
             <option v-for="value in [3, 5, 10, 20]" :key="value" :value="value">{{ value }}</option>
           </select>
         </label>
-        <label class="field is-narrow">
+        <label class="field">
           <span>分类</span>
-          <select v-model="category" class="input">
+          <select v-model="category" class="select">
             <option value="">全部分类</option>
             <option v-for="item in categories" :key="item" :value="item">{{ item }}</option>
           </select>
         </label>
-        <button type="submit" class="btn primary" :disabled="!canSubmit">
+        <button type="submit" class="btn btn-primary" :disabled="!canSubmit">
           {{ loading ? '检索中…' : '检索' }}
         </button>
       </div>
     </form>
 
-    <p v-if="error" class="error" role="alert">{{ error }}</p>
-    <p v-else-if="capabilityDisabled" class="error" role="alert">知识库能力未启用</p>
+    <p v-if="error" class="debug-error" role="alert">{{ error }}</p>
 
-    <div v-if="hits.length > 0" class="results">
-      <article v-for="hit in hits" :key="hit.chunk_id" class="hit">
-        <header class="hit-head">
-          <span class="hit-title">{{ hit.title }}</span>
-          <span class="score mono">{{ formatScore(hit.score) }}</span>
-        </header>
-        <p class="hit-source mono">
-          {{ hit.document_title }} · {{ hit.document_filename }} · #{{ hit.chunk_index }} ·
-          {{ hit.category || '未分类' }} · {{ formatDateTime(hit.updated_at) }}
-        </p>
-        <p class="hit-content">{{ hit.content }}</p>
+    <div v-if="hits.length > 0" class="debug-results">
+      <article v-for="hit in hits" :key="hit.chunk_id" class="result">
+        <div class="result-top">
+          <span class="result-title">{{ hit.title }}</span>
+          <span class="result-score mono">{{ formatScore(hit.score) }}</span>
+        </div>
+        <div class="result-src mono">
+          chunk {{ hit.chunk_index + 1 }} · {{ hit.document_filename }} ·
+          {{ shortDate(hit.updated_at) }}
+        </div>
+        <p class="result-excerpt">{{ hit.content }}</p>
       </article>
-      <footer class="meta-row">
-        <span class="mono">
-          {{ elapsedMs ?? '—' }} ms · top_k={{ topK }} · {{ category || '全部分类' }}
-        </span>
-        <button type="button" class="link" @click="copyResults">复制结果</button>
-      </footer>
     </div>
 
-    <p v-else-if="lastQuery && !loading && !error" class="empty">
+    <p v-else-if="lastQuery && !loading && !error" class="empty-state">
       没有命中片段。确认文档已就绪，或换一个分类/查询。
     </p>
-    <p v-else-if="!loading && !error" class="empty hint">
+    <p v-else-if="!loading && !error" class="debug-hint">
       输入问题，查看召回片段、来源与分数。
     </p>
+
+    <div v-if="hits.length > 0" class="debug-meta">
+      <span>{{ elapsedMs ?? '—' }}ms · top_k={{ topK }} · cosine</span>
+      <button type="button" class="text-link" @click="copyResults">复制结果</button>
+    </div>
   </section>
 </template>
 
 <style scoped>
-.panel {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  min-width: 0;
-  padding: 16px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--surface);
-}
-
-.panel-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.panel-head h2 {
-  margin: 0;
-  color: var(--ink);
-  font-size: 13.5px;
-  font-weight: 650;
-}
-
-.tag {
-  color: var(--ink-3);
-  font-size: 9.5px;
-}
-
-.desc {
-  margin: 0;
-  color: var(--ink-3);
-  font-size: 11px;
-  line-height: 1.65;
-}
-
-.form {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  color: var(--ink-3);
-  font-size: 10.5px;
-}
-
-.field.is-narrow {
-  flex: 1;
-  min-width: 78px;
-}
-
-.row {
-  display: flex;
-  align-items: flex-end;
-  gap: 8px;
-}
-
-.error {
-  margin: 0;
+.debug-error {
+  margin: 0 15px 12px;
   padding: 8px 10px;
   border-radius: 6px;
   background: var(--red-soft);
   color: var(--red);
-  font-size: 11.5px;
-}
-
-.results {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.hit {
-  padding: 10px 12px;
-  border: 1px solid var(--line-2);
-  border-radius: 8px;
-  background: var(--surface-2);
-}
-
-.hit-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.hit-title {
-  color: var(--ink);
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.score {
-  color: var(--prussian);
   font-size: 11px;
+  line-height: 1.6;
 }
 
-.hit-source {
-  margin: 3px 0 6px;
-  overflow-wrap: anywhere;
-  color: var(--ink-3);
-  font-size: 9.5px;
-}
-
-.hit-content {
+.debug-hint {
   margin: 0;
-  color: var(--ink-2);
-  font-size: 11.5px;
-  line-height: 1.7;
-  white-space: pre-wrap;
-}
-
-.meta-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
+  padding: 10px 15px 14px;
   color: var(--ink-3);
-  font-size: 10px;
-}
-
-.link {
-  padding: 0;
-  color: var(--prussian);
   font-size: 11px;
-}
-
-.link:hover {
-  text-decoration: underline;
-}
-
-.empty {
-  margin: 0;
-  padding: 18px 8px;
-  color: var(--ink-3);
-  font-size: 11.5px;
-  text-align: center;
-}
-
-.empty.hint {
-  padding: 10px 8px;
+  line-height: 1.6;
 }
 </style>

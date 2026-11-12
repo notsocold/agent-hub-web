@@ -1,12 +1,15 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, provide, ref } from 'vue'
 import { RouterView, useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 import DiagnosticsDrawer from '@/components/common/DiagnosticsDrawer.vue'
 import CommandPalette from '@/components/common/CommandPalette.vue'
+import IconSprite from '@/components/common/IconSprite.vue'
+import AppIcon from '@/components/common/AppIcon.vue'
 import ConversationSidebar from '@/components/chat/ConversationSidebar.vue'
 import SideNav from '@/components/layout/SideNav.vue'
+import { agentsApi } from '@/api/agents'
 import { useMediaQuery } from '@/composables/useMediaQuery'
 import { useTheme } from '@/composables/useTheme'
 import { startWebVitals } from '@/utils/web-vitals'
@@ -29,9 +32,16 @@ const mobileOpen = ref(false)
 const diagnosticsOpen = ref(false)
 const paletteOpen = ref(false)
 const activeId = computed(() => (typeof route.query.c === 'string' ? route.query.c : undefined))
+const isChat = computed(() => route.name === 'chat')
 let stopWebVitals: (() => void) | null = null
 
-/** F1：Ctrl/Cmd+K 打开全局搜索；输入框内也允许，便于随时跳转。 */
+/** 侧栏底部 A2A 连接概览：来自远程智能体列表（仅能力开启时拉取）。 */
+const connection = ref<{ online: number; degraded: number } | undefined>(undefined)
+
+/** 供对话页 chat-head 使用的移动端侧栏开关。 */
+provide('appSidebar', { open: () => (mobileOpen.value = true) })
+provide('appPalette', { open: () => (paletteOpen.value = true) })
+
 function onGlobalKeydown(event: KeyboardEvent): void {
   if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
     event.preventDefault()
@@ -41,10 +51,26 @@ function onGlobalKeydown(event: KeyboardEvent): void {
   if (event.key === 'Escape' && mobileOpen.value) mobileOpen.value = false
 }
 
-onMounted(() => {
-  // 登录后尽早拉取系统信息，导航按 capabilities 置灰。
-  if (auth.isAuthenticated) void system.load()
-  // 布局挂载即开始采集 Web Vitals，卸载时断开 observer。
+async function loadConnection(): Promise<void> {
+  if (!auth.isAuthenticated) return
+  if (system.info?.capabilities && system.info.capabilities.agents !== true) return
+  try {
+    const page = await agentsApi.list({ limit: 100 })
+    const enabled = page.items.filter((item) => item.enabled)
+    connection.value = {
+      online: enabled.filter((item) => item.health_status === 'healthy').length,
+      degraded: enabled.filter((item) => item.health_status !== 'healthy').length,
+    }
+  } catch {
+    connection.value = undefined
+  }
+}
+
+onMounted(async () => {
+  if (auth.isAuthenticated) {
+    await system.load()
+    void loadConnection()
+  }
   stopWebVitals = startWebVitals()
   document.addEventListener('keydown', onGlobalKeydown)
 })
@@ -54,6 +80,11 @@ onUnmounted(() => {
   stopWebVitals = null
   document.removeEventListener('keydown', onGlobalKeydown)
 })
+
+function goHome(): void {
+  mobileOpen.value = false
+  void router.push({ name: 'chat' })
+}
 
 function openSettings(): void {
   mobileOpen.value = false
@@ -80,7 +111,6 @@ async function createConversation(): Promise<void> {
 
 /** 侧栏会话在所有页面常驻；对话页内切换用 replace，跨页用 push。 */
 function selectConversation(id: string): void {
-  // 点击当前会话不应中止正在生成的回复。
   if (id === activeId.value) {
     mobileOpen.value = false
     return
@@ -120,7 +150,8 @@ async function logout(): Promise<void> {
 </script>
 
 <template>
-  <div class="app-shell" :class="{ 'is-collapsed': collapsed && !isMobile }">
+  <div class="app" :class="{ 'sidebar-collapsed': collapsed && !isMobile, 'sidebar-open': mobileOpen }">
+    <IconSprite />
     <a class="skip-link" href="#main-content">跳到主内容</a>
     <SideNav
       :collapsed="collapsed && !isMobile"
@@ -129,6 +160,8 @@ async function logout(): Promise<void> {
       :user="auth.user"
       :theme="theme"
       :capabilities="system.info?.capabilities"
+      :connection="connection"
+      @home="goHome"
       @toggle="collapsed = !collapsed"
       @navigate="mobileOpen = false"
       @search="paletteOpen = true"
@@ -139,10 +172,8 @@ async function logout(): Promise<void> {
       @logout="logout"
     >
       <template #new-session>
-        <button type="button" @click="createConversation">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M12 5v14M5 12h14" />
-          </svg>
+        <button class="sb-new" type="button" aria-label="新建会话" title="新建会话" @click="createConversation">
+          <AppIcon name="plus" />
           <span>新建会话</span>
         </button>
       </template>
@@ -155,38 +186,21 @@ async function logout(): Promise<void> {
       </template>
     </SideNav>
 
-    <div
-      v-if="isMobile && mobileOpen"
-      class="scrim"
-      aria-hidden="true"
-      @click="mobileOpen = false"
-    ></div>
+    <div class="sidebar-scrim" aria-hidden="true" @click="mobileOpen = false"></div>
 
-    <main class="app-main">
-      <header v-if="isMobile" class="mobile-bar">
-        <button class="mobile-menu" type="button" aria-label="打开导航" @click="mobileOpen = true">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M4 7h16M4 12h16M4 17h16" />
-          </svg>
+    <div id="main-content" class="app-main">
+      <header v-if="isMobile && !isChat" class="mobile-topbar">
+        <button class="icon-btn" type="button" aria-label="打开导航" @click="mobileOpen = true">
+          <AppIcon name="menu-burger" />
         </button>
-        <span class="mobile-title">{{ route.meta.title }}</span>
-        <button
-          class="mobile-search"
-          type="button"
-          aria-label="全局搜索"
-          @click="paletteOpen = true"
-        >
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <circle cx="11" cy="11" r="6" />
-            <path d="m15.5 15.5 4.5 4.5" />
-          </svg>
+        <span class="mobile-title">{{ route.meta.title || 'Agent Hub' }}</span>
+        <span class="spacer"></span>
+        <button class="icon-btn" type="button" aria-label="搜索" @click="paletteOpen = true">
+          <AppIcon name="search" />
         </button>
       </header>
-
-      <div id="main-content" class="app-content" tabindex="-1">
-        <RouterView />
-      </div>
-    </main>
+      <RouterView />
+    </div>
 
     <CommandPalette
       :open="paletteOpen"
@@ -199,32 +213,39 @@ async function logout(): Promise<void> {
 </template>
 
 <style scoped>
-.app-shell {
-  display: grid;
-  grid-template-columns: var(--sidebar-w) minmax(0, 1fr);
-  height: 100dvh;
-  min-height: 0;
-  transition: grid-template-columns 0.22s ease;
-}
-
-.app-shell.is-collapsed {
-  grid-template-columns: var(--sidebar-rail) minmax(0, 1fr);
-}
-
 .app-main {
+  position: relative;
   display: flex;
   flex-direction: column;
   min-width: 0;
   min-height: 0;
   overflow: hidden;
+}
+
+.app-main > .page-main,
+.app-main > .chat-layout {
+  flex: 1;
+  min-height: 0;
+}
+
+.mobile-topbar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 10px;
+  height: 56px;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--line);
   background: var(--paper);
 }
 
-.app-content {
-  position: relative;
+.mobile-title {
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.mobile-topbar .spacer {
   flex: 1;
-  min-height: 0;
-  overflow: hidden;
 }
 
 .skip-link {
@@ -244,74 +265,9 @@ async function logout(): Promise<void> {
   top: 12px;
 }
 
-.mobile-bar {
-  display: flex;
-  flex: none;
-  align-items: center;
-  gap: 10px;
-  height: 48px;
-  padding: 0 14px;
-  border-bottom: 1px solid var(--line);
-  background: var(--paper);
-}
-
-.mobile-menu {
-  display: grid;
-  place-items: center;
-  width: 30px;
-  height: 30px;
-  border: 1px solid var(--line);
-  border-radius: 5px;
-  background: var(--surface);
-  color: var(--ink-2);
-}
-
-.mobile-menu svg {
-  width: 16px;
-  height: 16px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.6;
-  stroke-linecap: round;
-}
-
-.mobile-title {
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.mobile-search {
-  display: grid;
-  place-items: center;
-  width: 30px;
-  height: 30px;
-  margin-left: auto;
-  border: 1px solid var(--line);
-  border-radius: 5px;
-  background: var(--surface);
-  color: var(--ink-2);
-}
-
-.mobile-search svg {
-  width: 15px;
-  height: 15px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.6;
-  stroke-linecap: round;
-}
-
-.scrim {
-  position: fixed;
-  inset: 0;
-  z-index: 25;
-  background: rgba(20, 27, 32, 0.42);
-}
-
 @media (max-width: 900px) {
-  .app-shell,
-  .app-shell.is-collapsed {
-    grid-template-columns: minmax(0, 1fr);
+  .app-main {
+    grid-column: 1;
   }
 }
 </style>

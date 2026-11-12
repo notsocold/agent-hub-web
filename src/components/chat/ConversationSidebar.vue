@@ -2,6 +2,7 @@
 import { onMounted, ref, watch } from 'vue'
 import { ElMessageBox } from 'element-plus'
 
+import AppIcon from '@/components/common/AppIcon.vue'
 import ConversationItem from './ConversationItem.vue'
 import { useConversationsStore } from '@/stores/conversations'
 
@@ -85,22 +86,20 @@ onMounted(() => {
 </script>
 
 <template>
-  <section class="conversation-section" aria-label="会话列表">
-    <header class="sidebar-head">
-      <span class="label">会话</span>
-      <span class="count mono">{{ store.stats.total ?? store.items.length }}</span>
-    </header>
+  <section class="sb-sessions" aria-label="会话列表">
+    <div class="sb-sessions-head">
+      <h2>会话</h2>
+      <span class="mono">{{ store.stats.total ?? store.items.length }}</span>
+    </div>
 
     <label class="search">
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <circle cx="11" cy="11" r="6" />
-        <path d="M16 16l4 4" />
-      </svg>
+      <AppIcon name="search" />
       <input
         v-model="keyword"
         type="search"
         placeholder="搜索会话"
         aria-label="搜索会话"
+        autocomplete="off"
         @input="scheduleSearch"
       />
     </label>
@@ -146,95 +145,6 @@ onMounted(() => {
 </template>
 
 <style scoped>
-.conversation-section {
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  height: 100%;
-  padding: 4px 8px 8px;
-}
-
-.sidebar-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 8px 6px;
-}
-
-.label {
-  color: var(--ink-3);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.03em;
-}
-
-.count {
-  color: var(--ink-3);
-  font-size: 9.5px;
-}
-
-.search {
-  position: relative;
-  display: block;
-  margin: 0 2px 6px;
-}
-
-.search svg {
-  position: absolute;
-  top: 50%;
-  left: 9px;
-  width: 14px;
-  height: 14px;
-  transform: translateY(-50%);
-  fill: none;
-  stroke: var(--ink-3);
-  stroke-width: 1.6;
-  stroke-linecap: round;
-}
-
-.search input {
-  width: 100%;
-  height: 32px;
-  padding: 0 9px 0 30px;
-  border: 1px solid transparent;
-  border-radius: 6px;
-  background: var(--surface-2);
-  color: var(--ink);
-  font: inherit;
-  font-size: 12px;
-  transition:
-    border-color 0.15s,
-    background 0.15s;
-}
-
-.search input::placeholder {
-  color: var(--ink-3);
-}
-
-.search input:focus {
-  border-color: var(--line);
-  background: var(--surface);
-}
-
-.session-scroll {
-  flex: 1;
-  min-height: 0;
-  padding: 0 2px 8px;
-  overflow-y: auto;
-}
-
-.session-group {
-  padding-top: 6px;
-}
-
-.group-label {
-  padding: 0 8px 5px;
-  color: var(--ink-3);
-  font-size: 10.5px;
-  font-weight: 500;
-  letter-spacing: 0.03em;
-}
-
 .state {
   padding: 28px 12px;
   color: var(--ink-3);

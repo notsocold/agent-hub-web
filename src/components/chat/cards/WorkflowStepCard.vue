@@ -13,21 +13,11 @@ defineProps<{
     kind="workflow"
     :title="item.stepTitle"
     :status="item.status"
+    :status-label="item.status === 'error' || item.status === 'canceled' ? '已拒绝' : undefined"
     :duration="formatDuration(item.durationMs)"
+    :args="item.stepType"
   >
-    <p class="line meta">
-      <span class="mono">{{ item.tool }}</span>
-    </p>
+    <p class="proc-desc mono">{{ item.tool }}</p>
+    <div class="tool-note">workflow · {{ item.stepId }} · {{ item.stepType }}</div>
   </ProcessCardShell>
 </template>
-
-<style scoped>
-.line {
-  margin: 0;
-}
-
-.meta {
-  color: var(--ink-3);
-  font-size: 11px;
-}
-</style>

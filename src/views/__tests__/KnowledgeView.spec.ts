@@ -102,12 +102,14 @@ describe('KnowledgeView M4', () => {
     api.documents.mockResolvedValue(page([doc('a'), doc('b', { status: 'failed' })]))
   })
 
-  it('首屏按 limit=20 拉取并渲染 6 键统计', async () => {
+  it('首屏按 limit=20 拉取并渲染 4 卡统计', async () => {
     const wrapper = await mountView()
 
     expect(api.documents).toHaveBeenCalledWith({ limit: 20 })
-    const values = wrapper.findAll('[data-testid="knowledge-stats"] .value').map((item) => item.text())
-    expect(values).toEqual(['4', '52', '2', '1', '0', '1'])
+    const values = wrapper
+      .findAll('[data-testid="knowledge-stats"] .stat-value')
+      .map((item) => item.text())
+    expect(values).toEqual(['4', '52', '2', '1'])
     expect(wrapper.findAll('[data-testid="doc-row"]')).toHaveLength(2)
   })
 

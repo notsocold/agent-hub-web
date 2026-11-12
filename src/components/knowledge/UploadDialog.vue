@@ -173,11 +173,10 @@ function reset(): void {
     @closed="reset"
   >
     <div class="upload">
-      <div class="mode-row" role="tablist" aria-label="上传方式">
+      <div class="seg" role="tablist" aria-label="上传方式">
         <button
           type="button"
           role="tab"
-          class="mode"
           :class="{ 'is-active': mode === 'file' }"
           :aria-selected="mode === 'file'"
           @click="switchMode('file')"
@@ -187,7 +186,6 @@ function reset(): void {
         <button
           type="button"
           role="tab"
-          class="mode"
           :class="{ 'is-active': mode === 'text' }"
           :aria-selected="mode === 'text'"
           @click="switchMode('text')"
@@ -258,7 +256,7 @@ function reset(): void {
         </label>
         <label v-if="isAdmin" class="field">
           <span>归属</span>
-          <select v-model="scope" class="input">
+          <select v-model="scope" class="select">
             <option value="user">我的文档</option>
             <option value="system">系统文档（所有人可见）</option>
           </select>
@@ -272,8 +270,8 @@ function reset(): void {
     </div>
 
     <template #footer>
-      <button type="button" class="btn" :disabled="uploading" @click="close">取消</button>
-      <button type="button" class="btn primary" :disabled="!canSubmit" @click="submit">
+      <button type="button" class="btn btn-outline" :disabled="uploading" @click="close">取消</button>
+      <button type="button" class="btn btn-primary" :disabled="!canSubmit" @click="submit">
         {{ uploading ? `上传中 ${progress}%` : '上传并入库' }}
       </button>
     </template>
@@ -287,26 +285,8 @@ function reset(): void {
   gap: 12px;
 }
 
-.mode-row {
-  display: flex;
-  gap: 6px;
-}
-
-.mode {
-  height: 28px;
-  padding: 0 12px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: var(--surface);
-  color: var(--ink-3);
-  font-size: 11.5px;
-}
-
-.mode.is-active {
-  border-color: var(--prussian);
-  background: var(--prussian-soft);
-  color: var(--prussian);
-  font-weight: 600;
+.upload > .seg {
+  align-self: flex-start;
 }
 
 .drop-zone {
@@ -372,14 +352,6 @@ function reset(): void {
   display: grid;
   gap: 10px;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-}
-
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  color: var(--ink-3);
-  font-size: 11px;
 }
 
 .progress {

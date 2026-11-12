@@ -8,7 +8,7 @@ defineProps<{
 </script>
 
 <template>
-  <div v-if="!enabled" class="gate" role="status">
+  <div v-if="!enabled" class="empty-state gate" role="status">
     <p class="gate-title">「{{ name }}」能力未启用</p>
     <p class="gate-desc">{{ hint ?? '后端尚未开启该能力，相关操作暂不可用。' }}</p>
   </div>
@@ -17,24 +17,23 @@ defineProps<{
 
 <style scoped>
 .gate {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 14px 16px;
+  margin-top: 10px;
+  padding: 18px 12px;
   border: 1px dashed var(--line);
-  border-radius: 8px;
+  border-bottom: 1px dashed var(--line);
+  border-radius: 6px;
   background: var(--surface-2);
-  color: var(--ink-3);
 }
 
 .gate-title {
   color: var(--ink-2);
-  font-size: 12.5px;
+  font-size: 12px;
   font-weight: 600;
 }
 
 .gate-desc {
-  font-size: 11.5px;
+  margin-top: 4px;
+  font-size: 11px;
   line-height: 1.65;
 }
 </style>

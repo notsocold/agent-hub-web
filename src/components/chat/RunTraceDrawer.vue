@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AppIcon from '@/components/common/AppIcon.vue'
 import RunTracePanel from './RunTracePanel.vue'
 import type { ProcessItem, Usage } from '@/types'
 
@@ -19,17 +20,24 @@ const emit = defineEmits<{
 
 <template>
   <Teleport to="body">
-    <div v-if="open" class="trace-scrim" @click="emit('close')"></div>
-    <aside v-if="open" class="trace" aria-label="运行详情">
-      <header class="trace-head">
-        <div>
-          <p class="eyebrow mono">RUN DETAILS</p>
-          <h2>运行轨迹</h2>
+    <div v-if="open" class="run-scrim is-open" @click="emit('close')"></div>
+    <aside v-if="open" class="run-drawer is-open" role="dialog" aria-modal="true" aria-label="运行事件">
+      <header class="run-head">
+        <div class="run-head-main">
+          <div class="run-title-row">
+            <h2>运行事件</h2>
+            <span class="tag mono">{{ runId ? runId.slice(0, 8) : '—' }}</span>
+          </div>
+          <div class="run-sub">
+            <span>{{ conversationTitle || '未命名会话' }}</span>
+            <span class="sep">·</span>
+            <span>{{ streaming ? '运行中' : '已结束' }}</span>
+            <span class="sep">·</span>
+            <span class="mono">{{ items.length }} 步</span>
+          </div>
         </div>
-        <button type="button" class="close" aria-label="关闭运行详情" @click="emit('close')">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M6 6l12 12M18 6L6 18" />
-          </svg>
+        <button class="drawer-close" type="button" aria-label="关闭运行事件" @click="emit('close')">
+          <AppIcon name="x" />
         </button>
       </header>
 
@@ -40,73 +48,8 @@ const emit = defineEmits<{
         :usage="usage"
         :finish-reason="finishReason"
         :conversation-title="conversationTitle"
+        mode="drawer"
       />
     </aside>
   </Teleport>
 </template>
-
-<style scoped>
-.trace-scrim {
-  position: fixed;
-  inset: 0;
-  z-index: 70;
-  background: rgba(20, 27, 32, 0.32);
-}
-
-.trace {
-  position: fixed;
-  inset: 0 0 0 auto;
-  z-index: 80;
-  display: flex;
-  flex-direction: column;
-  width: min(392px, 92vw);
-  border-left: 1px solid var(--line);
-  background: var(--paper);
-  box-shadow: var(--shadow-lg);
-}
-
-.trace-head {
-  display: flex;
-  flex: none;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 18px 18px 12px;
-  border-bottom: 1px solid var(--line);
-}
-
-.eyebrow {
-  margin-bottom: 5px;
-  color: var(--amber-text);
-  font-size: 9px;
-  letter-spacing: 0.12em;
-}
-
-h2 {
-  font-size: 16px;
-  font-weight: 650;
-}
-
-.close {
-  display: grid;
-  place-items: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 5px;
-  color: var(--ink-3);
-}
-
-.close:hover {
-  background: var(--surface-2);
-  color: var(--ink);
-}
-
-.close svg {
-  width: 15px;
-  height: 15px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.7;
-  stroke-linecap: round;
-}
-</style>

@@ -2,10 +2,8 @@
 import { onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
-import EmptyState from '@/components/common/EmptyState.vue'
 import ErrorState from '@/components/common/ErrorState.vue'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
-import StatusBadge from '@/components/common/StatusBadge.vue'
 import { ApiRequestError } from '@/api/client'
 import { secretsApi } from '@/api/secrets'
 import { SECRET_NAME_PATTERN } from '@/types'
@@ -243,115 +241,115 @@ async function removeSecret(row: unknown): Promise<void> {
 </script>
 
 <template>
-  <section class="card">
-    <header class="card-head">
-      <div class="head-title">
-        <h3>平台密钥</h3>
-        <span v-if="props.isAdmin" class="tag mono">{{ items.length }} 个</span>
+  <section class="panel cap-card">
+    <div class="cap-inner">
+      <header class="cap-head">
+        <div class="cap-title">
+          <h3>平台密钥</h3>
+          <span v-if="props.isAdmin" class="tag mono">{{ items.length }} 个</span>
+        </div>
+        <span class="cap-hint">/api/v1/admin/secrets</span>
+      </header>
+
+      <div v-if="!props.isAdmin" class="empty-state">
+        <p class="empty-title">仅管理员可管理平台密钥</p>
+        <p class="empty-desc">平台密钥涉及系统凭据，普通用户无权查看或修改。</p>
       </div>
-      <span class="mono hint">/api/v1/admin/secrets</span>
-    </header>
 
-    <EmptyState
-      v-if="!props.isAdmin"
-      title="仅管理员可管理平台密钥"
-      description="平台密钥涉及系统凭据，普通用户无权查看或修改。"
-    />
-
-    <template v-else>
-      <div class="info-bar">
-        <p>
+      <template v-else>
+        <p class="cap-desc">
           平台密钥用于需要鉴权的集成，可通过 <span class="mono">secret:NAME</span> 被智能体、MCP
-          等配置引用。
+          等配置引用。接口与审计日志永不回显明文或密文；密钥只写入、不可读取，保存后只能轮换。
         </p>
-        <p>接口与审计日志永不回显明文或密文；密钥只写入、不可读取，保存后只能轮换。</p>
-        <p class="warn-text">删除不会检查引用：仍被引用的密钥删除后，相关配置将无法解析。</p>
-      </div>
+        <p class="cap-desc is-error-text">
+          删除不会检查引用：仍被引用的密钥删除后，相关配置将无法解析。
+        </p>
 
-      <div class="toolbar">
-        <button type="button" class="btn primary" @click="openCreate">新建密钥</button>
-        <button type="button" class="btn" :disabled="loading" @click="load">刷新</button>
-        <span class="muted">名称规则：<span class="mono">^[A-Za-z_][A-Za-z0-9_]{0,63}$</span></span>
-      </div>
-
-      <ErrorState v-if="error" :message="error" @retry="load" />
-      <LoadingSkeleton v-else-if="loading" />
-      <EmptyState
-        v-else-if="items.length === 0"
-        title="暂无平台密钥"
-        description="新建密钥后，就能在需要鉴权的集成中通过 secret:NAME 引用；明文不会保存到前端或再次显示。"
-      >
-        <template #action>
-          <button type="button" class="btn primary empty-action" @click="openCreate">
-            新建密钥
+        <div class="cap-toolbar">
+          <button type="button" class="btn btn-primary btn-sm" @click="openCreate">新建密钥</button>
+          <button type="button" class="btn btn-outline btn-sm" :disabled="loading" @click="load">
+            刷新
           </button>
-        </template>
-      </EmptyState>
+          <span class="spacer"></span>
+          <span class="cap-note">
+            名称规则：<span class="mono">^[A-Za-z_][A-Za-z0-9_]{0,63}$</span>
+          </span>
+        </div>
 
-      <div v-else class="table-card">
-        <el-table :data="items" style="width: 100%" row-key="name">
-          <el-table-column label="名称" min-width="180">
-            <template #default="{ row }">
-              <div class="name-cell">
-                <span class="mono name">{{ row.name }}</span>
-                <span class="mono ref">secret:{{ row.name }}</span>
-              </div>
-            </template>
-          </el-table-column>
+        <ErrorState v-if="error" :message="error" @retry="load" />
+        <LoadingSkeleton v-else-if="loading" />
+        <div v-else-if="items.length === 0" class="empty-state">
+          <p class="empty-title">暂无平台密钥</p>
+          <p class="empty-desc">
+            新建密钥后，就能在需要鉴权的集成中通过 secret:NAME 引用；明文不会保存到前端或再次显示。
+          </p>
+          <button type="button" class="btn btn-primary btn-sm" @click="openCreate">新建密钥</button>
+        </div>
 
-          <el-table-column label="描述" min-width="200">
-            <template #default="{ row }">
-              <span class="description">{{ row.description || '—' }}</span>
-            </template>
-          </el-table-column>
+        <div v-else class="table-card">
+          <el-table :data="items" style="width: 100%" row-key="name">
+            <el-table-column label="名称" min-width="150">
+              <template #default="{ row }">
+                <div class="name-cell">
+                  <span class="mono name">{{ row.name }}</span>
+                  <span class="mono ref">secret:{{ row.name }}</span>
+                </div>
+              </template>
+            </el-table-column>
 
-          <el-table-column label="状态" width="92">
-            <template #default="{ row }">
-              <StatusBadge
-                :tone="row.enabled ? 'ok' : 'muted'"
-                :label="row.enabled ? '启用' : '停用'"
-              />
-            </template>
-          </el-table-column>
+            <el-table-column label="描述" min-width="150">
+              <template #default="{ row }">
+                <span class="description">{{ row.description || '—' }}</span>
+              </template>
+            </el-table-column>
 
-          <el-table-column label="创建时间" width="148">
-            <template #default="{ row }">
-              <span class="mono time-cell">{{ formatDateTime(row.created_at) }}</span>
-            </template>
-          </el-table-column>
+            <el-table-column label="状态" width="80">
+              <template #default="{ row }">
+                <span class="st" :class="row.enabled ? 'st-ok' : 'st-muted'">
+                  <span class="dot"></span>{{ row.enabled ? '启用' : '停用' }}
+                </span>
+              </template>
+            </el-table-column>
 
-          <el-table-column label="更新时间" width="148">
-            <template #default="{ row }">
-              <span class="mono time-cell">{{ formatDateTime(row.updated_at) }}</span>
-            </template>
-          </el-table-column>
+            <el-table-column label="创建时间" width="124">
+              <template #default="{ row }">
+                <span class="mono time-cell">{{ formatDateTime(row.created_at) }}</span>
+              </template>
+            </el-table-column>
 
-          <el-table-column label="操作" width="184" fixed="right">
-            <template #default="{ row }">
-              <span class="row-actions">
-                <button type="button" class="link" @click="openRotate(row)">轮换</button>
-                <button
-                  type="button"
-                  class="link"
-                  :disabled="togglingName === row.name || deletingName === row.name"
-                  @click="toggleEnabled(row)"
-                >
-                  {{ togglingName === row.name ? '处理中…' : row.enabled ? '停用' : '启用' }}
-                </button>
-                <button
-                  type="button"
-                  class="link danger"
-                  :disabled="deletingName === row.name || togglingName === row.name"
-                  @click="removeSecret(row)"
-                >
-                  {{ deletingName === row.name ? '删除中…' : '删除' }}
-                </button>
-              </span>
-            </template>
-          </el-table-column>
-        </el-table>
-      </div>
-    </template>
+            <el-table-column label="更新时间" width="124">
+              <template #default="{ row }">
+                <span class="mono time-cell">{{ formatDateTime(row.updated_at) }}</span>
+              </template>
+            </el-table-column>
+
+            <el-table-column label="操作" width="148" fixed="right">
+              <template #default="{ row }">
+                <span class="row-actions">
+                  <button type="button" class="text-link" @click="openRotate(row)">轮换</button>
+                  <button
+                    type="button"
+                    class="text-link"
+                    :disabled="togglingName === row.name || deletingName === row.name"
+                    @click="toggleEnabled(row)"
+                  >
+                    {{ togglingName === row.name ? '处理中…' : row.enabled ? '停用' : '启用' }}
+                  </button>
+                  <button
+                    type="button"
+                    class="text-link is-danger-text"
+                    :disabled="deletingName === row.name || togglingName === row.name"
+                    @click="removeSecret(row)"
+                  >
+                    {{ deletingName === row.name ? '删除中…' : '删除' }}
+                  </button>
+                </span>
+              </template>
+            </el-table-column>
+          </el-table>
+        </div>
+      </template>
+    </div>
 
     <el-dialog
       v-model="createOpen"
@@ -409,8 +407,10 @@ async function removeSecret(row: unknown): Promise<void> {
         </label>
 
         <div class="dialog-actions">
-          <button type="button" class="btn" :disabled="creating" @click="closeCreate">取消</button>
-          <button type="submit" class="btn primary" :disabled="creating">
+          <button type="button" class="btn btn-outline" :disabled="creating" @click="closeCreate">
+            取消
+          </button>
+          <button type="submit" class="btn btn-primary" :disabled="creating">
             {{ creating ? '保存中…' : '保存密钥' }}
           </button>
         </div>
@@ -447,8 +447,10 @@ async function removeSecret(row: unknown): Promise<void> {
         </label>
 
         <div class="dialog-actions">
-          <button type="button" class="btn" :disabled="rotating" @click="closeRotate">取消</button>
-          <button type="submit" class="btn primary" :disabled="rotating">
+          <button type="button" class="btn btn-outline" :disabled="rotating" @click="closeRotate">
+            取消
+          </button>
+          <button type="submit" class="btn btn-primary" :disabled="rotating">
             {{ rotating ? '轮换中…' : '轮换密钥' }}
           </button>
         </div>
@@ -458,82 +460,35 @@ async function removeSecret(row: unknown): Promise<void> {
 </template>
 
 <style scoped>
-.card {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 16px;
-  border: 1px solid var(--line);
-  border-radius: 9px;
-  background: var(--surface);
-  box-shadow: var(--shadow-sm);
+.cap-inner {
+  padding: 14px;
 }
 
-.card-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 10px;
+.empty-state {
+  margin-top: 8px;
+  padding: 18px 12px;
+  border-bottom: 0;
 }
 
-.head-title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-h3 {
-  font-size: 14px;
-  font-weight: 650;
-}
-
-.hint {
-  color: var(--ink-3);
-  font-size: 9.5px;
-}
-
-.tag {
-  padding: 1px 7px;
-  border: 1px solid var(--line-2);
-  border-radius: 99px;
-  color: var(--ink-3);
-  font-size: 9.5px;
-}
-
-.info-bar {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 9px 12px;
-  border: 1px solid var(--line-2);
-  border-radius: 7px;
-  background: var(--surface-2);
+.empty-title {
   color: var(--ink-2);
-  font-size: 11.5px;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.empty-desc {
+  margin-top: 4px;
+  color: var(--ink-3);
+  font-size: 11px;
   line-height: 1.65;
 }
 
-.warn-text {
-  color: var(--amber-text);
-}
-
-.toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-}
-
-.muted {
-  color: var(--ink-3);
-  font-size: 10.5px;
+.empty-state .btn {
+  margin-top: 8px;
 }
 
 .table-card {
-  overflow: hidden;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--surface);
+  margin-top: 10px;
 }
 
 .name-cell {
@@ -571,29 +526,12 @@ h3 {
 
 .row-actions {
   display: inline-flex;
-  gap: 8px;
+  gap: 10px;
 }
 
-.link {
-  color: var(--prussian);
-  font-size: 11.5px;
-}
-
-.link:hover:not(:disabled) {
-  text-decoration: underline;
-}
-
-.link.danger {
-  color: var(--red);
-}
-
-.link:disabled {
+.text-link:disabled {
   cursor: not-allowed;
   opacity: 0.5;
-}
-
-.empty-action {
-  margin-top: 4px;
 }
 
 .form {

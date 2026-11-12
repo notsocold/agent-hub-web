@@ -1,46 +1,47 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 
+import AppIcon from '@/components/common/AppIcon.vue'
 import ErrorState from '@/components/common/ErrorState.vue'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
-import PageHeader from '@/components/common/PageHeader.vue'
 import { adminApi } from '@/api/admin'
 import type { AdminUserStats } from '@/types'
+
+/**
+ * 只读角色页：后端 v1 仅内置 user / admin 两个角色，无角色/权限管理接口。
+ * 左侧角色列表 + 右侧权限矩阵、能力对照矩阵均为前端静态口径，不做编辑。
+ */
+
+type RoleKey = 'admin' | 'user'
 
 const stats = ref<AdminUserStats | null>(null)
 const loading = ref(false)
 const error = ref<string | null>(null)
+const selectedRole = ref<RoleKey>('admin')
 
-/**
- * 两角色说明（静态）：依据 src/router（meta.requiresAdmin 仅守卫管理台路由）、
- * src/router/guards.ts 与 docs/pages.md「写操作仅管理员」的口径。
- */
-const roleCards = [
+interface RoleCard {
+  role: RoleKey
+  title: string
+  summary: string
+  points: string[]
+}
+
+const roleCards: RoleCard[] = [
   {
-    role: 'user' as const,
-    title: 'user · 普通用户',
-    summary: '工作台全功能，仅管理自己创建的资源。',
-    points: [
-      '工作台全功能：对话/会话、工作流、智能体、任务、知识库与个人设置',
-      '仅管理自己的资源：会话、文档、个人能力配置等',
-      '访问 /admin/* 会被守卫退回 /admin/forbidden 无权限页',
-    ],
+    role: 'admin',
+    title: 'admin · 管理员',
+    summary: '系统内置，拥有全部菜单与操作权限，不可修改。',
+    points: ['管理台全部页面', '平台级配置与治理', '全局审计查询'],
   },
   {
-    role: 'admin' as const,
-    title: 'admin · 管理员',
-    summary: '在普通用户能力之上，额外负责平台级配置与治理。',
-    points: [
-      '管理台 /admin/* 全部页面（守卫 meta.requiresAdmin 仅放行管理员）',
-      '智能体与任务写操作：注册/编辑/删除、取消/补充/授权/拒绝（M7 后写操作仅管理员）',
-      '知识库系统文档管理与按 all/system 范围重建',
-      '全局审计日志查询（普通用户仅自查自己的记录）',
-      '平台密钥等平台级配置管理（管理台系统设置）',
-    ],
+    role: 'user',
+    title: 'user · 普通用户',
+    summary: '默认角色，可使用工作台功能并管理自己的资源。',
+    points: ['对话 / 工作流 / 知识库', '仅管理自己的资源', '无法进入管理台'],
   },
 ]
 
-/** 内置能力矩阵（静态）：单元格只描述「查看」或「查看+管理」两类能力，不做权限编辑。 */
+/** 内置能力矩阵（静态）：单元格描述「查看」或「查看 + 管理」两类能力，不做权限编辑。 */
 const capabilityMatrix = [
   { module: '对话 / 会话', user: '查看 + 管理（仅自己的）', admin: '查看 + 管理（仅自己的）' },
   { module: '智能体', user: '查看', admin: '查看 + 管理（写操作仅管理员）' },
@@ -51,6 +52,9 @@ const capabilityMatrix = [
   { module: '平台密钥', user: '—（无权限）', admin: '查看 + 管理（CRUD/轮换/启停）' },
   { module: '管理台', user: '—（无权限）', admin: '查看 + 管理（/admin/* 全部页面）' },
 ]
+
+const activeRole = computed(() => roleCards.find((card) => card.role === selectedRole.value)!)
+const isBuiltInAdmin = computed(() => selectedRole.value === 'admin')
 
 const distributionRows = computed(() => {
   const s = stats.value
@@ -63,6 +67,27 @@ const distributionRows = computed(() => {
     { label: '普通用户', value: s.total - s.admins },
   ]
 })
+
+function roleCount(role: RoleKey): number | null {
+  if (!stats.value) return null
+  return role === 'admin' ? stats.value.admins : stats.value.total - stats.value.admins
+}
+
+function roleSummary(role: RoleKey): string {
+  return roleCards.find((card) => card.role === role)?.summary ?? ''
+}
+
+function canView(value: string): boolean {
+  return value.includes('查看')
+}
+
+function canOperate(value: string): boolean {
+  return value.includes('管理') || value.includes('决定')
+}
+
+function permissionValue(module: (typeof capabilityMatrix)[number]): string {
+  return selectedRole.value === 'admin' ? module.admin : module.user
+}
 
 async function load(): Promise<void> {
   if (loading.value) return
@@ -84,238 +109,156 @@ onMounted(() => {
 
 <template>
   <div class="admin-page">
-    <PageHeader
-      eyebrow="ADMIN · ROLES"
-      title="角色与权限"
-      description="user / admin 两角色说明、内置能力矩阵与用户角色分布。后端无对应管理接口，本页为只读呈现。"
-    >
-      <template #actions>
-        <button type="button" class="btn" :disabled="loading" @click="load">
+    <header class="admin-page-head">
+      <div>
+        <h1 class="page-title">角色与权限</h1>
+        <p class="page-sub">用角色控制管理菜单与操作权限。超级管理员为系统内置，不可修改。</p>
+      </div>
+      <div class="head-actions">
+        <button type="button" class="btn btn-outline" :disabled="loading" @click="load">
+          <AppIcon name="refresh" />
           {{ loading ? '刷新中…' : '刷新' }}
         </button>
-      </template>
-    </PageHeader>
+      </div>
+    </header>
 
-    <section class="notice" role="note" aria-label="只读说明">
-      <p class="notice-tag mono">READ-ONLY · 只读呈现</p>
-      <p class="notice-body">
-        后端 v1 仅内置 user / admin
-        两个角色，无角色/权限管理接口，不做新建角色或权限编辑；本页所有内容均为只读呈现。
-      </p>
-    </section>
+    <div class="prototype-note" role="note">
+      <AppIcon name="alert" />
+      <span>
+        <b>只读呈现</b>：后端无对应管理接口，仅内置 user / admin 两个角色，不做新建角色或权限编辑；
+        下列矩阵来自前端路由守卫与现有接口权限口径。
+      </span>
+    </div>
 
     <LoadingSkeleton v-if="loading && !stats" :rows="4" />
     <ErrorState v-else-if="error" :message="error" :retryable="true" @retry="load" />
 
     <template v-else-if="stats">
-      <section class="role-cards" aria-label="角色说明">
-        <article v-for="card in roleCards" :key="card.role" class="panel">
-          <h2>{{ card.title }}</h2>
-          <p class="summary">{{ card.summary }}</p>
-          <ul>
-            <li v-for="point in card.points" :key="point">{{ point }}</li>
-          </ul>
-        </article>
-      </section>
-
-      <section class="panels">
-        <article class="panel">
-          <h2>用户角色分布</h2>
-          <dl>
+      <div class="roles-layout">
+        <section class="panel role-panel">
+          <div class="panel-head">
+            <h2>角色</h2>
+            <span class="spacer"></span>
+            <span class="badge">2</span>
+          </div>
+          <div class="role-list">
+            <button
+              v-for="card in roleCards"
+              :key="card.role"
+              type="button"
+              class="role-item"
+              :class="{ 'is-active': selectedRole === card.role }"
+              :aria-pressed="selectedRole === card.role"
+              @click="selectedRole = card.role"
+            >
+              <span class="role-item-main">
+                <b>
+                  {{ card.title }}
+                  <span v-if="card.role === 'admin'" class="lock-mini">内置</span>
+                </b>
+                <small>
+                  {{ roleCount(card.role) ?? '—' }} 位用户 · {{ roleSummary(card.role) }}
+                </small>
+              </span>
+              <AppIcon :name="selectedRole === card.role ? 'eye' : 'arrow'" />
+            </button>
+          </div>
+          <dl class="role-dist" aria-label="用户角色分布">
             <div v-for="row in distributionRows" :key="row.label">
               <dt>{{ row.label }}</dt>
-              <dd class="mono">{{ row.value }}</dd>
+              <dd>{{ row.value }}</dd>
             </div>
           </dl>
-          <p class="note">
-            口径：stats.admins 含停用管理员，活跃/停用为全表计数；普通用户数 = 总用户 −
-            管理员，不反推活跃管理员数。
+          <p class="perm-note">
+            口径：stats.admins 含停用管理员；活跃/停用为全表计数；普通用户数 = 总用户 − 管理员。
           </p>
-        </article>
+        </section>
 
-        <article class="panel">
-          <h2>内置能力矩阵</h2>
-          <table>
-            <thead>
-              <tr>
-                <th scope="col">模块</th>
-                <th scope="col" class="mono">user</th>
-                <th scope="col" class="mono">admin</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="row in capabilityMatrix" :key="row.module">
-                <th scope="row">{{ row.module }}</th>
-                <td>{{ row.user }}</td>
-                <td>{{ row.admin }}</td>
-              </tr>
-            </tbody>
-          </table>
-          <p class="note">
-            口径：M7
-            后智能体与任务写操作仅管理员；知识库系统文档管理仅管理员；审计管理员可查全局；平台密钥与管理台仅管理员。
-          </p>
-        </article>
-      </section>
+        <div class="panel-stack">
+          <section class="panel permission-panel">
+            <div class="panel-head">
+              <div>
+                <h2>{{ activeRole.title }}</h2>
+                <p>{{ activeRole.summary }}</p>
+              </div>
+              <span class="spacer"></span>
+              <span class="lock-note">
+                <AppIcon name="lock" />
+                {{ isBuiltInAdmin ? '系统内置' : '只读角色' }}
+              </span>
+            </div>
+            <div class="table-wrap perm-wrap">
+              <table class="data-table perm-table">
+                <thead>
+                  <tr>
+                    <th scope="col">模块 / 权限</th>
+                    <th scope="col">查看</th>
+                    <th scope="col">操作</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="module in capabilityMatrix" :key="module.module">
+                    <td>{{ module.module }}</td>
+                    <td>
+                      <input
+                        v-if="canView(permissionValue(module))"
+                        type="checkbox"
+                        checked
+                        disabled
+                        :aria-label="`${module.module} 查看权限`"
+                      />
+                      <span v-else class="muted">—</span>
+                    </td>
+                    <td>
+                      <input
+                        v-if="canOperate(permissionValue(module))"
+                        type="checkbox"
+                        checked
+                        disabled
+                        :aria-label="`${module.module} 操作权限`"
+                      />
+                      <span v-else class="muted">—</span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="panel-foot">
+              <span>修改后立即对新会话生效；本页只读，不提供权限编辑。</span>
+            </div>
+          </section>
+
+          <section class="panel matrix-block">
+            <div class="panel-head">
+              <div>
+                <h2>内置能力矩阵</h2>
+                <p>按模块对照 user / admin 的真实权限口径</p>
+              </div>
+            </div>
+            <div class="table-wrap matrix-wrap">
+              <table class="data-table matrix-table">
+                <thead>
+                  <tr>
+                    <th scope="col">模块</th>
+                    <th scope="col" class="mono">user</th>
+                    <th scope="col" class="mono">admin</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="row in capabilityMatrix" :key="row.module">
+                    <td>{{ row.module }}</td>
+                    <td>{{ row.user }}</td>
+                    <td>{{ row.admin }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="panel-foot">
+              <span>口径：M7 后智能体与任务写操作仅管理员；审计管理员可查全局；平台密钥与管理台仅管理员。</span>
+            </div>
+          </section>
+        </div>
+      </div>
     </template>
   </div>
 </template>
-
-<style scoped>
-.admin-page {
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-  max-width: 1120px;
-}
-
-.notice {
-  padding: 12px 16px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--surface-2);
-}
-
-.notice-tag {
-  margin: 0 0 4px;
-  color: var(--amber-text);
-  font-size: 9.5px;
-  letter-spacing: 0.13em;
-}
-
-.notice-body {
-  margin: 0;
-  color: var(--ink-2);
-  font-size: 12px;
-  line-height: 1.7;
-}
-
-.role-cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap: 12px;
-}
-
-.panels {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap: 12px;
-  align-items: start;
-}
-
-.panel {
-  padding: 14px 16px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--surface);
-}
-
-.panel h2 {
-  margin: 0 0 10px;
-  font-size: 12px;
-  font-weight: 650;
-  color: var(--ink-2);
-}
-
-.summary {
-  margin: 0 0 8px;
-  color: var(--ink-2);
-  font-size: 12px;
-  line-height: 1.6;
-}
-
-.role-cards ul {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.role-cards li {
-  position: relative;
-  padding-left: 14px;
-  color: var(--ink-3);
-  font-size: 11.5px;
-  line-height: 1.6;
-}
-
-.role-cards li::before {
-  content: '';
-  position: absolute;
-  top: 0.6em;
-  left: 2px;
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: var(--ink-3);
-}
-
-.panel dl {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin: 0;
-}
-
-.panel dl div {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.panel dt {
-  color: var(--ink-3);
-  font-size: 11.5px;
-}
-
-.panel dd {
-  margin: 0;
-  color: var(--ink);
-  font-size: 12px;
-}
-
-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 12px;
-}
-
-th,
-td {
-  padding: 6px 10px;
-  border-bottom: 1px solid var(--line-2);
-  color: var(--ink);
-  font-weight: 400;
-  text-align: left;
-  vertical-align: top;
-}
-
-thead th {
-  border-bottom: 1px solid var(--line);
-  color: var(--ink-3);
-  font-size: 11px;
-  font-weight: 550;
-  white-space: nowrap;
-}
-
-tbody th {
-  color: var(--ink);
-  font-weight: 500;
-  white-space: nowrap;
-}
-
-tbody tr:last-child th,
-tbody tr:last-child td {
-  border-bottom: none;
-}
-
-.note {
-  margin: 10px 0 0;
-  color: var(--ink-3);
-  font-size: 10.5px;
-  line-height: 1.7;
-}
-</style>

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 
-import ProcessCardShell from './ProcessCardShell.vue'
+import AppIcon from '@/components/common/AppIcon.vue'
 import { formatDuration } from '@/utils/format'
 import type { A2aProcess } from '@/types'
 
@@ -27,108 +27,101 @@ const stateLabel = computed(
     })[props.item.state],
 )
 
-const progressPercent = computed(() =>
-  props.item.progress === null ? null : Math.round(props.item.progress * 100),
+const isDone = computed(() => props.item.state === 'completed')
+const isFailed = computed(
+  () => props.item.state === 'failed' || props.item.state === 'canceled' || props.item.state === 'rejected',
 )
+
+const badge = computed(() => {
+  const name = props.item.agentName || props.item.agent || 'A2A'
+  const parts = name.replace(/[-_.]/g, ' ').trim().split(/\s+/).filter(Boolean)
+  return parts
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? '')
+    .join('')
+})
+
+const stateClass = computed(() => {
+  if (isDone.value) return 'is-done'
+  if (isFailed.value) return 'is-error'
+  return 'is-running'
+})
 </script>
 
 <template>
-  <ProcessCardShell
-    kind="a2a"
-    :title="item.agentName || item.agent"
-    :status="item.status"
-    :status-label="stateLabel"
-    :duration="formatDuration(item.durationMs)"
-  >
-    <p v-if="item.requestSummary" class="line">{{ item.requestSummary }}</p>
+  <li class="entry entry-a2a">
+    <span class="node" aria-hidden="true"></span>
+    <div class="entry-body">
+      <div class="delegation">
+        <div class="delegation-head">
+          <span class="delegation-title">远程委派</span>
+          <span class="tag">A2A</span>
+          <span class="delegation-count">{{ item.agentName || item.agent }}</span>
+          <span class="spacer"></span>
+          <span class="delegation-state">{{ stateLabel }}</span>
+        </div>
 
-    <div
-      v-if="progressPercent !== null"
-      class="progress"
-      role="progressbar"
-      :aria-valuenow="progressPercent"
-    >
-      <span :style="{ width: `${progressPercent}%` }"></span>
-    </div>
-
-    <p v-if="item.resultSummary" class="line result">{{ item.resultSummary }}</p>
-    <p v-if="item.artifactSummary" class="line artifact">产出：{{ item.artifactSummary }}</p>
-    <p v-if="item.error" class="line error">{{ item.error }}</p>
-    <p class="line meta mono">
-      <span>{{ item.a2aTaskId || item.taskId }}</span>
-      <span class="meta-links">
-        <button type="button" class="meta-link" @click="emit('open-output')">查看输出</button>
-        <RouterLink
-          v-if="item.taskId"
-          class="meta-link"
-          :to="{ name: 'tasks', query: { task: item.taskId } }"
+        <div
+          class="a2a-row"
+          :class="{ 'is-done': isDone }"
+          role="button"
+          tabindex="0"
+          :aria-label="`查看 ${item.agentName || item.agent} 的远程任务产出`"
+          @click="emit('open-output')"
+          @keydown.enter.prevent="emit('open-output')"
         >
-          查看任务
-        </RouterLink>
-      </span>
-    </p>
-  </ProcessCardShell>
+          <span class="agent-badge" aria-hidden="true">{{ badge }}</span>
+          <div class="a2a-row-ident">
+            <div class="a2a-name">{{ item.agentName || item.agent }}</div>
+            <div class="a2a-task">{{ item.requestSummary || '远程任务' }}</div>
+            <div v-if="item.resultSummary" class="a2a-row-result" :class="{ 'is-error': isFailed }">
+              <AppIcon :name="isFailed ? 'x' : 'check'" />
+              {{ item.resultSummary }}
+            </div>
+            <div v-else-if="item.error" class="a2a-row-result is-error">
+              <AppIcon name="x" />
+              {{ item.error }}
+            </div>
+          </div>
+          <div class="a2a-row-state">
+            <span class="a2a-status" :class="stateClass">
+              <span class="dot" :class="isDone ? 'is-ok' : isFailed ? 'is-warn' : 'is-live'"></span>
+              {{ stateLabel }}
+            </span>
+            <span class="a2a-row-meta">{{ item.a2aTaskId || item.taskId }}</span>
+            <button
+              type="button"
+              class="a2a-stream-hint meta-link"
+              @click.stop="emit('open-output')"
+            >
+              查看输出
+              <AppIcon name="arrow" />
+            </button>
+          </div>
+        </div>
+
+        <div class="delegation-foot">
+          <span class="mono">{{ item.a2aTaskId || item.taskId }}</span>
+          <span>·</span>
+          <span>{{ formatDuration(item.durationMs) }}</span>
+          <span>·</span>
+          <span>A2A 1.0</span>
+        </div>
+      </div>
+    </div>
+  </li>
 </template>
 
 <style scoped>
-.line {
-  margin: 0;
-}
-
-.line + .line {
-  margin-top: 5px;
-}
-
-.result {
-  color: var(--ink);
-}
-
-.artifact {
-  color: var(--kind-a2a);
-}
-
-.error {
+.a2a-row-result.is-error {
   color: var(--red);
 }
 
-.meta-links {
-  display: inline-flex;
-  flex: none;
-  gap: 10px;
+.a2a-status.is-error {
+  color: var(--red);
 }
 
-.meta-link {
-  color: var(--prussian);
-  font-family: var(--font-sans);
-  font-size: 10.5px;
-}
-
-.meta-link:hover {
-  text-decoration: underline;
-}
-
-.meta {
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
-  margin-top: 6px;
-  color: var(--ink-3);
-  font-size: 10px;
-}
-
-.progress {
-  height: 4px;
-  margin: 7px 0;
-  overflow: hidden;
-  border-radius: 99px;
-  background: var(--surface-2);
-}
-
-.progress span {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-  background: var(--kind-a2a);
-  transition: width 0.3s ease;
+.a2a-status.is-running {
+  color: var(--amber-text);
 }
 </style>

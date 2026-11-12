@@ -40,6 +40,8 @@ function mountPanel(overrides: { runId?: string | null; streaming?: boolean } = 
       usage: null,
       finishReason: null,
       conversationTitle: '测试会话',
+      // 服务端事件回放位于抽屉模式（常驻右栏不再重复拉事件接口）。
+      mode: 'drawer',
     },
   })
 }
@@ -81,8 +83,9 @@ describe('RunTracePanel', () => {
     const wrapper = mountPanel({ runId: null, streaming: false })
     await flushPromises()
     expect(runsApi.get).not.toHaveBeenCalled()
-    expect(wrapper.text()).toContain('测试会话')
-    expect(wrapper.text()).toContain('服务端事件回放 · 0')
+    // 会话标题改由抽屉头部承载；面板内保留事件回放区块与计数。
+    expect(wrapper.text()).toContain('服务端事件回放')
+    expect(wrapper.text()).toContain('0')
     wrapper.unmount()
   })
 })

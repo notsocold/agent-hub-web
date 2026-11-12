@@ -12,13 +12,8 @@ defineProps<{
     kind="notice"
     :title="item.code === 'memory_saved' ? '已保存记忆' : '运行提示'"
     :status="item.status"
+    :args="item.code"
   >
-    <p class="line">{{ item.message }}</p>
+    <p class="proc-desc">{{ item.message }}</p>
   </ProcessCardShell>
 </template>
-
-<style scoped>
-.line {
-  margin: 0;
-}
-</style>

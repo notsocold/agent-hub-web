@@ -2,6 +2,7 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 
+import AppIcon from '@/components/common/AppIcon.vue'
 import { attachmentsApi } from '@/api/attachments'
 import type {
   Attachment,
@@ -70,6 +71,7 @@ const textarea = ref<HTMLTextAreaElement | null>(null)
 const root = ref<HTMLElement | null>(null)
 const fileInput = ref<HTMLInputElement | null>(null)
 const menuOpen = ref(false)
+const modelMenuOpen = ref(false)
 const panel = ref<'skill' | 'mcp' | 'knowledge' | 'workflow' | null>(null)
 const search = ref('')
 const expandedServer = ref<string | null>(null)
@@ -102,6 +104,34 @@ const canSend = computed(
     text.value.trim().length > 0,
 )
 const count = computed(() => text.value.length)
+
+const selectedCount = computed(
+  () =>
+    attachments.value.length +
+    selectedSkills.value.length +
+    selectedServers.value.length +
+    selectedTools.value.length +
+    selectedCategories.value.length +
+    (selectedWorkflow.value ? 1 : 0),
+)
+
+const modelLabel = computed(
+  () => props.models.find((item) => item.id === props.model)?.name ?? props.model ?? 'deepseek-chat',
+)
+
+const effortLabel = computed(
+  () => props.reasoningEfforts.find((item) => item.id === props.reasoningEffort)?.name ?? '',
+)
+
+function chooseModel(id: string): void {
+  modelMenuOpen.value = false
+  emit('update:model', id)
+}
+
+function chooseEffort(id: ReasoningEffortId): void {
+  modelMenuOpen.value = false
+  emit('update:reasoningEffort', id)
+}
 
 const limits = computed<SystemLimits>(
   () =>
@@ -490,20 +520,14 @@ function formatBytes(bytes: number): string {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`
 }
 
-function onModelChange(event: Event): void {
-  emit('update:model', (event.target as HTMLSelectElement).value)
-}
-
-function onEffortChange(event: Event): void {
-  emit('update:reasoningEffort', (event.target as HTMLSelectElement).value as ReasoningEffortId)
-}
-
 function onDocumentClick(event: MouseEvent): void {
-  if (!menuOpen.value) return
   const target = event.target as Node | null
   if (root.value && target && !root.value.contains(target)) {
-    menuOpen.value = false
-    panel.value = null
+    if (menuOpen.value) {
+      menuOpen.value = false
+      panel.value = null
+    }
+    if (modelMenuOpen.value) modelMenuOpen.value = false
   }
 }
 
@@ -518,505 +542,529 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <footer ref="root" class="composer">
-    <div class="composer-box">
-      <div v-if="hasContext" class="context-chips" aria-label="本轮上下文">
-        <span
-          v-for="item in attachments"
-          :key="item.localId"
-          class="chip is-attachment"
-          :class="{ 'is-uploading': item.status === 'processing' }"
-        >
-          <span class="chip-kind">附件</span>
-          <span class="chip-label">{{ item.filename }}</span>
-          <span v-if="item.status === 'processing'" class="chip-meta mono">
-            {{ item.progress ?? 0 }}%
+  <footer ref="root" class="composer-wrap">
+    <div class="composer-inner">
+      <div class="composer">
+        <div v-if="hasContext" class="composer-context" aria-label="本轮上下文">
+          <span
+            v-for="item in attachments"
+            :key="item.localId"
+            class="chip is-attachment"
+            :class="{ 'is-uploading': item.status === 'processing' }"
+          >
+            <span class="chip-kind">附件</span>
+            <span class="chip-label">{{ item.filename }}</span>
+            <span v-if="item.status === 'processing'" class="chip-meta mono">
+              {{ item.progress ?? 0 }}%
+            </span>
+            <button
+              type="button"
+              class="chip-remove"
+              :aria-label="`移除附件 ${item.filename}`"
+              @click="removeAttachment(item.localId)"
+            >
+              ×
+            </button>
           </span>
-          <button
-            type="button"
-            class="chip-remove"
-            :aria-label="`移除附件 ${item.filename}`"
-            @click="removeAttachment(item.localId)"
+
+          <span
+            v-for="category in selectedCategories"
+            :key="category"
+            class="chip is-knowledge"
+            data-testid="chip-knowledge"
           >
-            ×
-          </button>
-        </span>
+            <span class="chip-kind">知识库</span>
+            <span class="chip-label">{{ category }}</span>
+            <button
+              type="button"
+              class="chip-remove"
+              :aria-label="`移除知识库分类 ${category}`"
+              @click="removeCategory(category)"
+            >
+              ×
+            </button>
+          </span>
 
-        <span
-          v-for="category in selectedCategories"
-          :key="category"
-          class="chip is-knowledge"
-          data-testid="chip-knowledge"
-        >
-          <span class="chip-kind">知识库</span>
-          <span class="chip-label">{{ category }}</span>
-          <button
-            type="button"
-            class="chip-remove"
-            :aria-label="`移除知识库分类 ${category}`"
-            @click="removeCategory(category)"
+          <span
+            v-for="skill in selectedSkills"
+            :key="skill.id"
+            class="chip is-skill"
+            data-testid="chip-skill"
           >
-            ×
-          </button>
-        </span>
+            <span class="chip-kind">技能</span>
+            <span class="chip-label">{{ skill.name }}</span>
+            <button
+              type="button"
+              class="chip-remove"
+              :aria-label="`移除技能 ${skill.name}`"
+              @click="removeSkill(skill.id)"
+            >
+              ×
+            </button>
+          </span>
 
-        <span
-          v-for="skill in selectedSkills"
-          :key="skill.id"
-          class="chip is-skill"
-          data-testid="chip-skill"
-        >
-          <span class="chip-kind">技能</span>
-          <span class="chip-label">{{ skill.name }}</span>
-          <button
-            type="button"
-            class="chip-remove"
-            :aria-label="`移除技能 ${skill.name}`"
-            @click="removeSkill(skill.id)"
+          <span v-for="server in selectedServers" :key="server.id" class="chip is-mcp">
+            <span class="chip-kind">MCP</span>
+            <span class="chip-label">{{ server.name }}</span>
+            <button
+              type="button"
+              class="chip-remove"
+              :aria-label="`移除 MCP ${server.name}`"
+              @click="removeServer(server.id)"
+            >
+              ×
+            </button>
+          </span>
+
+          <span v-for="tool in selectedTools" :key="tool.id" class="chip is-mcp-tool">
+            <span class="chip-kind">工具</span>
+            <span class="chip-label mono">{{ tool.name }}</span>
+            <button
+              type="button"
+              class="chip-remove"
+              :aria-label="`移除工具 ${tool.name}`"
+              @click="removeTool(tool.id)"
+            >
+              ×
+            </button>
+          </span>
+
+          <span v-if="selectedWorkflow" class="chip is-workflow" data-testid="chip-workflow">
+            <span class="chip-kind">工作流</span>
+            <span class="chip-label">{{ workflowChipLabel }}</span>
+            <button type="button" class="chip-remove" aria-label="移除工作流" @click="removeWorkflow">
+              ×
+            </button>
+          </span>
+        </div>
+
+        <!-- M9：已选工作流时的步骤预览行（序号 + title，纯文本）。 -->
+        <div v-if="selectedWorkflow" class="workflow-preview" data-testid="workflow-steps">
+          <p
+            v-for="(stepTitle, index) in workflowPreviewSteps"
+            :key="`${index}-${stepTitle}`"
+            class="workflow-step-line"
           >
-            ×
-          </button>
-        </span>
+            <span class="step-no mono">{{ index + 1 }}</span>{{ stepTitle }}
+          </p>
+        </div>
 
-        <span v-for="server in selectedServers" :key="server.id" class="chip is-mcp">
-          <span class="chip-kind">MCP</span>
-          <span class="chip-label">{{ server.name }}</span>
-          <button
-            type="button"
-            class="chip-remove"
-            :aria-label="`移除 MCP ${server.name}`"
-            @click="removeServer(server.id)"
-          >
-            ×
-          </button>
-        </span>
+        <textarea
+          ref="textarea"
+          v-model="text"
+          rows="1"
+          :maxlength="maxChars"
+          :placeholder="
+            streaming
+              ? '正在生成，可点击停止…'
+              : '继续调度…（Enter 发送，Shift+Enter 换行）'
+          "
+          aria-label="输入消息"
+          @input="autoResize"
+          @keydown="onKeydown"
+        ></textarea>
 
-        <span v-for="tool in selectedTools" :key="tool.id" class="chip is-mcp-tool">
-          <span class="chip-kind">工具</span>
-          <span class="chip-label mono">{{ tool.name }}</span>
-          <button
-            type="button"
-            class="chip-remove"
-            :aria-label="`移除工具 ${tool.name}`"
-            @click="removeTool(tool.id)"
-          >
-            ×
-          </button>
-        </span>
+        <div class="composer-bar">
+          <div class="plus-wrap">
+            <button
+              class="composer-plus"
+              type="button"
+              aria-label="添加上下文"
+              data-testid="composer-plus"
+              aria-haspopup="menu"
+              :aria-expanded="menuOpen"
+              title="添加上下文"
+              @click.stop="openMenu"
+            >
+              <AppIcon name="plus" />
+            </button>
 
-        <span
-          v-if="selectedWorkflow"
-          class="chip is-workflow"
-          data-testid="chip-workflow"
-        >
-          <span class="chip-kind">工作流</span>
-          <span class="chip-label">{{ workflowChipLabel }}</span>
-          <button
-            type="button"
-            class="chip-remove"
-            aria-label="移除工作流"
-            @click="removeWorkflow"
-          >
-            ×
-          </button>
-        </span>
-      </div>
+            <input
+              ref="fileInput"
+              class="file-input"
+              type="file"
+              multiple
+              tabindex="-1"
+              aria-hidden="true"
+              @change="onFilesPicked"
+            />
 
-      <!-- M9：已选工作流时的步骤预览行（序号 + title，纯文本）。 -->
-      <div v-if="selectedWorkflow" class="workflow-preview" data-testid="workflow-steps">
-        <p
-          v-for="(stepTitle, index) in workflowPreviewSteps"
-          :key="`${index}-${stepTitle}`"
-          class="workflow-step-line"
-        >
-          <span class="step-no mono">{{ index + 1 }}</span>{{ stepTitle }}
-        </p>
-      </div>
-
-      <div class="composer-toolbar">
-        <div class="toolbar-left">
-          <button
-            class="icon-btn"
-            type="button"
-            aria-label="添加上下文"
-            data-testid="composer-plus"
-            aria-haspopup="menu"
-            :aria-expanded="menuOpen"
-            title="添加上下文"
-            @click.stop="openMenu"
-          >
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M12 5v14M5 12h14" />
-            </svg>
-          </button>
-
-          <input
-            ref="fileInput"
-            class="file-input"
-            type="file"
-            multiple
-            tabindex="-1"
-            aria-hidden="true"
-            @change="onFilesPicked"
-          />
-
-          <div v-if="menuOpen" class="ctx-menu" role="menu">
-            <template v-if="panel === null">
-              <p class="ctx-title">本轮上下文</p>
-              <button
-                type="button"
-                role="menuitem"
-                class="ctx-item"
-                data-testid="ctx-attachment"
-                :class="{ 'is-disabled': !capabilityOn('attachments') }"
-                @click.stop="openFilePicker"
-              >
-                <span>附件</span>
-                <span class="ctx-stage">{{ capabilityOn('attachments') ? '上传' : '未启用' }}</span>
-              </button>
-              <button
-                type="button"
-                role="menuitem"
-                class="ctx-item"
-                data-testid="ctx-skill"
-                :class="{ 'is-disabled': !capabilityOn('skills') }"
-                @click.stop="openPanel('skill')"
-              >
-                <span>技能</span>
-                <span class="ctx-stage">
-                  {{ capabilityOn('skills') ? `${selectedSkills.length}/${limits.skills_per_message}` : '未启用' }}
-                </span>
-              </button>
-              <button
-                type="button"
-                role="menuitem"
-                class="ctx-item"
-                data-testid="ctx-mcp"
-                :class="{ 'is-disabled': !capabilityOn('mcp') }"
-                @click.stop="openPanel('mcp')"
-              >
-                <span>MCP</span>
-                <span class="ctx-stage">
-                  {{ capabilityOn('mcp') ? `${selectedServers.length}/${limits.mcp_servers_per_message}` : '未启用' }}
-                </span>
-              </button>
-              <button
-                type="button"
-                role="menuitem"
-                class="ctx-item"
-                data-testid="ctx-workflow"
-                :class="{ 'is-disabled': !capabilityOn('workflows') }"
-                @click.stop="openPanel('workflow')"
-              >
-                <span>工作流</span>
-                <span class="ctx-stage">
-                  {{ capabilityOn('workflows') ? (selectedWorkflow ? '已选' : '单选') : '未启用' }}
-                </span>
-              </button>
-              <button
-                type="button"
-                role="menuitem"
-                class="ctx-item"
-                data-testid="ctx-knowledge"
-                :class="{ 'is-disabled': !capabilityOn('knowledge') }"
-                @click.stop="openPanel('knowledge')"
-              >
-                <span>知识库</span>
-                <span class="ctx-stage">
-                  {{
-                    capabilityOn('knowledge')
-                      ? `${selectedCategories.length}/${limits.knowledge_categories_per_message}`
-                      : '未启用'
-                  }}
-                </span>
-              </button>
-              <p class="ctx-foot">选择只影响当次请求，发送后清空。</p>
-            </template>
-
-            <template v-else-if="panel === 'skill'">
-              <div class="ctx-subhead">
-                <button type="button" class="ctx-back" aria-label="返回" @click.stop="panel = null">
-                  ←
-                </button>
-                <span>选择技能</span>
-                <span class="ctx-stage">{{ selectedSkills.length }}/{{ limits.skills_per_message }}</span>
-              </div>
-              <input
-                v-model="search"
-                class="ctx-search"
-                type="search"
-                placeholder="搜索技能"
-                @click.stop
-              />
-              <div class="ctx-list">
-                <button
-                  v-for="skill in filteredSkills"
-                  :key="skill.id"
-                  type="button"
-                  class="ctx-row"
-                  data-testid="skill-option"
-                  :class="{ 'is-selected': selectedSkills.some((item) => item.id === skill.id) }"
-                  @click.stop="toggleSkill(skill)"
-                >
-                  <span class="ctx-row-main">
-                    <span class="ctx-row-name">{{ skill.name }}</span>
-                    <span class="ctx-row-desc">{{ skill.description }}</span>
-                  </span>
-                  <span class="ctx-row-meta mono">
-                    {{ skill.estimated_tokens }}t
-                  </span>
-                </button>
-                <p v-if="filteredSkills.length === 0" class="ctx-empty">没有可用技能</p>
-              </div>
-              <p class="ctx-foot">技能正文只在本轮显式激活，不写回账号设置。</p>
-            </template>
-
-            <template v-else-if="panel === 'knowledge'">
-              <div class="ctx-subhead">
-                <button type="button" class="ctx-back" aria-label="返回" @click.stop="panel = null">
-                  ←
-                </button>
-                <span>选择知识库分类</span>
-                <span class="ctx-stage">
-                  {{ selectedCategories.length }}/{{ limits.knowledge_categories_per_message }}
-                </span>
-              </div>
-              <input
-                v-model="categoryInput"
-                class="ctx-search"
-                type="text"
-                data-testid="knowledge-input"
-                placeholder="输入分类名后回车添加"
-                maxlength="64"
-                @click.stop
-                @keydown.enter.prevent.stop="addCategory"
-              />
-              <div class="ctx-list">
-                <button
-                  v-for="category in categoryOptions"
-                  :key="category"
-                  type="button"
-                  class="ctx-row"
-                  data-testid="knowledge-option"
-                  :class="{ 'is-selected': selectedCategories.includes(category) }"
-                  @click.stop="toggleCategory(category)"
-                >
-                  <span class="ctx-row-main">
-                    <span class="ctx-row-name">{{ category }}</span>
-                  </span>
-                  <span class="ctx-row-meta mono">
-                    {{ selectedCategories.includes(category) ? '已选' : '' }}
-                  </span>
-                </button>
-                <p v-if="categoryOptions.length === 0" class="ctx-empty">
-                  暂无可选分类，可直接输入分类名
-                </p>
-              </div>
-              <p class="ctx-foot">分类作为本轮 search_knowledge 的默认过滤；发送后清空。</p>
-            </template>
-
-            <template v-else-if="panel === 'workflow'">
-              <div class="ctx-subhead">
-                <button type="button" class="ctx-back" aria-label="返回" @click.stop="panel = null">
-                  ←
-                </button>
-                <span>选择工作流</span>
-                <span class="ctx-stage">{{ selectedWorkflow ? '已选' : '单选' }}</span>
-              </div>
-              <div class="ctx-list">
-                <button
-                  v-for="workflow in enabledWorkflows"
-                  :key="workflow.id"
-                  type="button"
-                  class="ctx-row"
-                  data-testid="workflow-option"
-                  :class="{ 'is-selected': selectedWorkflow?.id === workflow.id }"
-                  @click.stop="selectWorkflow(workflow)"
-                >
-                  <span class="ctx-row-main">
-                    <span class="ctx-row-name">{{ workflow.name }}</span>
-                    <span class="ctx-row-desc">
-                      {{ workflow.scope === 'system' ? '系统' : '用户' }} · v{{ workflow.version }} ·
-                      {{ workflow.steps.length }} 步
-                    </span>
-                  </span>
-                  <span class="ctx-row-meta">
-                    {{ selectedWorkflow?.id === workflow.id ? '已选' : '' }}
-                  </span>
-                </button>
-                <p v-if="enabledWorkflows.length === 0" class="ctx-empty">没有可用工作流</p>
-              </div>
-              <p class="ctx-foot">工作流与技能/MCP/知识库互斥；发送后清空。</p>
-            </template>
-
-            <template v-else>
-              <div class="ctx-subhead">
-                <button type="button" class="ctx-back" aria-label="返回" @click.stop="panel = null">
-                  ←
-                </button>
-                <span>选择 MCP</span>
-                <span class="ctx-stage">{{ selectedServers.length }}/{{ limits.mcp_servers_per_message }}</span>
-              </div>
-              <input
-                v-model="search"
-                class="ctx-search"
-                type="search"
-                placeholder="搜索 MCP 服务器"
-                @click.stop
-              />
-              <div class="ctx-list">
-                <div v-for="server in filteredServers" :key="server.id" class="ctx-server">
-                  <div class="ctx-row is-server">
-                    <button
-                      type="button"
-                      class="ctx-row-main"
-                      data-testid="server-option"
-                      :class="{ 'is-selected': selectedServers.some((item) => item.id === server.id) }"
-                      @click.stop="toggleServer(server)"
-                    >
-                      <span class="ctx-row-name">{{ server.name }}</span>
-                      <span class="ctx-row-desc">
-                        {{ server.tool_count }} 个工具 ·
-                        {{ server.scope === 'system' ? '系统' : '用户' }}
-                      </span>
-                    </button>
-                    <button
-                      v-if="server.tool_count > 0"
-                      type="button"
-                      class="ctx-expand"
-                      data-testid="server-tools"
-                      :aria-label="`展开 ${server.name} 的工具`"
-                      @click.stop="toggleServerTools(server)"
-                    >
-                      {{ expandedServer === server.id ? '收起' : '工具' }}
-                    </button>
-                  </div>
-                  <div v-if="expandedServer === server.id" class="ctx-tools">
-                    <p v-if="toolsLoading.includes(server.id)" class="ctx-empty">正在加载工具…</p>
-                    <p v-else-if="toolsOf(server.id).length === 0" class="ctx-empty">
-                      该服务器没有可用工具
-                    </p>
-                    <button
-                      v-for="tool in toolsOf(server.id)"
-                      :key="tool.id"
-                      type="button"
-                      class="ctx-tool"
-                      :class="{ 'is-selected': selectedTools.some((item) => item.id === tool.id) }"
-                      @click.stop="toggleTool(tool)"
-                    >
-                      <span class="mono">{{ tool.name }}</span>
-                      <span class="ctx-tool-risk">{{ tool.risk }}</span>
-                    </button>
-                  </div>
+            <div v-if="menuOpen" class="composer-menu is-open" role="menu">
+              <template v-if="panel === null">
+                <div class="cm-head">
+                  <span>添加上下文</span>
+                  <span class="cm-count">已选 <b>{{ selectedCount }}</b></span>
                 </div>
-                <p v-if="filteredServers.length === 0" class="ctx-empty">没有可用 MCP 服务器</p>
-              </div>
-              <p class="ctx-foot">写/破坏性工具仍需审批；普通用户不能使用系统 MCP 写工具。</p>
-            </template>
+                <button
+                  type="button"
+                  role="menuitem"
+                  class="cm-item"
+                  data-testid="ctx-attachment"
+                  :class="{ 'is-disabled': !capabilityOn('attachments') }"
+                  @click.stop="openFilePicker"
+                >
+                  <span class="cm-icon"><AppIcon name="clip" /></span>
+                  <span class="cm-main">附件</span>
+                  <span class="cm-hint">{{ capabilityOn('attachments') ? '选择文件' : '未启用' }}</span>
+                </button>
+                <div class="cm-sep"></div>
+                <div class="cm-label">技能</div>
+                <button
+                  type="button"
+                  role="menuitem"
+                  class="cm-check"
+                  data-testid="ctx-skill"
+                  :aria-checked="selectedSkills.length > 0"
+                  :class="{ 'is-disabled': !capabilityOn('skills') }"
+                  @click.stop="openPanel('skill')"
+                >
+                  <span class="cm-check-box">
+                    <AppIcon v-if="selectedSkills.length > 0" name="check" />
+                  </span>
+                  <span class="cm-main">技能</span>
+                  <span class="cm-hint">
+                    {{
+                      capabilityOn('skills')
+                        ? `${selectedSkills.length}/${limits.skills_per_message}`
+                        : '未启用'
+                    }}
+                  </span>
+                </button>
+                <div class="cm-label">工作流</div>
+                <button
+                  type="button"
+                  role="menuitem"
+                  class="cm-check"
+                  data-testid="ctx-workflow"
+                  :aria-checked="Boolean(selectedWorkflow)"
+                  :class="{ 'is-disabled': !capabilityOn('workflows') }"
+                  @click.stop="openPanel('workflow')"
+                >
+                  <span class="cm-check-box">
+                    <AppIcon v-if="selectedWorkflow" name="check" />
+                  </span>
+                  <span class="cm-main">工作流</span>
+                  <span class="cm-hint">
+                    {{
+                      capabilityOn('workflows') ? (selectedWorkflow ? '已选' : '单选') : '未启用'
+                    }}
+                  </span>
+                </button>
+                <div class="cm-label">知识库</div>
+                <button
+                  type="button"
+                  role="menuitem"
+                  class="cm-check"
+                  data-testid="ctx-knowledge"
+                  :aria-checked="selectedCategories.length > 0"
+                  :class="{ 'is-disabled': !capabilityOn('knowledge') }"
+                  @click.stop="openPanel('knowledge')"
+                >
+                  <span class="cm-check-box">
+                    <AppIcon v-if="selectedCategories.length > 0" name="check" />
+                  </span>
+                  <span class="cm-main">知识库分类</span>
+                  <span class="cm-hint">
+                    {{
+                      capabilityOn('knowledge')
+                        ? `${selectedCategories.length}/${limits.knowledge_categories_per_message}`
+                        : '未启用'
+                    }}
+                  </span>
+                </button>
+                <div class="cm-label">MCP 服务器</div>
+                <button
+                  type="button"
+                  role="menuitem"
+                  class="cm-check"
+                  data-testid="ctx-mcp"
+                  :aria-checked="selectedServers.length > 0"
+                  :class="{ 'is-disabled': !capabilityOn('mcp') }"
+                  @click.stop="openPanel('mcp')"
+                >
+                  <span class="cm-check-box">
+                    <AppIcon v-if="selectedServers.length > 0" name="check" />
+                  </span>
+                  <span class="cm-main">MCP</span>
+                  <span class="cm-hint">
+                    {{
+                      capabilityOn('mcp')
+                        ? `${selectedServers.length}/${limits.mcp_servers_per_message}`
+                        : '未启用'
+                    }}
+                  </span>
+                </button>
+                <div class="cm-sep"></div>
+                <p class="cm-note">选择只影响当次请求，发送后清空。</p>
+              </template>
+
+              <template v-else-if="panel === 'skill'">
+                <div class="ctx-subhead">
+                  <button type="button" class="ctx-back" aria-label="返回" @click.stop="panel = null">
+                    ←
+                  </button>
+                  <span>选择技能</span>
+                  <span class="ctx-stage">{{ selectedSkills.length }}/{{ limits.skills_per_message }}</span>
+                </div>
+                <input v-model="search" class="ctx-search" type="search" placeholder="搜索技能" @click.stop />
+                <div class="ctx-list">
+                  <button
+                    v-for="skill in filteredSkills"
+                    :key="skill.id"
+                    type="button"
+                    class="ctx-row"
+                    data-testid="skill-option"
+                    :class="{ 'is-selected': selectedSkills.some((item) => item.id === skill.id) }"
+                    @click.stop="toggleSkill(skill)"
+                  >
+                    <span class="ctx-row-main">
+                      <span class="ctx-row-name">{{ skill.name }}</span>
+                      <span class="ctx-row-desc">{{ skill.description }}</span>
+                    </span>
+                    <span class="ctx-row-meta mono">{{ skill.estimated_tokens }}t</span>
+                  </button>
+                  <p v-if="filteredSkills.length === 0" class="ctx-empty">没有可用技能</p>
+                </div>
+                <p class="ctx-foot">技能正文只在本轮显式激活，不写回账号设置。</p>
+              </template>
+
+              <template v-else-if="panel === 'knowledge'">
+                <div class="ctx-subhead">
+                  <button type="button" class="ctx-back" aria-label="返回" @click.stop="panel = null">
+                    ←
+                  </button>
+                  <span>选择知识库分类</span>
+                  <span class="ctx-stage">
+                    {{ selectedCategories.length }}/{{ limits.knowledge_categories_per_message }}
+                  </span>
+                </div>
+                <input
+                  v-model="categoryInput"
+                  class="ctx-search"
+                  type="text"
+                  data-testid="knowledge-input"
+                  placeholder="输入分类名后回车添加"
+                  maxlength="64"
+                  @click.stop
+                  @keydown.enter.prevent.stop="addCategory"
+                />
+                <div class="ctx-list">
+                  <button
+                    v-for="category in categoryOptions"
+                    :key="category"
+                    type="button"
+                    class="ctx-row"
+                    data-testid="knowledge-option"
+                    :class="{ 'is-selected': selectedCategories.includes(category) }"
+                    @click.stop="toggleCategory(category)"
+                  >
+                    <span class="ctx-row-main">
+                      <span class="ctx-row-name">{{ category }}</span>
+                    </span>
+                    <span class="ctx-row-meta mono">
+                      {{ selectedCategories.includes(category) ? '已选' : '' }}
+                    </span>
+                  </button>
+                  <p v-if="categoryOptions.length === 0" class="ctx-empty">
+                    暂无可选分类，可直接输入分类名
+                  </p>
+                </div>
+                <p class="ctx-foot">分类作为本轮 search_knowledge 的默认过滤；发送后清空。</p>
+              </template>
+
+              <template v-else-if="panel === 'workflow'">
+                <div class="ctx-subhead">
+                  <button type="button" class="ctx-back" aria-label="返回" @click.stop="panel = null">
+                    ←
+                  </button>
+                  <span>选择工作流</span>
+                  <span class="ctx-stage">{{ selectedWorkflow ? '已选' : '单选' }}</span>
+                </div>
+                <div class="ctx-list">
+                  <button
+                    v-for="workflow in enabledWorkflows"
+                    :key="workflow.id"
+                    type="button"
+                    class="ctx-row"
+                    data-testid="workflow-option"
+                    :class="{ 'is-selected': selectedWorkflow?.id === workflow.id }"
+                    @click.stop="selectWorkflow(workflow)"
+                  >
+                    <span class="ctx-row-main">
+                      <span class="ctx-row-name">{{ workflow.name }}</span>
+                      <span class="ctx-row-desc">
+                        {{ workflow.scope === 'system' ? '系统' : '用户' }} · v{{ workflow.version }} ·
+                        {{ workflow.steps.length }} 步
+                      </span>
+                    </span>
+                    <span class="ctx-row-meta">
+                      {{ selectedWorkflow?.id === workflow.id ? '已选' : '' }}
+                    </span>
+                  </button>
+                  <p v-if="enabledWorkflows.length === 0" class="ctx-empty">没有可用工作流</p>
+                </div>
+                <p class="ctx-foot">工作流与技能/MCP/知识库互斥；发送后清空。</p>
+              </template>
+
+              <template v-else>
+                <div class="ctx-subhead">
+                  <button type="button" class="ctx-back" aria-label="返回" @click.stop="panel = null">
+                    ←
+                  </button>
+                  <span>选择 MCP</span>
+                  <span class="ctx-stage">{{ selectedServers.length }}/{{ limits.mcp_servers_per_message }}</span>
+                </div>
+                <input v-model="search" class="ctx-search" type="search" placeholder="搜索 MCP 服务器" @click.stop />
+                <div class="ctx-list">
+                  <div v-for="server in filteredServers" :key="server.id" class="ctx-server">
+                    <div class="ctx-row is-server">
+                      <button
+                        type="button"
+                        class="ctx-row-main"
+                        data-testid="server-option"
+                        :class="{ 'is-selected': selectedServers.some((item) => item.id === server.id) }"
+                        @click.stop="toggleServer(server)"
+                      >
+                        <span class="ctx-row-name">{{ server.name }}</span>
+                        <span class="ctx-row-desc">
+                          {{ server.tool_count }} 个工具 · {{ server.scope === 'system' ? '系统' : '用户' }}
+                        </span>
+                      </button>
+                      <button
+                        v-if="server.tool_count > 0"
+                        type="button"
+                        class="ctx-expand"
+                        data-testid="server-tools"
+                        :aria-label="`展开 ${server.name} 的工具`"
+                        @click.stop="toggleServerTools(server)"
+                      >
+                        {{ expandedServer === server.id ? '收起' : '工具' }}
+                      </button>
+                    </div>
+                    <div v-if="expandedServer === server.id" class="ctx-tools">
+                      <p v-if="toolsLoading.includes(server.id)" class="ctx-empty">正在加载工具…</p>
+                      <p v-else-if="toolsOf(server.id).length === 0" class="ctx-empty">
+                        该服务器没有可用工具
+                      </p>
+                      <button
+                        v-for="tool in toolsOf(server.id)"
+                        :key="tool.id"
+                        type="button"
+                        class="ctx-tool"
+                        :class="{ 'is-selected': selectedTools.some((item) => item.id === tool.id) }"
+                        @click.stop="toggleTool(tool)"
+                      >
+                        <span class="mono">{{ tool.name }}</span>
+                        <span class="ctx-tool-risk">{{ tool.risk }}</span>
+                      </button>
+                    </div>
+                  </div>
+                  <p v-if="filteredServers.length === 0" class="ctx-empty">没有可用 MCP 服务器</p>
+                </div>
+                <p class="ctx-foot">写/破坏性工具仍需审批；普通用户不能使用系统 MCP 写工具。</p>
+              </template>
+            </div>
           </div>
-        </div>
 
-        <div class="toolbar-right">
-          <label v-if="models.length > 0" class="picker">
-            <span class="sr-only">模型</span>
-            <select :value="model" :disabled="streaming" @change="onModelChange">
-              <option v-for="item in models" :key="item.id" :value="item.id">
-                {{ item.name }}
-              </option>
-            </select>
-          </label>
+          <span class="spacer"></span>
 
-          <label v-if="reasoningEfforts.length > 0" class="picker">
-            <span class="sr-only">推理等级</span>
-            <select :value="reasoningEffort" :disabled="streaming" @change="onEffortChange">
-              <option v-for="item in reasoningEfforts" :key="item.id" :value="item.id">
-                {{ item.name }}
-              </option>
-            </select>
-          </label>
+          <div class="model-wrap">
+            <button
+              class="model-btn"
+              type="button"
+              aria-haspopup="menu"
+              :aria-expanded="modelMenuOpen"
+              :disabled="streaming"
+              @click.stop="modelMenuOpen = !modelMenuOpen"
+            >
+              <span class="dot"></span>
+              <span>{{ modelLabel }}</span>
+              <span v-if="effortLabel" class="model-effort">{{ effortLabel }}</span>
+              <AppIcon name="chevron" class="model-chev" />
+            </button>
+            <div v-if="modelMenuOpen" class="model-menu is-open" role="menu">
+              <div class="mm-label">模型</div>
+              <button
+                v-for="item in models"
+                :key="item.id"
+                type="button"
+                role="menuitemradio"
+                class="mm-option"
+                :class="{ 'is-active': item.id === model }"
+                :aria-checked="item.id === model"
+                @click.stop="chooseModel(item.id)"
+              >
+                <span class="mm-main">
+                  <b>{{ item.name }}</b>
+                  <small>{{ item.description || '通用对话' }}</small>
+                </span>
+                <AppIcon v-if="item.id === model" name="check" class="mm-check" />
+              </button>
+              <template v-if="reasoningEfforts.length > 0">
+                <div class="cm-sep"></div>
+                <div class="mm-label">推理等级</div>
+                <button
+                  v-for="item in reasoningEfforts"
+                  :key="item.id"
+                  type="button"
+                  role="menuitemradio"
+                  class="mm-option"
+                  :class="{ 'is-active': item.id === reasoningEffort }"
+                  :aria-checked="item.id === reasoningEffort"
+                  @click.stop="chooseEffort(item.id)"
+                >
+                  <span class="mm-main">
+                    <b>{{ item.name }}</b>
+                    <small>{{ item.description || '' }}</small>
+                  </span>
+                  <AppIcon v-if="item.id === reasoningEffort" name="check" class="mm-check" />
+                </button>
+              </template>
+            </div>
+          </div>
+
+          <button
+            v-if="streaming"
+            type="button"
+            class="send is-stop"
+            aria-label="停止生成"
+            title="停止生成"
+            @click="onStop"
+          >
+            <AppIcon name="stop" />
+          </button>
+          <button
+            v-else
+            type="button"
+            class="send"
+            :class="{ 'is-disabled': !canSend }"
+            aria-label="发送"
+            title="发送"
+            :disabled="!canSend"
+            @click="submit"
+          >
+            <AppIcon name="up" />
+          </button>
         </div>
       </div>
 
-      <textarea
-        ref="textarea"
-        v-model="text"
-        class="composer-input"
-        rows="1"
-        :maxlength="maxChars"
-        :placeholder="
-          streaming
-            ? '正在生成，可点击停止…'
-            : '输入消息，或点 + 选择附件/技能/MCP（Enter 发送，Shift+Enter 换行）'
-        "
-        aria-label="输入消息"
-        @input="autoResize"
-        @keydown="onKeydown"
-      ></textarea>
-
-      <div class="composer-footer">
-        <span class="hint">Enter 发送 · Shift+Enter 换行 · @ 选择文件</span>
-        <span v-if="uploading" class="hint is-uploading">附件上传中…</span>
-        <span class="count mono">{{ count }} / {{ maxChars }}</span>
-
-        <button
-          v-if="streaming"
-          type="button"
-          class="send is-stop"
-          aria-label="停止生成"
-          title="停止生成"
-          @click="onStop"
-        >
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <rect x="7" y="7" width="10" height="10" rx="1.5" />
-          </svg>
-        </button>
-        <button
-          v-else
-          type="button"
-          class="send"
-          aria-label="发送"
-          title="发送"
-          :disabled="!canSend"
-          @click="submit"
-        >
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M12 19V5M6 11l6-6 6 6" />
-          </svg>
-        </button>
+      <div class="composer-meta">
+        <span class="keyhint">
+          <kbd>Enter</kbd> 发送 · <kbd>Shift</kbd> + <kbd>Enter</kbd> 换行 · <kbd>@</kbd> 选择文件
+        </span>
+        <span v-if="uploading" class="keyhint is-uploading">附件上传中…</span>
+        <span class="usage">
+          <span class="mono">{{ count }} / {{ maxChars }}</span>
+        </span>
       </div>
     </div>
   </footer>
 </template>
 
 <style scoped>
-.composer {
-  position: relative;
-  flex: none;
-  padding: 8px 32px 18px;
-  background: linear-gradient(to bottom, transparent, var(--paper) 24%);
-}
 
-.composer-box {
-  width: min(100%, var(--content-max));
-  margin: 0 auto;
-  padding: 6px 8px 6px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: var(--surface);
-  box-shadow: var(--shadow-md);
-  transition: border-color 0.15s;
-}
 
-.composer-box:focus-within {
-  border-color: var(--ink-3);
-}
 
-.context-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-  padding: 2px 2px 6px;
-}
 
 /* M9：步骤预览行——已选工作流时在 chip 下方逐行展示序号 + title。 */
 .workflow-preview {
@@ -1119,13 +1167,6 @@ onUnmounted(() => {
   opacity: 1;
 }
 
-.composer-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 0 2px;
-}
 
 .toolbar-left,
 .toolbar-right {
@@ -1135,28 +1176,8 @@ onUnmounted(() => {
   gap: 6px;
 }
 
-.icon-btn {
-  display: grid;
-  place-items: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 5px;
-  color: var(--ink-3);
-}
 
-.icon-btn:hover {
-  background: var(--surface-2);
-  color: var(--ink);
-}
 
-.icon-btn svg {
-  width: 17px;
-  height: 17px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.8;
-  stroke-linecap: round;
-}
 
 .file-input {
   position: absolute;
@@ -1406,31 +1427,8 @@ onUnmounted(() => {
   text-align: center;
 }
 
-.picker select {
-  height: 24px;
-  padding: 0 20px 0 7px;
-  border: 1px solid transparent;
-  border-radius: 5px;
-  background:
-    linear-gradient(45deg, transparent 50%, var(--ink-3) 50%) no-repeat right 9px center / 4px 4px,
-    linear-gradient(135deg, var(--ink-3) 50%, transparent 50%) no-repeat right 6px center / 4px 4px,
-    var(--surface-2);
-  color: var(--ink-2);
-  font: inherit;
-  font-size: 10.5px;
-  appearance: none;
-  cursor: pointer;
-}
 
-.picker select:hover:not(:disabled) {
-  border-color: var(--line);
-  color: var(--ink);
-}
 
-.picker select:disabled {
-  cursor: not-allowed;
-  opacity: 0.7;
-}
 
 .composer-input {
   display: block;
@@ -1451,12 +1449,6 @@ onUnmounted(() => {
   color: var(--ink-3);
 }
 
-.composer-footer {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 0 2px 1px 8px;
-}
 
 .hint {
   flex: 1;
@@ -1477,43 +1469,10 @@ onUnmounted(() => {
   font-size: 9px;
 }
 
-.send {
-  display: grid;
-  place-items: center;
-  flex: none;
-  width: 30px;
-  height: 30px;
-  border-radius: 7px;
-  background: var(--btn-bg);
-  color: var(--btn-fg);
-  transition:
-    opacity 0.15s,
-    filter 0.15s;
-}
 
-.send:hover:not(:disabled) {
-  filter: brightness(1.12);
-}
 
-.send:disabled {
-  cursor: not-allowed;
-  opacity: 0.4;
-}
 
-.send.is-stop {
-  background: var(--red);
-  color: var(--surface);
-}
 
-.send svg {
-  width: 15px;
-  height: 15px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.9;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
 
 @media (max-width: 900px) {
   .composer {

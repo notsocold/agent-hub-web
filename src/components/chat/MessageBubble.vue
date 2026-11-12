@@ -2,10 +2,11 @@
 import { computed } from 'vue'
 import { ElMessage } from 'element-plus'
 
+import AppIcon from '@/components/common/AppIcon.vue'
 import MarkdownView from '@/components/common/MarkdownView.vue'
 import ThinkingCard from './cards/ThinkingCard.vue'
 import { attachmentsApi } from '@/api/attachments'
-import { formatBytes, formatTokens } from '@/utils/format'
+import { formatBytes, formatClock, formatTokens } from '@/utils/format'
 import type { ChatMessageView, MessageAttachment } from '@/types'
 
 const props = defineProps<{
@@ -59,29 +60,47 @@ async function copy(text: string): Promise<void> {
 </script>
 
 <template>
-  <article class="turn" :class="`role-${message.role}`">
-    <div v-if="isUser" class="user-bubble">{{ message.content }}</div>
-
-    <div v-if="isUser && (message.attachments.length > 0 || capabilityLabel)" class="user-context">
-      <button
-        v-for="attachment in message.attachments"
-        :key="attachment.id"
-        type="button"
-        class="ctx-chip is-attachment"
-        :title="`下载 ${attachment.filename}`"
-        @click="downloadAttachment(attachment)"
-      >
-        <span class="ctx-chip-kind">附件</span>
-        <span class="ctx-chip-name">{{ attachment.filename }}</span>
-        <span class="ctx-chip-meta mono">{{ formatBytes(attachment.size_bytes) }}</span>
-      </button>
-      <span v-if="capabilityLabel" class="ctx-chip is-capability">
-        <span class="ctx-chip-kind">本轮</span>
-        <span class="ctx-chip-name">{{ capabilityLabel }}</span>
-      </span>
+  <article v-if="isUser" class="user-turn">
+    <div class="user-meta">
+      <span>你</span>
+      <span class="meta-sep">·</span>
+      <time>{{ formatClock(message.created_at) }}</time>
+      <template v-if="capabilityLabel">
+        <span class="meta-sep">·</span>
+        <span>{{ capabilityLabel }}</span>
+      </template>
     </div>
+    <div class="prompt-bubble">
+      <p>{{ message.content }}</p>
+      <div v-if="message.attachments.length > 0" class="attachments">
+        <button
+          v-for="attachment in message.attachments"
+          :key="attachment.id"
+          type="button"
+          class="attach"
+          :title="`下载 ${attachment.filename}`"
+          @click="downloadAttachment(attachment)"
+        >
+          <AppIcon name="clip" />
+          {{ attachment.filename }}
+          <span class="mono">{{ formatBytes(attachment.size_bytes) }}</span>
+        </button>
+      </div>
+    </div>
+  </article>
 
-    <div v-else class="assistant">
+  <article v-else class="entry entry-assistant is-main-node">
+    <span class="node" aria-hidden="true"></span>
+    <div class="entry-head">
+      <span class="who">main-agent</span>
+      <span class="who-sub">{{ message.streaming ? '生成中' : '回复' }}</span>
+      <span class="spacer"></span>
+      <button class="copy-btn" type="button" @click="copy(message.content)">
+        <AppIcon name="copy" />复制
+      </button>
+      <time>{{ formatClock(message.created_at) }}</time>
+    </div>
+    <div class="entry-body prose">
       <ThinkingCard
         v-if="message.reasoning"
         :reasoning="message.reasoning"
@@ -150,9 +169,8 @@ async function copy(text: string): Promise<void> {
           </div>
         </div>
 
-        <footer class="meta">
-          <span v-if="tokenLabel" class="mono">{{ tokenLabel }}</span>
-          <button type="button" class="text-btn" @click="copy(message.content)">复制</button>
+        <footer v-if="tokenLabel" class="msg-foot">
+          <span class="mono">{{ tokenLabel }}</span>
         </footer>
       </div>
     </div>
@@ -160,150 +178,80 @@ async function copy(text: string): Promise<void> {
 </template>
 
 <style scoped>
-.turn {
-  display: flex;
-  flex-direction: column;
-  margin-bottom: var(--message-gap);
-}
-
-.turn.role-user {
-  align-items: flex-end;
-}
-
-.user-context {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 5px;
-  max-width: min(680px, 86%);
-  margin-top: 5px;
-}
-
-.ctx-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  max-width: 260px;
-  padding: 2px 7px;
-  border: 1px solid var(--line-2);
-  border-radius: 5px;
-  background: var(--surface-2);
-  color: var(--ink-3);
-  font-size: 10px;
-}
-
-.ctx-chip.is-attachment {
-  border-color: var(--kind-vector);
-  background: var(--kind-vector-soft);
-  color: var(--kind-vector);
-  cursor: pointer;
-}
-
-.ctx-chip.is-attachment:hover {
-  filter: brightness(0.98);
-}
-
-.ctx-chip-kind {
-  font-size: 8.5px;
-  opacity: 0.8;
-}
-
-.ctx-chip-name {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.ctx-chip-meta {
-  font-size: 8.5px;
-  opacity: 0.8;
-}
-
-.user-bubble {
-  max-width: min(680px, 86%);
-  padding: 10px 14px;
-  border: 1px solid var(--user-bubble-border);
-  border-radius: 12px 12px 3px 12px;
-  background: var(--user-bubble-bg);
-  color: var(--user-bubble-fg);
-  font-size: 13.5px;
-  line-height: 1.7;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-
-.assistant {
-  width: 100%;
-  max-width: var(--content-max);
-}
-
-.response {
-  position: relative;
+.entry-assistant::before {
+  content: '';
+  position: absolute;
+  left: 21px;
+  top: 22px;
+  bottom: -26px;
+  width: 1px;
+  background: var(--line);
 }
 
 .cursor {
   display: inline-block;
-  width: 7px;
+  width: 6px;
   height: 15px;
   margin-left: 2px;
-  border-radius: 2px;
-  background: var(--prussian);
-  vertical-align: -2px;
-  animation: pulse 1s ease-in-out infinite;
+  background: var(--ink-2);
+  animation: blink 1s steps(2) infinite;
+  vertical-align: text-bottom;
+}
+
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
 }
 
 .error {
-  margin-top: 10px;
-  padding: 8px 11px;
-  border: 1px solid var(--red-soft);
-  border-radius: 6px;
+  padding: 8px 10px;
+  border-radius: 5px;
   background: var(--red-soft);
   color: var(--red);
   font-size: 12px;
 }
 
 .canceled {
-  margin-top: 8px;
   color: var(--ink-3);
-  font-size: 11.5px;
+  font-size: 12px;
 }
 
 .citations,
 .artifacts {
   margin-top: 14px;
   padding-top: 10px;
-  border-top: 1px solid var(--line-2);
+  border-top: 1px dashed var(--line-2);
 }
 
 .block-label {
   margin-bottom: 6px;
   color: var(--ink-3);
-  font-size: 10.5px;
-  font-weight: 600;
-  letter-spacing: 0.03em;
+  font-size: 10px;
+  letter-spacing: 0.02em;
 }
 
 .citations ol {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 5px;
 }
 
 .citations a {
   display: flex;
   align-items: baseline;
   gap: 7px;
-  padding: 3px 0;
   font-size: 11.5px;
 }
 
 .citations a:hover .citation-title {
   text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .index {
   color: var(--prussian);
-  font-size: 10px;
+  font-size: 9.5px;
 }
 
 .citation-title {
@@ -315,6 +263,12 @@ async function copy(text: string): Promise<void> {
   font-size: 10px;
 }
 
+.artifacts {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
 .artifact {
   display: flex;
   align-items: center;
@@ -323,23 +277,9 @@ async function copy(text: string): Promise<void> {
 }
 
 .artifact-name {
+  flex: 1;
+  min-width: 0;
   color: var(--ink-2);
-}
-
-.meta {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-top: 10px;
-  color: var(--ink-3);
-  font-size: 10px;
-  opacity: 0;
-  transition: opacity 0.12s;
-}
-
-.response:hover .meta,
-.meta:focus-within {
-  opacity: 1;
 }
 
 .text-btn {
@@ -349,11 +289,18 @@ async function copy(text: string): Promise<void> {
 
 .text-btn:hover:not(:disabled) {
   color: var(--ink);
-  text-decoration: underline;
 }
 
 .text-btn:disabled {
-  cursor: not-allowed;
   opacity: 0.5;
+}
+
+.msg-foot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+  color: var(--ink-3);
+  font-size: 10.5px;
 }
 </style>

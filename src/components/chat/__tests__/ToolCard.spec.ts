@@ -78,7 +78,7 @@ describe('ToolCard 知识检索来源', () => {
       props: { item: toolProcess() },
       global: { stubs: { RouterLink: RouterLinkStub } },
     })
-    expect(knowledge.find('.pcard').classes()).toContain('kind-vector')
+    expect(knowledge.find('li.entry').classes()).toContain('kind-vector')
 
     const mcp = mount(ToolCard, {
       props: {
@@ -91,7 +91,7 @@ describe('ToolCard 知识检索来源', () => {
       },
       global: { stubs: { RouterLink: RouterLinkStub } },
     })
-    expect(mcp.find('.pcard').classes()).toContain('kind-mcp')
+    expect(mcp.find('li.entry').classes()).toContain('kind-mcp')
   })
 
   it('没有引用时不渲染来源区块', () => {

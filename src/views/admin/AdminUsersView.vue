@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
+import dayjs from 'dayjs'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
+import AppIcon from '@/components/common/AppIcon.vue'
 import ErrorState from '@/components/common/ErrorState.vue'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
-import PageHeader from '@/components/common/PageHeader.vue'
 import { adminApi } from '@/api/admin'
 import { ApiRequestError } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
@@ -39,6 +40,8 @@ const statusFilter = ref<'' | AdminUserStatus>('')
 /** 往前翻页用的游标栈：栈顶是当前页的 cursor（第一页为空栈）。 */
 const cursorStack = ref<string[]>([])
 
+const editingUser = ref<AdminUser | null>(null)
+
 const users = computed<AdminUser[]>(() => page.value?.items ?? [])
 const stats = computed(() => page.value?.stats ?? null)
 const hasMore = computed(() => page.value?.has_more ?? false)
@@ -59,6 +62,40 @@ function roleOptions(): Array<{ value: AdminUserRole; label: string }> {
     { value: 'user' as AdminUserRole, label: '普通用户' },
     { value: 'admin' as AdminUserRole, label: '管理员' },
   ]
+}
+
+/** 现有契约只有 user/admin 两种角色；无映射时用中性徽标。 */
+function roleMeta(role: AdminUserRole): { label: string; className: string } {
+  return role === 'admin'
+    ? { label: '超级管理员', className: 'admin' }
+    : { label: '普通用户', className: '' }
+}
+
+function formatLastLogin(iso: string | null): string {
+  if (!iso) return '—'
+  const date = dayjs(iso)
+  if (!date.isValid()) return '—'
+  const now = dayjs()
+  if (date.isSame(now, 'day')) return `今天 ${date.format('HH:mm')}`
+  if (date.isSame(now.subtract(1, 'day'), 'day')) return `昨天 ${date.format('HH:mm')}`
+  return date.format('MM-DD HH:mm')
+}
+
+function initials(user: AdminUser): string {
+  const name = user.display_name?.trim() || user.email
+  return name.slice(0, 2).toUpperCase()
+}
+
+function openEdit(user: AdminUser): void {
+  editingUser.value = user
+}
+
+function closeEdit(): void {
+  editingUser.value = null
+}
+
+function onKeydown(event: KeyboardEvent): void {
+  if (event.key === 'Escape' && editingUser.value) closeEdit()
 }
 
 /** 请求序号：响应乱序时丢弃旧结果，避免「筛选已变、列表仍是旧数据」。 */
@@ -101,6 +138,12 @@ function resetAndLoad(): void {
   void load()
 }
 
+function setStatusFilter(next: '' | AdminUserStatus): void {
+  if (statusFilter.value === next) return
+  statusFilter.value = next
+  resetAndLoad()
+}
+
 let searchTimer: ReturnType<typeof setTimeout> | null = null
 function onSearchInput(): void {
   if (searchTimer !== null) clearTimeout(searchTimer)
@@ -112,6 +155,7 @@ function onSearchInput(): void {
 
 onUnmounted(() => {
   if (searchTimer !== null) clearTimeout(searchTimer)
+  document.removeEventListener('keydown', onKeydown)
 })
 
 function goNext(): void {
@@ -152,7 +196,9 @@ async function changeRole(user: AdminUser, role: AdminUserRole): Promise<void> {
     replaceRow(updated)
     ElMessage.success('角色已更新')
   } catch (cause) {
-    if (cause instanceof ApiRequestError && cause.code === 'cannot_change_own_role') {
+    if (cause instanceof ApiRequestError && cause.status === 403) {
+      ElMessage.error('需要管理员权限，角色调整未执行')
+    } else if (cause instanceof ApiRequestError && cause.code === 'cannot_change_own_role') {
       ElMessage.error('不能修改自己的角色')
     } else {
       ElMessage.error(cause instanceof Error ? cause.message : '角色更新失败')
@@ -184,7 +230,9 @@ async function toggleStatus(user: AdminUser): Promise<void> {
     replaceRow(updated)
     ElMessage.success(next === 'disabled' ? '账号已停用' : '账号已启用')
   } catch (cause) {
-    if (cause instanceof ApiRequestError && cause.code === 'cannot_disable_self') {
+    if (cause instanceof ApiRequestError && cause.status === 403) {
+      ElMessage.error('需要管理员权限，状态变更未执行')
+    } else if (cause instanceof ApiRequestError && cause.code === 'cannot_disable_self') {
       ElMessage.error('不能停用自己的账号')
     } else if (cause instanceof ApiRequestError && cause.code === 'last_admin_protected') {
       ElMessage.error('系统至少需要保留一名活跃管理员')
@@ -202,72 +250,107 @@ function replaceRow(updated: AdminUser): void {
     ...page.value,
     items: page.value.items.map((row) => (row.id === updated.id ? updated : row)),
   }
+  if (editingUser.value?.id === updated.id) editingUser.value = updated
+}
+
+async function editRole(user: AdminUser, role: AdminUserRole): Promise<void> {
+  await changeRole(user, role)
+  closeEdit()
+}
+
+async function editStatus(user: AdminUser): Promise<void> {
+  await toggleStatus(user)
+  closeEdit()
 }
 
 onMounted(() => {
+  document.addEventListener('keydown', onKeydown)
   void load()
 })
 </script>
 
 <template>
   <div class="admin-page">
-    <PageHeader
-      eyebrow="ADMIN · USERS"
-      title="用户管理"
-      description="查询账号并调整角色与启用状态。M8 不提供创建用户/重置密码，新增管理员仍走注册流程与运维脚本。"
-    >
-      <template #actions>
-        <button type="button" class="btn" :disabled="loading" @click="resetAndLoad">
+    <header class="admin-page-head">
+      <div>
+        <h1 class="page-title">用户管理</h1>
+        <p class="page-sub">管理工作台账号、角色与启用状态。角色权限由「角色与权限」统一控制。</p>
+      </div>
+      <div class="head-actions">
+        <button type="button" class="btn btn-outline" :disabled="loading" @click="resetAndLoad">
+          <AppIcon name="refresh" />
           {{ loading ? '刷新中…' : '刷新' }}
         </button>
-      </template>
-    </PageHeader>
+      </div>
+    </header>
 
-    <p v-if="stats" class="summary" aria-live="polite">
-      <b>{{ stats.total }}</b> 用户 <span class="sep">·</span> <b>{{ stats.active }}</b> 启用
-      <span class="sep">·</span> <b>{{ stats.disabled }}</b> 停用 <span class="sep">·</span>
-      <b>{{ stats.admins }}</b> 管理员（含停用）
-      <span class="hint">计数为当前筛选下的全量值</span>
+    <p v-if="stats" class="summary-line" aria-live="polite">
+      <span><b>{{ stats.total }}</b> 用户</span>
+      <span class="sep">·</span>
+      <span><b>{{ stats.active }}</b> 启用</span>
+      <span class="sep">·</span>
+      <span><b>{{ stats.disabled }}</b> 停用</span>
+      <span class="sep">·</span>
+      <span><b>{{ stats.admins }}</b> 管理员（含停用）</span>
     </p>
 
     <div class="toolbar">
-      <input
-        v-model="keyword"
-        class="input search"
-        type="search"
-        maxlength="100"
-        placeholder="搜索邮箱或展示名"
-        aria-label="搜索用户"
-        @input="onSearchInput"
-      />
+      <label class="search-field">
+        <AppIcon name="search" />
+        <input
+          v-model="keyword"
+          type="search"
+          maxlength="100"
+          placeholder="搜索姓名或邮箱"
+          aria-label="搜索用户"
+          autocomplete="off"
+          @input="onSearchInput"
+        />
+      </label>
       <select
         v-model="roleFilter"
-        class="input select"
+        class="select role-filter"
         aria-label="按角色筛选"
         @change="resetAndLoad"
       >
         <option value="">全部角色</option>
+        <option value="admin">超级管理员</option>
         <option value="user">普通用户</option>
-        <option value="admin">管理员</option>
       </select>
-      <select
-        v-model="statusFilter"
-        class="input select"
-        aria-label="按状态筛选"
-        @change="resetAndLoad"
-      >
-        <option value="">全部状态</option>
-        <option value="active">启用</option>
-        <option value="disabled">停用</option>
-      </select>
+      <div class="seg" role="group" aria-label="按状态筛选">
+        <button
+          type="button"
+          :class="{ 'is-active': statusFilter === '' }"
+          :aria-pressed="statusFilter === ''"
+          @click="setStatusFilter('')"
+        >
+          全部
+        </button>
+        <button
+          type="button"
+          :class="{ 'is-active': statusFilter === 'active' }"
+          :aria-pressed="statusFilter === 'active'"
+          @click="setStatusFilter('active')"
+        >
+          启用
+        </button>
+        <button
+          type="button"
+          :class="{ 'is-active': statusFilter === 'disabled' }"
+          :aria-pressed="statusFilter === 'disabled'"
+          @click="setStatusFilter('disabled')"
+        >
+          停用
+        </button>
+      </div>
       <span class="spacer"></span>
-      <span class="mono count">{{ countLabel }}</span>
+      <span class="mono count-label">{{ countLabel }}</span>
     </div>
 
     <LoadingSkeleton v-if="loading && !page" :rows="4" />
     <ErrorState v-else-if="error" :message="error" :retryable="true" @retry="resetAndLoad" />
 
-    <div v-else-if="page" class="panel table-panel">
+    <div v-else-if="page" class="table-wrap">
       <table class="data-table">
         <thead>
           <tr>
@@ -276,57 +359,73 @@ onMounted(() => {
             <th scope="col">状态</th>
             <th scope="col">最近登录</th>
             <th scope="col">创建于</th>
-            <th scope="col" class="actions-col">操作</th>
+            <th scope="col" class="actions">操作</th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="user in users" :key="user.id">
             <td>
-              <div class="who">
-                <span class="name">{{ user.display_name || '—' }}</span>
-                <span class="email mono">{{ user.email }}</span>
-              </div>
-              <span v-if="isSelf(user)" class="self-tag">当前账号</span>
-            </td>
-            <td>
-              <select
-                class="input role-select"
-                :value="user.role"
-                :disabled="isSelf(user)"
-                :title="isSelf(user) ? '不能修改自己的角色' : '调整角色'"
-                :aria-label="`调整 ${user.email} 的角色`"
-                @change="
-                  changeRole(user, ($event.target as HTMLSelectElement).value as AdminUserRole)
-                "
-              >
-                <option
-                  v-for="option in roleOptions()"
-                  :key="option.value"
-                  :value="option.value"
-                  :selected="option.value === user.role"
+              <div class="user-cell" :class="{ 'is-self': isSelf(user) }">
+                <span
+                  class="avatar"
+                  :class="{ admin: user.role === 'admin' }"
+                  aria-hidden="true"
                 >
-                  {{ option.label }}
-                </option>
-              </select>
+                  {{ initials(user) }}
+                </span>
+                <span class="user-cell-main">
+                  <b>{{ user.display_name || '—' }}</b>
+                  <span>{{ user.email }}</span>
+                </span>
+                <span v-if="isSelf(user)" class="self-tag">当前账号</span>
+              </div>
             </td>
             <td>
-              <span class="st" :class="user.status === 'active' ? 'st-ok' : 'st-off'">
+              <div class="role-cell">
+                <span class="role-badge" :class="roleMeta(user.role).className">
+                  {{ roleMeta(user.role).label }}
+                </span>
+                <select
+                  class="role-select"
+                  :value="user.role"
+                  :disabled="isSelf(user)"
+                  :title="isSelf(user) ? '不能修改自己的角色' : '调整角色'"
+                  :aria-label="`调整 ${user.email} 的角色`"
+                  @change="
+                    changeRole(user, ($event.target as HTMLSelectElement).value as AdminUserRole)
+                  "
+                >
+                  <option
+                    v-for="option in roleOptions()"
+                    :key="option.value"
+                    :value="option.value"
+                    :selected="option.value === user.role"
+                  >
+                    {{ option.label }}
+                  </option>
+                </select>
+              </div>
+            </td>
+            <td>
+              <span class="st" :class="user.status === 'active' ? 'st-ok' : 'st-muted'">
+                <span class="dot" aria-hidden="true"></span>
                 {{ user.status === 'active' ? '启用' : '停用' }}
               </span>
             </td>
-            <td class="mono muted">{{ formatDateTime(user.last_login_at) }}</td>
+            <td class="mono muted">{{ formatLastLogin(user.last_login_at) }}</td>
             <td class="mono muted">{{ formatDateTime(user.created_at) }}</td>
-            <td class="actions-col">
+            <td class="actions">
               <button
                 type="button"
                 class="text-link"
-                :class="{ danger: user.status === 'active' }"
+                :class="{ 'is-danger': user.status === 'active' }"
                 :disabled="isSelf(user)"
                 :title="isSelf(user) ? '不能停用自己的账号' : ''"
                 @click="toggleStatus(user)"
               >
                 {{ user.status === 'active' ? '停用' : '启用' }}
               </button>
+              <a class="text-link" href="#" @click.prevent="openEdit(user)">编辑</a>
             </td>
           </tr>
           <tr v-if="users.length === 0">
@@ -337,230 +436,100 @@ onMounted(() => {
       <div class="table-foot">
         <span class="mono">{{ countLabel }}</span>
         <span class="spacer"></span>
-        <button type="button" class="btn btn-sm" :disabled="!canGoPrev || loading" @click="goPrev">
-          ‹ 上一页
-        </button>
-        <button type="button" class="btn btn-sm" :disabled="!hasMore || loading" @click="goNext">
-          下一页 ›
-        </button>
+        <div class="pagination">
+          <button
+            type="button"
+            aria-label="上一页"
+            :disabled="!canGoPrev || loading"
+            @click="goPrev"
+          >
+            ‹
+          </button>
+          <span class="page-indicator mono" aria-current="page">
+            {{ cursorStack.length + 1 }}
+          </span>
+          <button
+            type="button"
+            aria-label="下一页"
+            :disabled="!hasMore || loading"
+            @click="goNext"
+          >
+            ›
+          </button>
+        </div>
       </div>
     </div>
+
+    <template v-if="editingUser">
+      <div class="drawer-scrim is-open" @click="closeEdit"></div>
+      <aside
+        class="drawer is-open"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="user-edit-title"
+      >
+        <header class="drawer-head">
+          <div>
+            <h2 id="user-edit-title">编辑用户</h2>
+            <p class="drawer-sub">角色与启用状态变更都会写入审计日志。</p>
+          </div>
+          <button type="button" class="drawer-close" aria-label="关闭" @click="closeEdit">
+            <AppIcon name="x" />
+          </button>
+        </header>
+        <div class="drawer-body">
+          <div class="user-summary">
+            <span class="avatar admin" aria-hidden="true">{{ initials(editingUser) }}</span>
+            <div>
+              <b>{{ editingUser.display_name || '—' }}</b>
+              <span>{{ editingUser.email }}</span>
+            </div>
+          </div>
+          <dl class="user-meta">
+            <dt>当前角色</dt>
+            <dd>{{ roleMeta(editingUser.role).label }}</dd>
+            <dt>状态</dt>
+            <dd>{{ editingUser.status === 'active' ? '启用' : '停用' }}</dd>
+            <dt>最近登录</dt>
+            <dd class="mono">{{ formatDateTime(editingUser.last_login_at) }}</dd>
+            <dt>创建于</dt>
+            <dd class="mono">{{ formatDateTime(editingUser.created_at) }}</dd>
+          </dl>
+          <div class="user-edit-actions">
+            <button
+              type="button"
+              class="btn btn-outline btn-sm"
+              :disabled="isSelf(editingUser) || editingUser.role === 'admin'"
+              @click="editRole(editingUser, 'admin')"
+            >
+              设为管理员
+            </button>
+            <button
+              type="button"
+              class="btn btn-outline btn-sm"
+              :disabled="isSelf(editingUser) || editingUser.role === 'user'"
+              @click="editRole(editingUser, 'user')"
+            >
+              设为普通用户
+            </button>
+          </div>
+          <p class="drawer-note">
+            当前账号不能修改自己的角色或停用自己。M8 不提供创建用户与重置密码入口，新增管理员仍走注册流程。
+          </p>
+        </div>
+        <footer class="drawer-foot">
+          <span class="spacer"></span>
+          <button
+            type="button"
+            class="btn btn-danger btn-sm"
+            :disabled="isSelf(editingUser)"
+            @click="editStatus(editingUser)"
+          >
+            {{ editingUser.status === 'active' ? '停用账号' : '启用账号' }}
+          </button>
+          <button type="button" class="btn btn-ghost btn-sm" @click="closeEdit">关闭</button>
+        </footer>
+      </aside>
+    </template>
   </div>
 </template>
-
-<style scoped>
-.admin-page {
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-  max-width: 1120px;
-}
-
-.summary {
-  margin: 0;
-  color: var(--ink-2);
-  font-size: 12px;
-}
-
-.summary b {
-  color: var(--ink);
-  font-weight: 650;
-}
-
-.summary .sep {
-  margin: 0 6px;
-  color: var(--ink-3);
-}
-
-.summary .hint {
-  margin-left: 10px;
-  color: var(--ink-3);
-  font-size: 10.5px;
-}
-
-.toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px;
-}
-
-.toolbar .input {
-  height: 34px;
-  padding: 0 10px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--surface);
-  color: var(--ink);
-  font-size: 12px;
-}
-
-.toolbar .search {
-  width: 240px;
-}
-
-.toolbar .select {
-  width: 130px;
-}
-
-.toolbar .spacer {
-  flex: 1;
-}
-
-.toolbar .count {
-  color: var(--ink-3);
-  font-size: 10px;
-}
-
-.panel {
-  padding: 0;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--surface);
-  overflow: hidden;
-}
-
-.data-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 12px;
-}
-
-.data-table th {
-  padding: 10px 14px;
-  border-bottom: 1px solid var(--line);
-  color: var(--ink-3);
-  font-size: 11px;
-  font-weight: 600;
-  text-align: left;
-  white-space: nowrap;
-}
-
-.data-table td {
-  padding: 10px 14px;
-  border-bottom: 1px solid var(--line);
-  vertical-align: middle;
-}
-
-.data-table tbody tr:last-child td {
-  border-bottom: 0;
-}
-
-.who {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.who .name {
-  color: var(--ink);
-  font-weight: 550;
-}
-
-.who .email {
-  color: var(--ink-3);
-  font-size: 11px;
-}
-
-.self-tag {
-  display: inline-block;
-  margin-top: 4px;
-  padding: 1px 6px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  color: var(--ink-3);
-  font-size: 9.5px;
-}
-
-.role-select {
-  height: 28px;
-  padding: 0 6px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: var(--surface);
-  color: var(--ink);
-  font-size: 11.5px;
-}
-
-.role-select:disabled {
-  color: var(--ink-3);
-  cursor: not-allowed;
-  opacity: 0.6;
-}
-
-.st {
-  display: inline-block;
-  padding: 2px 8px;
-  border-radius: 999px;
-  font-size: 10.5px;
-}
-
-.st-ok {
-  border: 1px solid color-mix(in srgb, var(--green) 35%, transparent);
-  color: var(--green);
-}
-
-.st-off {
-  border: 1px solid var(--line);
-  color: var(--ink-3);
-}
-
-.muted {
-  color: var(--ink-3);
-  font-size: 11px;
-  white-space: nowrap;
-}
-
-.actions-col {
-  text-align: right;
-  white-space: nowrap;
-}
-
-.text-link {
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--amber-text);
-  font-size: 11.5px;
-  cursor: pointer;
-}
-
-.text-link.danger {
-  color: var(--red);
-}
-
-.text-link:disabled {
-  color: var(--ink-3);
-  cursor: not-allowed;
-}
-
-.text-link:hover:not(:disabled) {
-  text-decoration: underline;
-}
-
-.empty {
-  padding: 28px 14px;
-  color: var(--ink-3);
-  text-align: center;
-}
-
-.table-foot {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 14px;
-  border-top: 1px solid var(--line);
-  color: var(--ink-3);
-  font-size: 11px;
-}
-
-.table-foot .spacer {
-  flex: 1;
-}
-
-.btn-sm {
-  height: 28px;
-  padding: 0 10px;
-  font-size: 11px;
-}
-</style>

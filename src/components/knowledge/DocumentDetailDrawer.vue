@@ -4,7 +4,6 @@ import { computed } from 'vue'
 import { formatBytes, formatDateTime } from '@/utils/format'
 import { statusLabel, statusTone } from '@/utils/knowledge'
 import type { KnowledgeDocument } from '@/types'
-import StatusBadge from '@/components/common/StatusBadge.vue'
 
 const props = defineProps<{
   modelValue: boolean
@@ -46,7 +45,7 @@ function close(): void {
     <div v-if="document" class="detail">
       <header class="head">
         <h2>{{ document.title }}</h2>
-        <StatusBadge :tone="tone" :label="label" />
+        <span class="st" :class="`st-${tone}`">{{ label }}</span>
       </header>
 
       <p class="source mono">{{ document.source_uri }}</p>
@@ -87,7 +86,7 @@ function close(): void {
         <button
           v-if="writable"
           type="button"
-          class="btn danger"
+          class="btn is-danger-text"
           :disabled="busy"
           @click="emit('remove', document)"
         >
@@ -114,11 +113,18 @@ function close(): void {
 }
 
 .head h2 {
+  flex: 1;
+  min-width: 0;
   margin: 0;
   color: var(--ink);
   font-size: 16px;
   font-weight: 650;
   line-height: 1.35;
+}
+
+.head .st {
+  flex: none;
+  margin-top: 1px;
 }
 
 .source {
@@ -140,6 +146,10 @@ function close(): void {
   flex-direction: column;
   gap: 1px;
   min-width: 0;
+}
+
+.meta > div:last-child {
+  grid-column: 1 / -1;
 }
 
 .meta dt {
@@ -181,20 +191,15 @@ function close(): void {
   line-height: 1.7;
 }
 
+.hits-hint li {
+  list-style: disc;
+}
+
 .actions {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   margin-top: 4px;
-}
-
-.btn.danger {
-  border-color: var(--red-soft);
-  color: var(--red);
-}
-
-.btn.danger:hover:not(:disabled) {
-  border-color: var(--red);
 }
 
 .empty {

@@ -28,6 +28,13 @@ export function formatTime(iso: string | null | undefined): string {
   return date.isValid() ? date.format('HH:mm:ss') : '—'
 }
 
+/** 消息/审批卡头部的钟点：只到分钟（原型 <time>22:41</time>）。 */
+export function formatClock(iso: string | null | undefined): string {
+  if (!iso) return ''
+  const date = dayjs(iso)
+  return date.isValid() ? date.format('HH:mm') : ''
+}
+
 export function formatDuration(ms: number | null | undefined): string {
   if (ms === null || ms === undefined) return '—'
   if (ms < 1000) return `${Math.round(ms)}ms`

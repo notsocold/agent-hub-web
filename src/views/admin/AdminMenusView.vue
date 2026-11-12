@@ -1,7 +1,14 @@
 <script setup lang="ts">
-import PageHeader from '@/components/common/PageHeader.vue'
+import { computed, ref } from 'vue'
+
+import AppIcon from '@/components/common/AppIcon.vue'
 import { routes } from '@/router'
 import type { RouteRecordRaw } from 'vue-router'
+
+/**
+ * 菜单管理：前端路由表的只读镜像。
+ * 后端无菜单配置接口，菜单变更需改代码并重新构建；本页只呈现真实路由数据。
+ */
 
 interface MenuRow {
   title: string
@@ -10,7 +17,11 @@ interface MenuRow {
   /** meta.capability 的能力开关 key（如 workflows）；无则为 null。 */
   capability: string | null
   requiresAuth: boolean
+  type: '目录' | '页面' | '按钮'
 }
+
+const keyword = ref('')
+const groupFilter = ref<'all' | 'workbench' | 'admin'>('all')
 
 function joinPath(parentPath: string, childPath: string): string {
   const base = parentPath.endsWith('/') ? parentPath.slice(0, -1) : parentPath
@@ -27,6 +38,7 @@ function toRow(parent: RouteRecordRaw, child: RouteRecordRaw): MenuRow | null {
     requiresAdmin: meta.requiresAdmin === true,
     capability: meta.capability ?? null,
     requiresAuth: meta.requiresAuth === true,
+    type: '页面',
   }
 }
 
@@ -60,185 +72,216 @@ const adminRows = [
         requiresAdmin: false,
         capability: null,
         requiresAuth: route.meta.requiresAuth === true,
+        type: '页面',
       } satisfies MenuRow
     })(),
   ),
 ]
+
+function matches(row: MenuRow): boolean {
+  const query = keyword.value.trim().toLowerCase()
+  if (!query) return true
+  return [row.title, row.path, row.capability ?? ''].some((value) =>
+    value.toLowerCase().includes(query),
+  )
+}
+
+const filteredWorkbench = computed(() =>
+  groupFilter.value === 'admin' ? [] : workbenchRows.filter(matches),
+)
+const filteredAdmin = computed(() =>
+  groupFilter.value === 'workbench' ? [] : adminRows.filter(matches),
+)
+const totalVisible = computed(() => filteredWorkbench.value.length + filteredAdmin.value.length)
+
+function setGroup(next: 'all' | 'workbench' | 'admin'): void {
+  groupFilter.value = next
+}
 </script>
 
 <template>
   <div class="admin-page">
-    <PageHeader
-      eyebrow="ADMIN · MENUS"
-      title="菜单管理"
-      description="工作台与管理台两级路由菜单的只读镜像。后端无对应管理接口，本页为只读呈现，菜单变更需改代码并重新构建。"
-    />
+    <header class="admin-page-head">
+      <div>
+        <h1 class="page-title">菜单管理</h1>
+        <p class="page-sub">
+          维护工作台与管理控制台的导航结构、可见性和权限标识。管理菜单只对管理员角色开放。
+        </p>
+      </div>
+      <div class="head-actions">
+        <button type="button" class="btn btn-outline" @click="keyword = ''; groupFilter = 'all'">
+          <AppIcon name="refresh" />
+          重置筛选
+        </button>
+      </div>
+    </header>
 
-    <section class="notice" role="note" aria-label="只读说明">
-      <p class="notice-tag mono">READ-ONLY · 只读呈现</p>
-      <p class="notice-body">
-        后端无菜单配置接口，此页为前端路由的只读镜像：菜单数据直接取自 src/router/index.ts
-        的路由表，菜单变更需修改代码并重新构建生效；登录 / 注册等访客页与 404 不在菜单树内。
-      </p>
+    <div class="prototype-note" role="note">
+      <AppIcon name="alert" />
+      <span>
+        <b>只读镜像</b>：后端无对应管理接口，此页为前端路由的只读镜像；菜单数据直接取自
+        src/router/index.ts 的路由表，菜单变更需修改代码并重新构建生效。登录 / 注册等访客页与 404
+        不在菜单树内。
+      </span>
+    </div>
+
+    <div class="toolbar">
+      <label class="search-field">
+        <AppIcon name="search" />
+        <input
+          v-model="keyword"
+          type="search"
+          placeholder="搜索菜单名称、路径或权限标识"
+          aria-label="搜索菜单"
+          autocomplete="off"
+        />
+      </label>
+      <div class="seg" role="group" aria-label="按菜单分组筛选">
+        <button
+          type="button"
+          :class="{ 'is-active': groupFilter === 'all' }"
+          :aria-pressed="groupFilter === 'all'"
+          @click="setGroup('all')"
+        >
+          全部
+        </button>
+        <button
+          type="button"
+          :class="{ 'is-active': groupFilter === 'workbench' }"
+          :aria-pressed="groupFilter === 'workbench'"
+          @click="setGroup('workbench')"
+        >
+          工作台
+        </button>
+        <button
+          type="button"
+          :class="{ 'is-active': groupFilter === 'admin' }"
+          :aria-pressed="groupFilter === 'admin'"
+          @click="setGroup('admin')"
+        >
+          管理台
+        </button>
+      </div>
+      <span class="spacer"></span>
+      <span class="mono count-label">{{ totalVisible }} 项</span>
+    </div>
+
+    <section v-if="filteredWorkbench.length > 0" class="menu-section">
+      <div class="table-wrap">
+        <table class="data-table menu-table">
+          <caption>
+            <span class="tree-group">
+              <AppIcon name="overview" />
+              工作台路由
+            </span>
+            <span class="badge">{{ filteredWorkbench.length }} 项</span>
+          </caption>
+          <colgroup>
+            <col style="width: 30%" />
+            <col style="width: 18%" />
+            <col style="width: 8%" />
+            <col style="width: 18%" />
+            <col style="width: 8%" />
+            <col style="width: 8%" />
+            <col style="width: 10%" />
+          </colgroup>
+          <thead>
+            <tr>
+              <th scope="col">菜单</th>
+              <th scope="col">路径</th>
+              <th scope="col">类型</th>
+              <th scope="col">权限标识</th>
+              <th scope="col">是否登录</th>
+              <th scope="col">状态</th>
+              <th scope="col" class="actions">操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="row in filteredWorkbench" :key="row.path">
+              <td>
+                <span class="tree-indent" aria-hidden="true"></span>
+                <span class="tree-name">{{ row.title }}</span>
+              </td>
+              <td class="path">{{ row.path }}</td>
+              <td><span class="type-chip">页面</span></td>
+              <td>
+                <span v-if="row.requiresAdmin">仅管理员</span>
+                <span v-else-if="row.capability" class="perm mono">{{ row.capability }}</span>
+                <span v-else class="muted">—</span>
+              </td>
+              <td class="visibility">{{ row.requiresAuth ? '是' : '否' }}</td>
+              <td><span class="st st-ok"><span class="dot"></span>启用</span></td>
+              <td class="actions"><span class="muted">—</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </section>
 
-    <section class="panel">
-      <h2>
-        工作台路由 · AppLayout 子路由
-        <span class="count mono">{{ workbenchRows.length }}</span>
-      </h2>
-      <table>
-        <thead>
-          <tr>
-            <th scope="col">菜单</th>
-            <th scope="col">路径</th>
-            <th scope="col">权限标识</th>
-            <th scope="col">是否登录</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="row in workbenchRows" :key="row.path">
-            <td>{{ row.title }}</td>
-            <td class="mono path">{{ row.path }}</td>
-            <td>
-              <span v-if="row.requiresAdmin">仅管理员</span>
-              <span v-else-if="row.capability" class="mono">{{ row.capability }}</span>
-              <span v-else class="muted">—</span>
-            </td>
-            <td>{{ row.requiresAuth ? '是' : '否' }}</td>
-          </tr>
-        </tbody>
-      </table>
+    <section v-if="filteredAdmin.length > 0" class="menu-section">
+      <div class="table-wrap">
+        <table class="data-table menu-table is-continuation">
+          <caption>
+            <span class="tree-group">
+              <AppIcon name="shield" />
+              管理台路由
+            </span>
+            <span class="badge">{{ filteredAdmin.length }} 项</span>
+          </caption>
+          <colgroup>
+            <col style="width: 30%" />
+            <col style="width: 18%" />
+            <col style="width: 8%" />
+            <col style="width: 18%" />
+            <col style="width: 8%" />
+            <col style="width: 8%" />
+            <col style="width: 10%" />
+          </colgroup>
+          <thead class="sr-only">
+            <tr>
+              <th scope="col">菜单</th>
+              <th scope="col">路径</th>
+              <th scope="col">类型</th>
+              <th scope="col">权限标识</th>
+              <th scope="col">是否登录</th>
+              <th scope="col">状态</th>
+              <th scope="col" class="actions">操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="row in filteredAdmin" :key="row.path">
+              <td>
+                <span class="tree-indent" aria-hidden="true"></span>
+                <span class="tree-name">{{ row.title }}</span>
+              </td>
+              <td class="path">{{ row.path }}</td>
+              <td>
+                <span class="type-chip">{{ row.type }}</span>
+              </td>
+              <td>
+                <span v-if="row.requiresAdmin">仅管理员</span>
+                <span v-else-if="row.capability" class="perm mono">{{ row.capability }}</span>
+                <span v-else class="muted">—</span>
+              </td>
+              <td class="visibility">{{ row.requiresAuth ? '是' : '否' }}</td>
+              <td><span class="st st-ok"><span class="dot"></span>启用</span></td>
+              <td class="actions"><span class="muted">—</span></td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="table-foot">
+          <span>
+            共 {{ adminRows.length }} 项 · {{ workbenchRows.length }} 个工作台路由 ·
+            {{ adminRows.length }} 个管理台路由（含无权限回退页）
+          </span>
+          <span class="spacer"></span>
+          <span>菜单变更后需重新登录生效</span>
+        </div>
+      </div>
     </section>
 
-    <section class="panel">
-      <h2>
-        管理台路由 · AdminLayout 子路由 + 无权限页
-        <span class="count mono">{{ adminRows.length }}</span>
-      </h2>
-      <table>
-        <thead>
-          <tr>
-            <th scope="col">菜单</th>
-            <th scope="col">路径</th>
-            <th scope="col">权限标识</th>
-            <th scope="col">是否登录</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="row in adminRows" :key="row.path">
-            <td>{{ row.title }}</td>
-            <td class="mono path">{{ row.path }}</td>
-            <td>
-              <span v-if="row.requiresAdmin">仅管理员</span>
-              <span v-else-if="row.capability" class="mono">{{ row.capability }}</span>
-              <span v-else class="muted">—</span>
-            </td>
-            <td>{{ row.requiresAuth ? '是' : '否' }}</td>
-          </tr>
-        </tbody>
-      </table>
-      <p class="note">
-        管理台子路由经父级 /admin 继承
-        meta.requiresAdmin，权限标识统一为「仅管理员」；/admin/forbidden
-        为非管理员访问管理台时的回退页，本身不设额外管理权限。
-      </p>
-    </section>
+    <div v-if="filteredWorkbench.length === 0 && filteredAdmin.length === 0" class="empty-state">
+      没有匹配的菜单。
+    </div>
   </div>
 </template>
-
-<style scoped>
-.admin-page {
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-  max-width: 1120px;
-}
-
-.notice {
-  padding: 12px 16px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--surface-2);
-}
-
-.notice-tag {
-  margin: 0 0 4px;
-  color: var(--amber-text);
-  font-size: 9.5px;
-  letter-spacing: 0.13em;
-}
-
-.notice-body {
-  margin: 0;
-  color: var(--ink-2);
-  font-size: 12px;
-  line-height: 1.7;
-}
-
-.panel {
-  padding: 14px 16px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--surface);
-}
-
-.panel h2 {
-  margin: 0 0 10px;
-  font-size: 12px;
-  font-weight: 650;
-  color: var(--ink-2);
-}
-
-.count {
-  margin-left: 8px;
-  color: var(--ink-3);
-  font-size: 10.5px;
-  font-weight: 400;
-}
-
-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 12px;
-}
-
-th,
-td {
-  padding: 6px 10px;
-  border-bottom: 1px solid var(--line-2);
-  color: var(--ink);
-  font-weight: 400;
-  text-align: left;
-  vertical-align: top;
-}
-
-thead th {
-  border-bottom: 1px solid var(--line);
-  color: var(--ink-3);
-  font-size: 11px;
-  font-weight: 550;
-  white-space: nowrap;
-}
-
-tbody tr:last-child th,
-tbody tr:last-child td {
-  border-bottom: none;
-}
-
-td.path {
-  color: var(--ink-2);
-  overflow-wrap: anywhere;
-}
-
-.muted {
-  color: var(--ink-3);
-}
-
-.note {
-  margin: 10px 0 0;
-  color: var(--ink-3);
-  font-size: 10.5px;
-  line-height: 1.7;
-}
-</style>

@@ -5,7 +5,6 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import EmptyState from '@/components/common/EmptyState.vue'
 import ErrorState from '@/components/common/ErrorState.vue'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
-import StatusBadge from '@/components/common/StatusBadge.vue'
 import { mcpApi } from '@/api/mcp'
 import { useCapabilitiesStore } from '@/stores/capabilities'
 import { useSystemStore } from '@/stores/system'
@@ -48,20 +47,24 @@ const toolsLoading = ref(false)
 const toolsError = ref<string | null>(null)
 const toolTogglingId = ref<string | null>(null)
 
-const HEALTH_TONES: Record<McpHealthStatus, 'ok' | 'warn' | 'error' | 'muted'> = {
-  unknown: 'muted',
-  healthy: 'ok',
-  degraded: 'warn',
-  unhealthy: 'error',
-  disabled: 'muted',
+const HEALTH_CLASSES: Record<McpHealthStatus, string> = {
+  unknown: 'st-muted',
+  healthy: 'st-ok',
+  degraded: 'st-warn',
+  unhealthy: 'st-error',
+  disabled: 'st-muted',
 }
 
 function healthLabel(status: McpHealthStatus): string {
   return MCP_HEALTH_LABELS[status] ?? status
 }
 
-function healthTone(status: McpHealthStatus): 'ok' | 'warn' | 'error' | 'muted' {
-  return HEALTH_TONES[status]
+function healthClass(status: McpHealthStatus): string {
+  return HEALTH_CLASSES[status]
+}
+
+function isEnabled(server: McpServer): boolean {
+  return server.effective_enabled ?? server.enabled
 }
 
 watch(
@@ -84,10 +87,6 @@ async function load(): Promise<void> {
   } finally {
     loading.value = false
   }
-}
-
-function onToggle(row: unknown, value: string | number | boolean): void {
-  void toggleEnabled(row as McpServer, value === true)
 }
 
 async function toggleEnabled(server: McpServer, next: boolean): Promise<void> {
@@ -118,9 +117,7 @@ async function check(server: McpServer): Promise<void> {
     })
     capabilities.invalidate()
     ElMessage.success(
-      result.error
-        ? '检查完成，连接异常'
-        : `连接正常，延迟 ${formatDuration(result.latency_ms)}`,
+      result.error ? '检查完成，连接异常' : `连接正常，延迟 ${formatDuration(result.latency_ms)}`,
     )
   } catch (cause) {
     ElMessage.error(cause instanceof Error ? cause.message : '检查连接失败')
@@ -287,7 +284,10 @@ function onToolToggle(
   void updateTool(tool, patch)
 }
 
-async function updateTool(tool: McpTool, patch: { enabled?: boolean; requires_approval?: boolean }): Promise<void> {
+async function updateTool(
+  tool: McpTool,
+  patch: { enabled?: boolean; requires_approval?: boolean },
+): Promise<void> {
   toolTogglingId.value = tool.id
   try {
     const updated = await mcpApi.updateTool(tool.id, patch)
@@ -303,90 +303,129 @@ async function updateTool(tool: McpTool, patch: { enabled?: boolean; requires_ap
 </script>
 
 <template>
-  <section class="card">
-    <header class="card-head">
-      <div class="head-title">
-        <h3>MCP 服务器</h3>
-        <span class="tag mono">{{ items.length }} 个</span>
-      </div>
-      <span class="mono hint">/api/v1/mcp/servers</span>
-    </header>
+  <section class="panel cap-card">
+    <div class="cap-inner">
+      <header class="cap-head">
+        <div class="cap-title">
+          <h3>MCP 服务器</h3>
+          <span class="tag mono">{{ items.length }} 个</span>
+        </div>
+        <span class="cap-hint">/api/v1/mcp/servers</span>
+      </header>
 
-    <CapabilityGate :enabled="enabled" name="MCP" hint="后端尚未开启 MCP 能力，无法查看或管理外部工具服务器。">
-      <div class="toolbar">
-        <button type="button" class="btn primary" @click="openAdd">添加服务器</button>
-        <span class="muted">凭据只保存引用，接口只回显脱敏提示。</span>
-      </div>
+      <CapabilityGate
+        :enabled="enabled"
+        name="MCP"
+        hint="后端尚未开启 MCP 能力，无法查看或管理外部工具服务器。"
+      >
+        <p class="cap-desc">
+          连接外部工具服务器。系统项只读，普通用户不能使用系统写工具；MCP
+          写操作必须审批，拒绝后不执行。
+        </p>
 
-      <ErrorState v-if="error" :message="error" @retry="load" />
-      <LoadingSkeleton v-else-if="loading" />
-      <EmptyState
-        v-else-if="items.length === 0"
-        title="暂无 MCP 服务器"
-        description="点击「添加服务器」接入外部工具；系统项只读，普通用户不能使用系统写工具。"
-      />
+        <div class="cap-toolbar">
+          <button type="button" class="btn btn-outline btn-sm" @click="openAdd">添加服务器</button>
+          <span class="spacer"></span>
+          <span class="cap-note">凭据只保存引用，接口只回显脱敏提示。</span>
+        </div>
 
-      <ul v-else class="mcp-list">
-        <li v-for="server in items" :key="server.id" class="mcp-item">
-          <div class="mcp-main">
-            <p class="mcp-title">
-              {{ server.name }}
-              <span class="mono slug">{{ server.slug }}</span>
-              <span class="chip">{{ server.scope === 'system' ? '系统' : '用户' }}</span>
-              <StatusBadge :tone="healthTone(server.health_status)" :label="healthLabel(server.health_status)" />
-              <span v-if="server.auto_inject" class="chip chip-inject">自动注入</span>
-            </p>
-            <p class="mcp-line">
-              {{ MCP_TRANSPORT_LABELS[server.transport] ?? server.transport }}
-              <span class="dot-sep">·</span>
-              {{ server.tool_count }} 个工具
-              <span class="dot-sep">·</span>
-              <span class="mono">最近检查 {{ formatDateTime(server.last_checked_at) }}</span>
-              <span v-if="server.latency_ms !== null" class="dot-sep">·</span>
-              <span v-if="server.latency_ms !== null" class="mono">延迟 {{ formatDuration(server.latency_ms) }}</span>
-            </p>
-            <p class="mcp-meta">
-              <span v-if="server.auth_hint">凭据：<span class="mono">{{ server.auth_hint }}</span></span>
-              <span v-if="server.admin_only_write_tools" class="warn-text">写工具仅管理员可用</span>
-              <span v-else-if="server.scope === 'user'" class="muted">写工具需本人审批</span>
-              <span v-if="server.last_error" class="error-text">最近错误：{{ server.last_error }}</span>
-            </p>
+        <ErrorState v-if="error" :message="error" @retry="load" />
+        <LoadingSkeleton v-else-if="loading" />
+        <div v-else-if="items.length === 0" class="empty-state">
+          暂无 MCP 服务器。点击「添加服务器」接入外部工具；系统项只读，普通用户不能使用系统写工具。
+        </div>
+
+        <div v-else class="cap-list">
+          <div v-for="server in items" :key="server.id" class="cap-item">
+            <div class="cap-item-main">
+              <div class="cap-item-title">
+                {{ server.name }}
+                <span class="cap-chip">{{ server.scope === 'system' ? '系统' : '用户' }}</span>
+                <span class="st" :class="healthClass(server.health_status)">
+                  <span class="dot"></span>{{ healthLabel(server.health_status) }}
+                </span>
+              </div>
+              <p class="cap-item-text">
+                {{ MCP_TRANSPORT_LABELS[server.transport] ?? server.transport }}
+                <span class="dot-sep">·</span>
+                {{ server.tool_count }} 个工具
+                <span class="dot-sep">·</span>
+                <span class="mono">最近检查 {{ formatDateTime(server.last_checked_at) }}</span>
+                <template v-if="server.latency_ms !== null">
+                  <span class="dot-sep">·</span>
+                  <span class="mono">延迟 {{ formatDuration(server.latency_ms) }}</span>
+                </template>
+              </p>
+              <div class="cap-item-meta">
+                <span class="mono">{{ server.slug }}</span>
+                <span class="dot-sep">·</span>
+                <template v-if="server.auth_hint">
+                  凭据：<span class="mono">{{ server.auth_hint }}</span>
+                  <span class="dot-sep">·</span>
+                </template>
+                <span v-if="server.admin_only_write_tools">写工具仅管理员可用</span>
+                <span v-else-if="server.scope === 'user'">写工具需本人审批</span>
+                <template v-if="server.auto_inject">
+                  <span class="dot-sep">·</span>
+                  <span>自动注入</span>
+                </template>
+                <template v-if="server.last_error">
+                  <span class="dot-sep">·</span>
+                  <span class="is-error-text">最近错误：{{ server.last_error }}</span>
+                </template>
+              </div>
+            </div>
+            <div class="cap-item-actions mcp-actions">
+              <button
+                type="button"
+                class="text-link"
+                :disabled="checkingId !== null"
+                @click="check(server)"
+              >
+                {{ checkingId === server.id ? '检查中…' : '检查' }}
+              </button>
+              <button
+                type="button"
+                class="text-link"
+                :disabled="refreshingId !== null"
+                @click="refreshTools(server)"
+              >
+                {{ refreshingId === server.id ? '刷新中…' : '刷新' }}
+              </button>
+              <button type="button" class="text-link" @click="openTools(server)">工具</button>
+              <button
+                v-if="server.scope === 'user'"
+                type="button"
+                class="text-link"
+                @click="openEdit(server)"
+              >
+                编辑
+              </button>
+              <button
+                v-if="server.scope === 'user'"
+                type="button"
+                class="text-link is-danger-text"
+                @click="removeServer(server)"
+              >
+                删除
+              </button>
+              <button
+                type="button"
+                class="wf-switch"
+                :class="{ 'is-on': isEnabled(server) }"
+                role="switch"
+                :aria-checked="isEnabled(server)"
+                :aria-label="`${isEnabled(server) ? '停用' : '启用'} ${server.name}`"
+                :disabled="togglingId === server.id"
+                @click="toggleEnabled(server, !isEnabled(server))"
+              >
+                <span></span>
+              </button>
+            </div>
           </div>
-          <div class="mcp-actions">
-            <button
-              type="button"
-              class="link"
-              :disabled="checkingId !== null"
-              @click="check(server)"
-            >
-              {{ checkingId === server.id ? '检查中…' : '检查' }}
-            </button>
-            <button
-              type="button"
-              class="link"
-              :disabled="refreshingId !== null"
-              @click="refreshTools(server)"
-            >
-              {{ refreshingId === server.id ? '刷新中…' : '刷新工具' }}
-            </button>
-            <button type="button" class="link" @click="openTools(server)">工具</button>
-            <button v-if="server.scope === 'user'" type="button" class="link" @click="openEdit(server)">
-              编辑
-            </button>
-            <button v-if="server.scope === 'user'" type="button" class="link danger" @click="removeServer(server)">
-              删除
-            </button>
-            <el-switch
-              :model-value="server.effective_enabled ?? server.enabled"
-              :loading="togglingId === server.id"
-              size="small"
-              :aria-label="`${(server.effective_enabled ?? server.enabled) ? '禁用' : '启用'} ${server.name}`"
-              @change="onToggle(server, $event)"
-            />
-          </div>
-        </li>
-      </ul>
-    </CapabilityGate>
+        </div>
+      </CapabilityGate>
+    </div>
 
     <el-dialog v-model="addOpen" title="添加 MCP 服务器" width="520px" :append-to-body="true">
       <form class="form" @submit.prevent="submitAdd">
@@ -404,7 +443,11 @@ async function updateTool(tool: McpTool, patch: { enabled?: boolean; requires_ap
         </label>
         <label class="form-row">
           <span class="form-label">URL</span>
-          <input v-model="addForm.url" class="input mono" placeholder="https://mcp.example.com/mcp" />
+          <input
+            v-model="addForm.url"
+            class="input mono"
+            placeholder="https://mcp.example.com/mcp"
+          />
         </label>
         <label class="form-row">
           <span class="form-label">传输方式</span>
@@ -422,11 +465,13 @@ async function updateTool(tool: McpTool, patch: { enabled?: boolean; requires_ap
             placeholder="env:SLACK_TOKEN"
             aria-describedby="add-secret-hint"
           />
-          <span id="add-secret-hint" class="field-hint">推荐 env:NAME（环境变量值原样作为 Authorization 头）；留空表示无鉴权。</span>
+          <span id="add-secret-hint" class="field-hint"
+            >推荐 env:NAME（环境变量值原样作为 Authorization 头）；留空表示无鉴权。</span
+          >
         </label>
         <div class="dialog-actions">
-          <button type="button" class="btn" @click="addOpen = false">取消</button>
-          <button type="submit" class="btn primary" :disabled="adding">
+          <button type="button" class="btn btn-outline" @click="addOpen = false">取消</button>
+          <button type="submit" class="btn btn-primary" :disabled="adding">
             {{ adding ? '添加中…' : '添加' }}
           </button>
         </div>
@@ -456,8 +501,8 @@ async function updateTool(tool: McpTool, patch: { enabled?: boolean; requires_ap
           <span class="form-label-inline">自动注入工具目录</span>
         </label>
         <div class="dialog-actions">
-          <button type="button" class="btn" @click="editOpen = false">取消</button>
-          <button type="submit" class="btn primary" :disabled="editing">
+          <button type="button" class="btn btn-outline" @click="editOpen = false">取消</button>
+          <button type="submit" class="btn btn-primary" :disabled="editing">
             {{ editing ? '保存中…' : '保存' }}
           </button>
         </div>
@@ -471,8 +516,16 @@ async function updateTool(tool: McpTool, patch: { enabled?: boolean; requires_ap
       </template>
 
       <LoadingSkeleton v-if="toolsLoading" />
-      <ErrorState v-else-if="toolsError" :message="toolsError" @retry="toolsServer && openTools(toolsServer)" />
-      <EmptyState v-else-if="tools.length === 0" title="暂无工具" description="该服务器尚未发现任何工具，可尝试「刷新工具」。" />
+      <ErrorState
+        v-else-if="toolsError"
+        :message="toolsError"
+        @retry="toolsServer && openTools(toolsServer)"
+      />
+      <EmptyState
+        v-else-if="tools.length === 0"
+        title="暂无工具"
+        description="该服务器尚未发现任何工具，可尝试「刷新工具」。"
+      />
 
       <ul v-else class="tool-list">
         <li
@@ -483,7 +536,9 @@ async function updateTool(tool: McpTool, patch: { enabled?: boolean; requires_ap
         >
           <p class="tool-title">
             <span class="mono">{{ tool.name }}</span>
-            <span class="chip" :class="`risk-${tool.risk}`">{{ MCP_RISK_LABELS[tool.risk] ?? tool.risk }}</span>
+            <span class="chip" :class="`risk-${tool.risk}`">{{
+              MCP_RISK_LABELS[tool.risk] ?? tool.risk
+            }}</span>
             <span v-if="tool.admin_only" class="chip chip-admin">仅管理员</span>
           </p>
           <p class="mono tool-exposed">{{ tool.exposed_name }}</p>
@@ -520,95 +575,37 @@ async function updateTool(tool: McpTool, patch: { enabled?: boolean; requires_ap
 </template>
 
 <style scoped>
-.card {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 16px;
-  border: 1px solid var(--line);
-  border-radius: 9px;
-  background: var(--surface);
-  box-shadow: var(--shadow-sm);
+.cap-inner {
+  padding: 14px;
 }
 
-.card-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 10px;
+.empty-state {
+  margin-top: 8px;
+  padding: 14px;
+  border-bottom: 0;
 }
 
-.head-title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-h3 {
-  font-size: 14px;
-  font-weight: 650;
-}
-
-.hint {
+.dot-sep {
+  margin: 0 3px;
   color: var(--ink-3);
-  font-size: 9.5px;
 }
 
-.tag {
-  padding: 1px 7px;
-  border: 1px solid var(--line-2);
-  border-radius: 99px;
-  color: var(--ink-3);
-  font-size: 9.5px;
-}
-
-.toolbar {
-  display: flex;
+.mcp-actions {
   flex-wrap: wrap;
-  align-items: center;
+  justify-content: flex-end;
   gap: 8px;
+  max-width: 300px;
+  padding-top: 1px;
 }
 
-.muted {
-  color: var(--ink-3);
-  font-size: 10.5px;
+.wf-switch:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
 }
 
-.mcp-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.mcp-item {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 10px 12px;
-  border: 1px solid var(--line-2);
-  border-radius: 7px;
-  background: var(--surface-2);
-}
-
-.mcp-main {
-  flex: 1;
-  min-width: 0;
-}
-
-.mcp-title {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-  color: var(--ink);
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.slug {
-  color: var(--ink-3);
-  font-size: 10px;
-  font-weight: 400;
+.text-link:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
 }
 
 .chip {
@@ -621,72 +618,14 @@ h3 {
   font-weight: 500;
 }
 
-.chip-inject {
-  color: var(--green);
-  border-color: var(--green-soft);
-  background: var(--green-soft);
-}
-
 .chip-admin {
   color: var(--red);
   border-color: var(--red-soft);
   background: var(--red-soft);
 }
 
-.mcp-line {
-  margin-top: 4px;
-  color: var(--ink-2);
-  font-size: 11px;
-}
-
-.dot-sep {
-  margin: 0 3px;
-  color: var(--ink-3);
-}
-
-.mcp-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 12px;
-  margin-top: 5px;
-  color: var(--ink-3);
-  font-size: 10px;
-}
-
 .warn-text {
   color: var(--amber-text);
-}
-
-.error-text {
-  color: var(--red);
-}
-
-.mcp-actions {
-  display: flex;
-  flex: none;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 10px;
-  max-width: 220px;
-}
-
-.link {
-  color: var(--prussian);
-  font-size: 11.5px;
-}
-
-.link:hover:not(:disabled) {
-  text-decoration: underline;
-}
-
-.link.danger {
-  color: var(--red);
-}
-
-.link:disabled {
-  cursor: not-allowed;
-  opacity: 0.5;
 }
 
 .form {
