@@ -26,8 +26,8 @@ describe('AdminMenusView', () => {
     expect(headers).toContain('权限标识')
     expect(headers).toContain('是否登录')
 
-    // 工作台 8 项（重定向行不计；M9 新增工作流新建/编辑两条路由）+ 管理台 7 项 + 无权限回退页 1 项
-    expect(wrapper.findAll('tbody tr').length).toBe(16)
+    // 工作台 9 项（重定向行不计；M9 新增工作流新建/编辑/运行历史三条路由）+ 管理台 7 项 + 无权限回退页 1 项
+    expect(wrapper.findAll('tbody tr').length).toBe(17)
     wrapper.unmount()
   })
 

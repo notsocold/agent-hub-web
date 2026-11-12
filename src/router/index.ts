@@ -60,6 +60,13 @@ export const routes: RouteRecordRaw[] = [
         meta: { title: '工作流编辑', capability: 'workflows' },
       },
       {
+        // 运行历史：仅模板 owner 可查（系统模板 403、他人/不存在 404），F3。
+        path: 'workflows/:id/runs',
+        name: 'workflow-runs',
+        component: () => import('@/views/workflows/WorkflowsRunsView.vue'),
+        meta: { title: '运行历史', capability: 'workflows' },
+      },
+      {
         path: 'agents',
         name: 'agents',
         component: () => import('@/views/AgentsView.vue'),
