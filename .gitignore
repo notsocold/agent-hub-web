@@ -46,6 +46,9 @@ __screenshots__/
 .dsh/sessions/**/*.tmp
 .dsh/sessions/.backup/
 
+# 本地临时环境（A2A venv / uv cache / 联调日志等，不入库）
+.tmp/
+
 # Playwright
 .playwright-browsers/
 dist-e2e/
