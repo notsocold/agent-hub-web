@@ -233,3 +233,178 @@ describe('ChatComposer 知识库分类', () => {
     expect(wrapper.find('[data-testid="knowledge-option"]').exists()).toBe(false)
   })
 })
+
+const workflowCapabilities = { ...capabilities, workflows: true }
+
+const workflows = [
+  {
+    id: 'wf-1',
+    scope: 'system' as const,
+    name: '客服周报',
+    description: '每周汇总客服工单',
+    steps: [
+      { id: 's1', type: 'knowledge_search' as const, title: '检索政策' },
+      { id: 's2', type: 'answer' as const, title: '汇总成文' },
+    ],
+    enabled: true,
+    version: 2,
+    created_at: '2026-11-12T00:00:00Z',
+    updated_at: '2026-11-12T00:00:00Z',
+  },
+  {
+    id: 'wf-2',
+    scope: 'user' as const,
+    name: '停用模板',
+    description: '已停用',
+    steps: [{ id: 's1', type: 'answer' as const, title: '回答' }],
+    enabled: false,
+    version: 1,
+    created_at: '2026-11-12T00:00:00Z',
+    updated_at: '2026-11-12T00:00:00Z',
+  },
+]
+
+describe('ChatComposer 工作流', () => {
+  it('能力关闭时菜单项禁用且不打开工作流面板', async () => {
+    const wrapper = mountComposer({ workflows })
+    await wrapper.find('[data-testid="composer-plus"]').trigger('click')
+    const item = wrapper.find('[data-testid="ctx-workflow"]')
+    expect(item.classes()).toContain('is-disabled')
+    expect(item.text()).toContain('未启用')
+    await item.trigger('click')
+    expect(wrapper.find('[data-testid="workflow-option"]').exists()).toBe(false)
+  })
+
+  it('能力开启时面板列出 enabled 模板，disabled 模板不出现', async () => {
+    const wrapper = mountComposer({ capabilities: workflowCapabilities, workflows })
+    await wrapper.find('[data-testid="composer-plus"]').trigger('click')
+    await wrapper.find('[data-testid="ctx-workflow"]').trigger('click')
+
+    const options = wrapper.findAll('[data-testid="workflow-option"]')
+    expect(options).toHaveLength(1)
+    expect(options[0]!.text()).toContain('客服周报')
+    expect(wrapper.text()).not.toContain('停用模板')
+  })
+
+  it('选中工作流后清空技能/MCP/知识库选择并返回主菜单', async () => {
+    const wrapper = mountComposer({
+      skills,
+      mcpServers,
+      knowledgeCategories: ['售后'],
+      capabilities: { ...workflowCapabilities, knowledge: true },
+      limits,
+      workflows,
+    })
+    await wrapper.find('[data-testid="composer-plus"]').trigger('click')
+    await wrapper.find('[data-testid="ctx-skill"]').trigger('click')
+    await wrapper.find('[data-testid="skill-option"]').trigger('click')
+    await wrapper.find('[aria-label="返回"]').trigger('click')
+    await wrapper.find('[data-testid="ctx-mcp"]').trigger('click')
+    await wrapper.find('[data-testid="server-option"]').trigger('click')
+    await wrapper.find('[aria-label="返回"]').trigger('click')
+    await wrapper.find('[data-testid="ctx-knowledge"]').trigger('click')
+    await wrapper.find('[data-testid="knowledge-option"]').trigger('click')
+    await wrapper.find('[aria-label="返回"]').trigger('click')
+    await wrapper.find('[data-testid="ctx-workflow"]').trigger('click')
+    await wrapper.find('[data-testid="workflow-option"]').trigger('click')
+
+    expect(wrapper.findAll('[data-testid="chip-skill"]')).toHaveLength(0)
+    expect(wrapper.findAll('.chip.is-mcp')).toHaveLength(0)
+    expect(wrapper.findAll('[data-testid="chip-knowledge"]')).toHaveLength(0)
+    expect(wrapper.findAll('[data-testid="chip-workflow"]')).toHaveLength(1)
+    // 单选后回到主菜单（工作流菜单项仍可见）。
+    expect(wrapper.find('[data-testid="ctx-workflow"]').exists()).toBe(true)
+  })
+
+  it('chip 显示工作流名、版本与步数，步骤预览行显示序号与标题', async () => {
+    const wrapper = mountComposer({ capabilities: workflowCapabilities, workflows })
+    await wrapper.find('[data-testid="composer-plus"]').trigger('click')
+    await wrapper.find('[data-testid="ctx-workflow"]').trigger('click')
+    await wrapper.find('[data-testid="workflow-option"]').trigger('click')
+
+    expect(wrapper.find('[data-testid="chip-workflow"]').text()).toContain('客服周报')
+    expect(wrapper.find('[data-testid="chip-workflow"]').text()).toContain('v2')
+    expect(wrapper.find('[data-testid="chip-workflow"]').text()).toContain('2 步')
+    const preview = wrapper.find('[data-testid="workflow-steps"]')
+    expect(preview.text()).toContain('检索政策')
+    expect(preview.text()).toContain('汇总成文')
+    expect(preview.text()).toContain('1')
+    expect(preview.text()).toContain('2')
+  })
+
+  it('反向互斥：选技能后工作流选择被清空', async () => {
+    const wrapper = mountComposer({
+      skills,
+      capabilities: workflowCapabilities,
+      workflows,
+    })
+    await wrapper.find('[data-testid="composer-plus"]').trigger('click')
+    await wrapper.find('[data-testid="ctx-workflow"]').trigger('click')
+    await wrapper.find('[data-testid="workflow-option"]').trigger('click')
+    expect(wrapper.findAll('[data-testid="chip-workflow"]')).toHaveLength(1)
+
+    await wrapper.find('[data-testid="ctx-skill"]').trigger('click')
+    await wrapper.find('[data-testid="skill-option"]').trigger('click')
+
+    expect(wrapper.findAll('[data-testid="chip-workflow"]')).toHaveLength(0)
+    expect(wrapper.findAll('[data-testid="chip-skill"]')).toHaveLength(1)
+  })
+
+  it('send payload 带工作流 id 与版本，互斥字段不出现', async () => {
+    const wrapper = mountComposer({ capabilities: workflowCapabilities, workflows })
+    await wrapper.find('[data-testid="composer-plus"]').trigger('click')
+    await wrapper.find('[data-testid="ctx-workflow"]').trigger('click')
+    await wrapper.find('[data-testid="workflow-option"]').trigger('click')
+
+    const textarea = wrapper.find('textarea')
+    await textarea.setValue('按工作流整理周报')
+    await textarea.trigger('keydown', { key: 'Enter' })
+
+    const payload = wrapper.emitted('send')?.[0]?.[0] as {
+      context: {
+        workflow_id?: string
+        workflow_version?: number
+        skills?: string[]
+        mcp_servers?: string[]
+        mcp_tools?: string[]
+        knowledge_categories?: string[]
+      }
+    }
+    expect(payload.context.workflow_id).toBe('wf-1')
+    expect(payload.context.workflow_version).toBe(2)
+    expect(payload.context.skills).toBeUndefined()
+    expect(payload.context.mcp_servers).toBeUndefined()
+    expect(payload.context.mcp_tools).toBeUndefined()
+    expect(payload.context.knowledge_categories).toBeUndefined()
+  })
+
+  it('chip 移除按钮清空工作流选择，后续 payload 不再携带', async () => {
+    const wrapper = mountComposer({ capabilities: workflowCapabilities, workflows })
+    await wrapper.find('[data-testid="composer-plus"]').trigger('click')
+    await wrapper.find('[data-testid="ctx-workflow"]').trigger('click')
+    await wrapper.find('[data-testid="workflow-option"]').trigger('click')
+    await wrapper.find('[data-testid="chip-workflow"] .chip-remove').trigger('click')
+
+    expect(wrapper.findAll('[data-testid="chip-workflow"]')).toHaveLength(0)
+
+    const textarea = wrapper.find('textarea')
+    await textarea.setValue('不带工作流发送')
+    await textarea.trigger('keydown', { key: 'Enter' })
+    const payload = wrapper.emitted('send')?.[0]?.[0] as {
+      context: { workflow_id?: string; workflow_version?: number }
+    }
+    expect(payload.context.workflow_id).toBeUndefined()
+    expect(payload.context.workflow_version).toBeUndefined()
+  })
+
+  it('seedWorkflow prop 预选后直接出现 chip 与步骤预览行', () => {
+    const wrapper = mountComposer({
+      capabilities: workflowCapabilities,
+      workflows,
+      seedWorkflow: workflows[0],
+    })
+
+    expect(wrapper.findAll('[data-testid="chip-workflow"]')).toHaveLength(1)
+    expect(wrapper.find('[data-testid="workflow-steps"]').exists()).toBe(true)
+  })
+})

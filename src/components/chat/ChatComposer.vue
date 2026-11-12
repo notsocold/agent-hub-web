@@ -14,6 +14,9 @@ import type {
   SkillCatalogItem,
   SystemCapabilities,
   SystemLimits,
+  Workflow,
+  WorkflowStep,
+  WorkflowStepType,
 } from '@/types'
 
 const props = withDefaults(
@@ -31,6 +34,10 @@ const props = withDefaults(
     mcpTools?: McpAvailableTool[]
     /** 知识库分类候选；由父级从可见文档聚合，支持在面板里手输新分类。 */
     knowledgeCategories?: string[]
+    /** M9 工作流模板候选（系统 + 本人）；父级在 capabilities.workflows 时加载。 */
+    workflows?: Workflow[]
+    /** M9：对话页从 query 预选的工作流模板（详情接口校验通过后注入）。 */
+    seedWorkflow?: Workflow | null
     limits?: SystemLimits
     capabilities?: SystemCapabilities
     conversationId?: string | null
@@ -44,6 +51,8 @@ const props = withDefaults(
     mcpServers: () => [],
     mcpTools: () => [],
     knowledgeCategories: () => [],
+    workflows: () => [],
+    seedWorkflow: null,
     toolsLoading: () => [],
   },
 )
@@ -61,7 +70,7 @@ const textarea = ref<HTMLTextAreaElement | null>(null)
 const root = ref<HTMLElement | null>(null)
 const fileInput = ref<HTMLInputElement | null>(null)
 const menuOpen = ref(false)
-const panel = ref<'skill' | 'mcp' | 'knowledge' | null>(null)
+const panel = ref<'skill' | 'mcp' | 'knowledge' | 'workflow' | null>(null)
 const search = ref('')
 const expandedServer = ref<string | null>(null)
 
@@ -70,6 +79,8 @@ const selectedSkills = ref<SkillCatalogItem[]>([])
 const selectedServers = ref<McpAvailableServer[]>([])
 const selectedTools = ref<McpAvailableTool[]>([])
 const selectedCategories = ref<string[]>([])
+/** M9：本轮工作流模板，单选；与技能/MCP/知识库互斥。 */
+const selectedWorkflow = ref<Workflow | null>(null)
 const categoryInput = ref('')
 
 const uploading = computed(() => attachments.value.some((item) => item.status === 'processing'))
@@ -79,7 +90,8 @@ const hasContext = computed(
     selectedSkills.value.length > 0 ||
     selectedServers.value.length > 0 ||
     selectedTools.value.length > 0 ||
-    selectedCategories.value.length > 0,
+    selectedCategories.value.length > 0 ||
+    selectedWorkflow.value !== null,
 )
 
 const canSend = computed(
@@ -143,6 +155,37 @@ const filteredServers = computed(() => {
   )
 })
 
+// ---------------------------------------------------------------- M9 工作流
+
+/** 五类步骤的展示名（title 缺省的步骤在预览行兜底，映射与列表页一致）。 */
+const WORKFLOW_STEP_LABELS: Record<WorkflowStepType, string> = {
+  knowledge_search: '检索',
+  tool: '工具',
+  a2a: '远程智能体',
+  approval: '审批',
+  answer: '回答',
+}
+
+/** 面板只列 enabled === true 的模板（系统 + 本人）。 */
+const enabledWorkflows = computed(() => props.workflows.filter((item) => item.enabled === true))
+
+/** chip 文案：工作流名 · v{version} · {steps.length} 步。 */
+const workflowChipLabel = computed(() => {
+  const workflow = selectedWorkflow.value
+  if (!workflow) return ''
+  return `${workflow.name} · v${workflow.version} · ${workflow.steps.length} 步`
+})
+
+/** 步骤预览行：序号 + title（title 缺省用步骤类型名兜底）。 */
+const workflowPreviewSteps = computed(() => {
+  const workflow = selectedWorkflow.value
+  if (!workflow) return []
+  return workflow.steps.map((step: WorkflowStep) => {
+    const title = step.title?.trim()
+    return title || WORKFLOW_STEP_LABELS[step.type] || step.type
+  })
+})
+
 function autoResize(): void {
   const element = textarea.value
   if (!element) return
@@ -177,6 +220,11 @@ function buildContext(): ChatContextSelection {
   if (selectedCategories.value.length > 0) {
     context.knowledge_categories = [...selectedCategories.value]
   }
+  // M9：id 与版本都由选中的模板带出（query 预选时 version 已由对话页对齐）。
+  if (selectedWorkflow.value) {
+    context.workflow_id = selectedWorkflow.value.id
+    context.workflow_version = selectedWorkflow.value.version
+  }
   return context
 }
 
@@ -187,12 +235,25 @@ function resetComposer(): void {
   selectedServers.value = []
   selectedTools.value = []
   selectedCategories.value = []
+  selectedWorkflow.value = null
   categoryInput.value = ''
   panel.value = null
   search.value = ''
   expandedServer.value = null
   void nextTick(autoResize)
 }
+
+// M9：对话页从 route.query 预选的工作流模板（详情接口校验通过后注入）。
+// immediate：组件挂载时 seed 可能已就绪（无后续变化），也要消费一次。
+watch(
+  () => props.seedWorkflow,
+  (seed) => {
+    if (!seed) return
+    selectedWorkflow.value = seed
+    clearSelectionsForWorkflow()
+  },
+  { immediate: true },
+)
 
 function onKeydown(event: KeyboardEvent): void {
   if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) {
@@ -221,15 +282,43 @@ function openMenu(): void {
   search.value = ''
 }
 
-function openPanel(next: 'skill' | 'mcp' | 'knowledge'): void {
+function openPanel(next: 'skill' | 'mcp' | 'knowledge' | 'workflow'): void {
   if (next === 'knowledge' && !capabilityOn('knowledge')) {
     ElMessage.info('知识库能力未启用')
+    return
+  }
+  if (next === 'workflow' && !capabilityOn('workflows')) {
+    ElMessage.info('工作流能力未启用')
     return
   }
   panel.value = next
   search.value = ''
   categoryInput.value = ''
   expandedServer.value = null
+}
+
+/** M9：工作流与技能/MCP/知识库互斥——选中工作流时清空其余选择。 */
+function clearSelectionsForWorkflow(): void {
+  selectedSkills.value = []
+  selectedServers.value = []
+  selectedTools.value = []
+  selectedCategories.value = []
+}
+
+/** M9：工作流单选；再次点击已选行取消，选中后回主菜单。 */
+function selectWorkflow(workflow: Workflow): void {
+  if (selectedWorkflow.value?.id === workflow.id) {
+    selectedWorkflow.value = null
+    panel.value = null
+    return
+  }
+  selectedWorkflow.value = workflow
+  clearSelectionsForWorkflow()
+  panel.value = null
+}
+
+function removeWorkflow(): void {
+  selectedWorkflow.value = null
 }
 
 function toggleCategory(name: string): void {
@@ -239,6 +328,8 @@ function toggleCategory(name: string): void {
     selectedCategories.value = selectedCategories.value.filter((item) => item !== value)
     return
   }
+  // M9：选中知识库分类时清空工作流。
+  selectedWorkflow.value = null
   if (categoryLimitReached.value) {
     ElMessage.warning(`每轮最多 ${limits.value.knowledge_categories_per_message} 个知识库分类`)
     return
@@ -324,6 +415,8 @@ function toggleSkill(skill: SkillCatalogItem): void {
     selectedSkills.value = selectedSkills.value.filter((item) => item.id !== skill.id)
     return
   }
+  // M9：选中技能时清空工作流。
+  selectedWorkflow.value = null
   if (skillLimitReached.value) {
     ElMessage.warning(`每轮最多 ${limits.value.skills_per_message} 个技能`)
     return
@@ -337,6 +430,8 @@ function toggleServer(server: McpAvailableServer): void {
     selectedTools.value = selectedTools.value.filter((item) => item.server_id !== server.id)
     return
   }
+  // M9：选中 MCP 服务器时清空工作流。
+  selectedWorkflow.value = null
   if (serverLimitReached.value) {
     ElMessage.warning(`每轮最多 ${limits.value.mcp_servers_per_message} 个 MCP 服务器`)
     return
@@ -359,6 +454,8 @@ function toggleTool(tool: McpAvailableTool): void {
     selectedTools.value = selectedTools.value.filter((item) => item.id !== tool.id)
     return
   }
+  // M9：选中 MCP 工具时清空工作流。
+  selectedWorkflow.value = null
   if (selectedTools.value.length >= limits.value.mcp_tools_per_message) {
     ElMessage.warning(`每轮最多 ${limits.value.mcp_tools_per_message} 个 MCP 工具`)
     return
@@ -506,6 +603,34 @@ onUnmounted(() => {
             ×
           </button>
         </span>
+
+        <span
+          v-if="selectedWorkflow"
+          class="chip is-workflow"
+          data-testid="chip-workflow"
+        >
+          <span class="chip-kind">工作流</span>
+          <span class="chip-label">{{ workflowChipLabel }}</span>
+          <button
+            type="button"
+            class="chip-remove"
+            aria-label="移除工作流"
+            @click="removeWorkflow"
+          >
+            ×
+          </button>
+        </span>
+      </div>
+
+      <!-- M9：已选工作流时的步骤预览行（序号 + title，纯文本）。 -->
+      <div v-if="selectedWorkflow" class="workflow-preview" data-testid="workflow-steps">
+        <p
+          v-for="(stepTitle, index) in workflowPreviewSteps"
+          :key="`${index}-${stepTitle}`"
+          class="workflow-step-line"
+        >
+          <span class="step-no mono">{{ index + 1 }}</span>{{ stepTitle }}
+        </p>
       </div>
 
       <div class="composer-toolbar">
@@ -575,9 +700,18 @@ onUnmounted(() => {
                   {{ capabilityOn('mcp') ? `${selectedServers.length}/${limits.mcp_servers_per_message}` : '未启用' }}
                 </span>
               </button>
-              <button type="button" role="menuitem" class="ctx-item is-disabled" disabled>
+              <button
+                type="button"
+                role="menuitem"
+                class="ctx-item"
+                data-testid="ctx-workflow"
+                :class="{ 'is-disabled': !capabilityOn('workflows') }"
+                @click.stop="openPanel('workflow')"
+              >
                 <span>工作流</span>
-                <span class="ctx-stage">M5+</span>
+                <span class="ctx-stage">
+                  {{ capabilityOn('workflows') ? (selectedWorkflow ? '已选' : '单选') : '未启用' }}
+                </span>
               </button>
               <button
                 type="button"
@@ -679,6 +813,40 @@ onUnmounted(() => {
                 </p>
               </div>
               <p class="ctx-foot">分类作为本轮 search_knowledge 的默认过滤；发送后清空。</p>
+            </template>
+
+            <template v-else-if="panel === 'workflow'">
+              <div class="ctx-subhead">
+                <button type="button" class="ctx-back" aria-label="返回" @click.stop="panel = null">
+                  ←
+                </button>
+                <span>选择工作流</span>
+                <span class="ctx-stage">{{ selectedWorkflow ? '已选' : '单选' }}</span>
+              </div>
+              <div class="ctx-list">
+                <button
+                  v-for="workflow in enabledWorkflows"
+                  :key="workflow.id"
+                  type="button"
+                  class="ctx-row"
+                  data-testid="workflow-option"
+                  :class="{ 'is-selected': selectedWorkflow?.id === workflow.id }"
+                  @click.stop="selectWorkflow(workflow)"
+                >
+                  <span class="ctx-row-main">
+                    <span class="ctx-row-name">{{ workflow.name }}</span>
+                    <span class="ctx-row-desc">
+                      {{ workflow.scope === 'system' ? '系统' : '用户' }} · v{{ workflow.version }} ·
+                      {{ workflow.steps.length }} 步
+                    </span>
+                  </span>
+                  <span class="ctx-row-meta">
+                    {{ selectedWorkflow?.id === workflow.id ? '已选' : '' }}
+                  </span>
+                </button>
+                <p v-if="enabledWorkflows.length === 0" class="ctx-empty">没有可用工作流</p>
+              </div>
+              <p class="ctx-foot">工作流与技能/MCP/知识库互斥；发送后清空。</p>
             </template>
 
             <template v-else>
@@ -850,6 +1018,30 @@ onUnmounted(() => {
   padding: 2px 2px 6px;
 }
 
+/* M9：步骤预览行——已选工作流时在 chip 下方逐行展示序号 + title。 */
+.workflow-preview {
+  padding: 0 2px 6px;
+}
+
+.workflow-step-line {
+  margin: 0;
+  overflow: hidden;
+  color: var(--ink-3);
+  font-size: 10.5px;
+  line-height: 1.7;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workflow-step-line .step-no {
+  display: inline-block;
+  min-width: 16px;
+  margin-right: 4px;
+  color: var(--ink-3);
+  font-size: 9px;
+  text-align: right;
+}
+
 .chip {
   display: inline-flex;
   align-items: center;
@@ -881,6 +1073,13 @@ onUnmounted(() => {
   border-color: var(--kind-mcp);
   background: var(--kind-mcp-soft);
   color: var(--kind-mcp);
+}
+
+/* 与过程卡 ProcessCardShell 的 kind-workflow 同色系。 */
+.chip.is-workflow {
+  border-color: var(--kind-vector);
+  background: var(--kind-vector-soft);
+  color: var(--kind-vector);
 }
 
 .chip.is-uploading {

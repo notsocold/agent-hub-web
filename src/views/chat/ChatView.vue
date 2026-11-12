@@ -12,11 +12,18 @@ import RunTraceDrawer from '@/components/chat/RunTraceDrawer.vue'
 import RunTracePanel from '@/components/chat/RunTracePanel.vue'
 import ErrorState from '@/components/common/ErrorState.vue'
 import { useMediaQuery } from '@/composables/useMediaQuery'
+import { workflowsApi } from '@/api/workflows'
 import { useCapabilitiesStore } from '@/stores/capabilities'
 import { useChatStore } from '@/stores/chat'
 import { useConversationsStore } from '@/stores/conversations'
 import { useSystemStore } from '@/stores/system'
-import type { A2aProcess, ApprovalProcess, ChatContextSelection, ReasoningEffortId } from '@/types'
+import type {
+  A2aProcess,
+  ApprovalProcess,
+  ChatContextSelection,
+  ReasoningEffortId,
+  Workflow,
+} from '@/types'
 import { withModelSelection } from '@/utils/chatSelection'
 
 const route = useRoute()
@@ -34,6 +41,14 @@ const narrowTrace = useMediaQuery('(max-width: 1180px)')
 const model = ref('')
 const reasoningEffort = ref<ReasoningEffortId>('low')
 const messageListRef = ref<InstanceType<typeof MessageList> | null>(null)
+
+// M9 T6：输入栏工作流候选与 query 预选。
+/** enabled 模板候选（系统 + 本人第一页），capabilities.workflows 开启时加载。 */
+const workflowOptions = ref<Workflow[]>([])
+/** 从 route.query 预选并经详情接口校验的工作流模板；注入输入栏后由其接管。 */
+const seedWorkflow = ref<Workflow | null>(null)
+/** 已处理过的 query workflow_id，避免同一 id 重复预选。 */
+const seededWorkflowIds = new Set<string>()
 
 onUnmounted(() => {
   // 离开对话页只停前端重连，不取消后端 run（约定断线不取消）。
@@ -88,9 +103,49 @@ async function loadConversation(id: string): Promise<void> {
   }
 }
 
+/** M9：加载输入栏工作流候选；失败不阻断对话，仅面板为空。 */
+async function loadWorkflowOptions(): Promise<void> {
+  try {
+    const page = await workflowsApi.list()
+    workflowOptions.value = page.items
+  } catch (error) {
+    console.warn('[chat] 加载工作流候选失败', error)
+  }
+}
+
+/**
+ * M9 T6：`/chat?workflow_id&workflow_version&workflow_name` 预选工作流。
+ * 调详情接口校验：无效 id / 请求失败静默忽略并 console.warn；停用模板不预选。
+ * query 缺 version 时用返回模板的当前 version；带 version 时以列表页展示版本为准。
+ */
+async function seedWorkflowFromQuery(): Promise<void> {
+  const id = typeof route.query.workflow_id === 'string' ? route.query.workflow_id : ''
+  if (!id || seededWorkflowIds.has(id)) return
+  if (!system.enabled('workflows')) return
+  seededWorkflowIds.add(id)
+  try {
+    const workflow = await workflowsApi.get(id)
+    if (!workflow.enabled) {
+      console.warn(`[chat] 工作流 ${id} 已停用，忽略预选`)
+      return
+    }
+    const rawVersion = route.query.workflow_version
+    const version =
+      typeof rawVersion === 'string' && /^\d+$/.test(rawVersion) ? Number(rawVersion) : null
+    seedWorkflow.value = version !== null ? { ...workflow, version } : workflow
+  } catch (error) {
+    console.warn(`[chat] 预选工作流 ${id} 失败，已忽略 query 参数`, error)
+  }
+}
+
 onMounted(async () => {
   void system.load().then(() => {
     if (system.enabled('knowledge')) void capabilityCatalog.loadKnowledgeCategories()
+    // M9：workflows 能力开启才加载候选与 query 预选。
+    if (system.enabled('workflows')) {
+      void loadWorkflowOptions()
+      void seedWorkflowFromQuery()
+    }
   })
   void capabilityCatalog.load()
   model.value = system.defaultModel
@@ -131,6 +186,14 @@ watch(
     if (value === chat.state.conversationId) return
     if (chat.state.streaming) return
     void loadConversation(value)
+  },
+)
+
+// M9：组件复用时（如从工作流页跳转）query 预选也要生效。
+watch(
+  () => route.query.workflow_id,
+  () => {
+    void seedWorkflowFromQuery()
   },
 )
 
@@ -385,6 +448,8 @@ function handleRecoveryRefresh(): void {
         :mcp-servers="capabilityCatalog.mcpServers"
         :mcp-tools="capabilityCatalog.mcpTools"
         :knowledge-categories="capabilityCatalog.knowledgeCategories"
+        :workflows="workflowOptions"
+        :seed-workflow="seedWorkflow"
         :tools-loading="capabilityCatalog.loadingTools"
         :limits="system.limits"
         :capabilities="system.capabilities"

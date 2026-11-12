@@ -485,6 +485,10 @@ export interface ChatContextSelection {
   mcp_servers?: string[]
   mcp_tools?: string[]
   knowledge_categories?: string[]
+  /** M9：本轮选中的工作流模板 id；与技能/MCP/知识库互斥。 */
+  workflow_id?: string
+  /** M9：随选中的模板带出（query 预选缺省时用详情接口返回的当前 version）。 */
+  workflow_version?: number
   /** 输入栏模型选择；为空时走后端默认模型。 */
   model?: string
   /** 仅在 `/system/info.reasoning_efforts` 非空时下发。 */
