@@ -1,4 +1,6 @@
 import type {
+  AdminInstruction,
+  AdminUser,
   A2aTaskDetail,
   A2aTaskListItem,
   Agent,
@@ -1103,6 +1105,88 @@ export const mockInstruction: InstructionState = {
     '使用简洁准确的中文回答，先给结论，再给依据；不编造事实或引用。',
   max_chars: 4000,
   updated_at: ago(2),
+}
+
+// ---------------------------------------------------------------- M8 管理台
+
+/**
+ * M8 管理台用户样本。
+ *
+ * 当前登录用户（`mockUser.id`）对应第一个管理员行；`admin@example.com`
+ * 登录后 `mockDb.user.role` 变为 admin，与样本一致。
+ */
+export const mockAdminUsers: AdminUser[] = [
+  {
+    id: mockUser.id,
+    email: 'admin@example.com',
+    display_name: '周丹',
+    role: 'admin',
+    status: 'active',
+    last_login_at: ago(0, 8),
+    created_at: ago(24 * 40),
+    updated_at: ago(0, 8),
+  },
+  {
+    id: '11111111-1111-4111-8111-111111111112',
+    email: 'alice@example.com',
+    display_name: 'Alice Chen',
+    role: 'user',
+    status: 'active',
+    last_login_at: ago(2),
+    created_at: ago(24 * 25),
+    updated_at: ago(2),
+  },
+  {
+    id: '11111111-1111-4111-8111-111111111113',
+    email: 'bob@example.com',
+    display_name: 'Bob Liu',
+    role: 'user',
+    status: 'disabled',
+    last_login_at: ago(24 * 6),
+    created_at: ago(24 * 20),
+    updated_at: ago(24 * 3),
+  },
+  {
+    id: '11111111-1111-4111-8111-111111111114',
+    email: 'carol@example.com',
+    display_name: 'Carol Wang',
+    role: 'user',
+    status: 'active',
+    last_login_at: null,
+    created_at: ago(24 * 12),
+    updated_at: ago(24 * 12),
+  },
+  {
+    id: '11111111-1111-4111-8111-111111111115',
+    email: 'dave@example.com',
+    display_name: 'Dave Zhang',
+    role: 'user',
+    status: 'active',
+    last_login_at: ago(0, 40),
+    created_at: ago(24 * 9),
+    updated_at: ago(0, 40),
+  },
+  {
+    id: '11111111-1111-4111-8111-111111111116',
+    email: 'eve@example.com',
+    display_name: 'Eve Li',
+    role: 'admin',
+    status: 'active',
+    last_login_at: ago(0, 26),
+    created_at: ago(24 * 5),
+    updated_at: ago(0, 26),
+  },
+]
+
+/** 平台默认指令的运行态；`is_default=true` 表示使用代码内置默认。 */
+export const mockAdminInstruction: AdminInstruction = {
+  content: mockInstruction.default_value,
+  is_default: true,
+  max_chars: 4000,
+  user_override_count: 2,
+  updated_by: null,
+  updated_by_email: null,
+  updated_at: null,
 }
 
 export const mockMemories: Memory[] = [

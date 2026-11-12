@@ -1,4 +1,16 @@
 import type {
+  AdminAgentList,
+  AdminAgentListParams,
+  AdminAgentUpdateRequest,
+  AdminInstruction,
+  AdminMcpServerCreateRequest,
+  AdminMcpServerList,
+  AdminMcpServerUpdateRequest,
+  AdminOverview,
+  AdminSkillList,
+  AdminUser,
+  AdminUserPage,
+  AdminUserUpdateRequest,
   A2aTaskDetail,
   ChatEventName,
   A2aTaskListItem,
@@ -44,6 +56,8 @@ import type {
 } from '@/types'
 
 import {
+  mockAdminInstruction,
+  mockAdminUsers,
   mockAgents,
   mockApprovals,
   mockAttachmentContents,
@@ -106,6 +120,27 @@ function paginate<T>(items: T[], query: PageQuery): PageResult<T> {
   }
 }
 
+/** M8 管理台 mock 的规则错误：由 routers 映射成统一错误信封。 */
+export class MockAdminRuleError extends Error {
+  constructor(
+    readonly code: string,
+    message: string,
+    readonly status = 422,
+    readonly details?: Record<string, unknown>,
+  ) {
+    super(message)
+    this.name = 'MockAdminRuleError'
+  }
+}
+
+type AdminUserQuery = {
+  q?: string
+  role?: string
+  status?: string
+  limit?: number
+  cursor?: string
+}
+
 type ApprovalListener = (id: string, decision: 'approved' | 'rejected') => void
 type RunEventListener = (event: ChatEventName, data: Record<string, unknown>) => void
 type RunTerminalListener = () => void
@@ -166,6 +201,8 @@ class MockDb {
   runEvents: Record<string, RunEvent[]> = {}
   attachments: Attachment[] = []
   instruction: InstructionState = clone(mockInstruction)
+  adminUsers: AdminUser[] = []
+  adminInstruction: AdminInstruction = clone(mockAdminInstruction)
   memories: Memory[] = []
   skills: Skill[] = []
   skillFiles: Record<string, SkillFile[]> = {}
@@ -200,6 +237,8 @@ class MockDb {
     this.runEvents = clone(mockRunEvents)
     this.attachments = clone(mockAttachments)
     this.instruction = clone(mockInstruction)
+    this.adminUsers = clone(mockAdminUsers)
+    this.adminInstruction = clone(mockAdminInstruction)
     this.memories = clone(mockMemories)
     this.skills = clone(mockSkills)
     this.skillFiles = clone(mockSkillFiles)
@@ -1580,6 +1619,353 @@ class MockDb {
 
   getSystemInfo(): SystemInfo {
     return this.systemInfo
+  }
+
+  // ---------- M8：管理台 ----------
+
+  adminListUsers(query: AdminUserQuery): AdminUserPage {
+    const keyword = query.q?.trim().toLowerCase() ?? ''
+    const filtered = this.adminUsers
+      .filter((user) => (query.role ? user.role === query.role : true))
+      .filter((user) => (query.status ? user.status === query.status : true))
+      .filter((user) =>
+        keyword ? `${user.email} ${user.display_name}`.toLowerCase().includes(keyword) : true,
+      )
+      .sort((left, right) => {
+        if (left.created_at === right.created_at) return right.id.localeCompare(left.id)
+        return right.created_at.localeCompare(left.created_at)
+      })
+    const page = paginate(filtered, { limit: query.limit, cursor: query.cursor })
+    return {
+      ...page,
+      stats: {
+        total: filtered.length,
+        active: filtered.filter((user) => user.status === 'active').length,
+        disabled: filtered.filter((user) => user.status === 'disabled').length,
+        admins: filtered.filter((user) => user.role === 'admin').length,
+      },
+    }
+  }
+
+  adminGetUser(id: string): AdminUser | null {
+    return this.adminUsers.find((user) => user.id === id) ?? null
+  }
+
+  adminUpdateUser(id: string, body: AdminUserUpdateRequest): AdminUser | null {
+    const target = this.adminGetUser(id)
+    if (!target) return null
+    if (body.role === undefined && body.status === undefined) {
+      throw new MockAdminRuleError('validation_error', '至少需要修改一个字段')
+    }
+    const role = body.role ?? target.role
+    const status = body.status ?? target.status
+    if (role !== target.role && target.id === this.user.id) {
+      throw new MockAdminRuleError('cannot_change_own_role', '不能修改自己的角色')
+    }
+    if (status === 'disabled' && target.id === this.user.id) {
+      throw new MockAdminRuleError('cannot_disable_self', '不能停用自己的账号')
+    }
+    if (role !== target.role || status !== target.status) {
+      const keepsActiveAdmin = role === 'admin' && status === 'active'
+      const wasActiveAdmin = target.role === 'admin' && target.status === 'active'
+      const otherActiveAdmins = this.adminUsers.filter(
+        (user) =>
+          user.id !== target.id && user.role === 'admin' && user.status === 'active',
+      ).length
+      if (wasActiveAdmin && !keepsActiveAdmin && otherActiveAdmins === 0) {
+        throw new MockAdminRuleError('last_admin_protected', '不能移除最后一个活跃管理员', 409, {
+          active_admins: 1,
+        })
+      }
+      Object.assign(target, { role, status, updated_at: new Date().toISOString() })
+    }
+    return target
+  }
+
+  adminOverview(): AdminOverview {
+    const users = this.adminUsers
+    const runs = Object.values(this.runs)
+    const tasks = this.tasks
+    const documents = this.knowledgeDocuments
+    const attachments = this.attachments.filter((item) => item.status !== 'deleted')
+    const runsBy = (status: string): number => runs.filter((run) => run.status === status).length
+    const tasksBy = (state: string): number => tasks.filter((task) => task.state === state).length
+
+    return {
+      generated_at: new Date().toISOString(),
+      users: {
+        total: users.length,
+        active: users.filter((user) => user.status === 'active').length,
+        disabled: users.filter((user) => user.status === 'disabled').length,
+        admins: users.filter((user) => user.role === 'admin').length,
+      },
+      conversations: {
+        total: this.conversations.length,
+        active: this.conversations.filter((item) => item.status === 'active').length,
+        archived: this.conversations.filter((item) => item.status === 'archived').length,
+        deleted: 0,
+      },
+      messages: {
+        total: Object.values(this.messages).reduce((sum, list) => sum + list.length, 0),
+      },
+      runs: {
+        total: runs.length,
+        queued: runsBy('queued'),
+        running: runsBy('running'),
+        succeeded: runsBy('succeeded'),
+        failed: runsBy('failed'),
+        canceled: runsBy('canceled'),
+        interrupted: runsBy('interrupted'),
+      },
+      a2a_tasks: {
+        total: tasks.length,
+        submitted: tasksBy('submitted'),
+        working: tasksBy('working'),
+        input_required: tasksBy('input_required'),
+        auth_required: tasksBy('auth_required'),
+        completed: tasksBy('completed'),
+        failed: tasksBy('failed'),
+        canceled: tasksBy('canceled'),
+        rejected: tasksBy('rejected'),
+      },
+      knowledge: {
+        documents: documents.length,
+        chunks: 0,
+        documents_pending: documents.filter((item) => item.status === 'pending').length,
+        documents_indexing: documents.filter((item) => item.status === 'indexing').length,
+        documents_ready: documents.filter((item) => item.status === 'ready').length,
+        documents_failed: documents.filter((item) => item.status === 'failed').length,
+      },
+      attachments: {
+        total: attachments.length,
+        storage_bytes: attachments.reduce((sum, item) => sum + (item.size_bytes ?? 0), 0),
+        deleted: this.attachments.filter((item) => item.status === 'deleted').length,
+      },
+    }
+  }
+
+  adminGetInstruction(): AdminInstruction {
+    return clone(this.adminInstruction)
+  }
+
+  adminSaveInstruction(content: string | null): AdminInstruction {
+    const value = content === null || content.trim() === '' ? null : content
+    if (value !== null && value.length > this.adminInstruction.max_chars) {
+      throw new MockAdminRuleError(
+        'instruction_too_long',
+        `指令超过 ${this.adminInstruction.max_chars} 字符上限`,
+      )
+    }
+    const isNoop = value === null && this.adminInstruction.is_default
+    if (isNoop) return clone(this.adminInstruction)
+
+    if (value === null) {
+      this.adminInstruction = {
+        ...this.adminInstruction,
+        content: mockAdminInstruction.content,
+        is_default: true,
+        updated_by: null,
+        updated_by_email: null,
+        updated_at: null,
+      }
+    } else {
+      this.adminInstruction = {
+        ...this.adminInstruction,
+        content: value,
+        is_default: false,
+        updated_by: this.user.id,
+        updated_by_email: this.user.email,
+        updated_at: new Date().toISOString(),
+      }
+    }
+    return clone(this.adminInstruction)
+  }
+
+  adminListSkills(q?: string): AdminSkillList {
+    const keyword = q?.trim().toLowerCase() ?? ''
+    const items = this.skills
+      .filter((skill) => skill.scope === 'system')
+      .filter((skill) =>
+        keyword ? `${skill.name} ${skill.description}`.toLowerCase().includes(keyword) : true,
+      )
+      .sort((left, right) => left.name.localeCompare(right.name) || left.id.localeCompare(right.id))
+    return {
+      items,
+      stats: {
+        total: items.length,
+        enabled: items.filter((skill) => skill.effective_enabled ?? skill.enabled).length,
+        force_disabled: items.filter((skill) => skill.force_disabled === true).length,
+      },
+    }
+  }
+
+  adminSetSkillEnabled(id: string, enabled: boolean): Skill | null {
+    const skill = this.skills.find((item) => item.id === id && item.scope === 'system')
+    if (!skill) return null
+    skill.enabled = enabled
+    skill.effective_enabled = enabled && !skill.force_disabled
+    skill.updated_at = new Date().toISOString()
+    return skill
+  }
+
+  adminSetSkillForceDisabled(id: string, forceDisabled: boolean): Skill | null {
+    const skill = this.skills.find((item) => item.id === id && item.scope === 'system')
+    if (!skill) return null
+    skill.force_disabled = forceDisabled
+    skill.effective_enabled = skill.enabled && !forceDisabled
+    skill.updated_at = new Date().toISOString()
+    return skill
+  }
+
+  adminListMcpServers(): AdminMcpServerList {
+    const items = this.mcpServers
+      .filter((server) => server.scope === 'system')
+      .sort((left, right) =>
+        (right.created_at ?? '').localeCompare(left.created_at ?? ''),
+      )
+    return {
+      items,
+      stats: {
+        total: items.length,
+        system: items.length,
+        user: 0,
+        enabled: items.filter((server) => server.enabled && !server.force_disabled).length,
+        healthy: items.filter((server) => server.health_status === 'healthy').length,
+      },
+    }
+  }
+
+  adminCreateMcpServer(body: AdminMcpServerCreateRequest): McpServer {
+    if (this.mcpServers.some((server) => server.slug === body.slug)) {
+      throw new MockAdminRuleError('conflict', 'slug 已被占用', 409)
+    }
+    const now = new Date().toISOString()
+    const server: McpServer = {
+      id: crypto.randomUUID(),
+      slug: body.slug,
+      name: body.name,
+      description: body.description ?? '',
+      url: body.url ?? null,
+      transport: body.transport ?? 'streamable_http',
+      scope: 'system',
+      enabled: true,
+      effective_enabled: true,
+      force_disabled: false,
+      auto_inject: true,
+      health_status: 'unknown',
+      last_error: null,
+      last_checked_at: null,
+      latency_ms: null,
+      tool_count: 0,
+      credentials_hint: body.headers?.Authorization,
+      created_at: now,
+      updated_at: now,
+    }
+    this.mcpServers.push(server)
+    return server
+  }
+
+  adminUpdateMcpServer(id: string, body: AdminMcpServerUpdateRequest): McpServer | null {
+    const server = this.mcpServers.find((item) => item.id === id && item.scope === 'system')
+    if (!server) return null
+    const editable: AdminMcpServerUpdateRequest = {
+      name: body.name,
+      description: body.description,
+      url: body.url,
+      headers: body.headers,
+      auto_inject: body.auto_inject,
+      enabled: body.enabled,
+      force_disabled: body.force_disabled,
+    }
+    const changed = Object.entries(editable).filter(([, value]) => value !== undefined)
+    if (changed.length === 0) {
+      throw new MockAdminRuleError('validation_error', '至少需要修改一个字段')
+    }
+    for (const [key, value] of changed) {
+      if (key === 'headers') {
+        const headers = value as Record<string, string>
+        if (headers.Authorization) server.credentials_hint = headers.Authorization
+        continue
+      }
+      Object.assign(server, { [key]: value })
+    }
+    if (body.enabled !== undefined) server.enabled = body.enabled
+    if (body.force_disabled !== undefined) server.force_disabled = body.force_disabled
+    server.effective_enabled = server.enabled && !server.force_disabled
+    server.updated_at = new Date().toISOString()
+    return server
+  }
+
+  adminDeleteMcpServer(id: string): boolean {
+    const index = this.mcpServers.findIndex(
+      (item) => item.id === id && item.scope === 'system',
+    )
+    if (index < 0) return false
+    this.mcpServers.splice(index, 1)
+    return true
+  }
+
+  adminListAgents(params: AdminAgentListParams): AdminAgentList {
+    const keyword = params.q?.trim().toLowerCase() ?? ''
+    const filtered = this.agents
+      .filter((agent) => (params.health_status ? agent.health_status === params.health_status : true))
+      .filter((agent) => {
+        if (params.enabled === undefined || params.enabled === '') return true
+        const enabled = params.enabled === 'true'
+        return agent.enabled === enabled
+      })
+      .filter((agent) =>
+        keyword ? `${agent.name} ${agent.slug} ${agent.url}`.toLowerCase().includes(keyword) : true,
+      )
+    const page = paginate(filtered, { limit: params.limit, cursor: params.cursor })
+    return {
+      ...page,
+      stats: {
+        total: filtered.length,
+        healthy: filtered.filter((agent) => agent.health_status === 'healthy').length,
+        degraded: filtered.filter((agent) => agent.health_status === 'degraded').length,
+        unhealthy: filtered.filter((agent) => agent.health_status === 'unhealthy').length,
+        enabled: filtered.filter((agent) => agent.enabled).length,
+        disabled: filtered.filter((agent) => !agent.enabled).length,
+      },
+    }
+  }
+
+  adminUpdateAgent(id: string, body: AdminAgentUpdateRequest): Agent | null {
+    const agent = this.agents.find((item) => item.id === id)
+    if (!agent) return null
+    const readOnlyFields = [
+      'slug',
+      'url',
+      'description',
+      'protocol_version',
+      'card',
+      'skills',
+      'capabilities',
+      'health_status',
+      'owner_user_id',
+    ]
+    const rejected = readOnlyFields.filter((field) => field in body)
+    if (rejected.length > 0) {
+      throw new MockAdminRuleError('validation_error', `字段不可编辑：${rejected.join(', ')}`)
+    }
+    if (body.name !== undefined) agent.name = body.name
+    if (body.enabled !== undefined) agent.enabled = body.enabled
+    if (body.requires_approval !== undefined) {
+      ;(agent as Agent & { requires_approval?: boolean }).requires_approval =
+        body.requires_approval
+    }
+    if (body.auth !== undefined) {
+      agent.auth_type = body.auth.type === 'api_key' ? 'api_key' : body.auth.type
+      agent.auth_hint = body.auth.secret_ref ?? ''
+      agent.auth_scheme = body.auth.secret_ref ? 'secret_ref' : ''
+    }
+    if (body.headers !== undefined) {
+      const header = body.headers.Authorization ?? ''
+      if (header) agent.auth_hint = header
+    }
+    agent.updated_at = new Date().toISOString()
+    return agent
   }
 
   // ---------- M7：mock 运行事件续流基础设施 ----------

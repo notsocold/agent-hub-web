@@ -1,6 +1,7 @@
+import type { AdminAgentUpdateRequest } from '@/types'
 import { SECRET_NAME_PATTERN, type AuthTokens } from '@/types'
 
-import { mockDb } from './db'
+import { MockAdminRuleError, mockDb } from './db'
 
 export interface MockRequest {
   method: string
@@ -38,6 +39,22 @@ function fail(
         ...(details ? { details } : {}),
       },
     },
+  }
+}
+
+function unknownKeys(body: Record<string, unknown>, allowed: string[]): string[] {
+  return Object.keys(body).filter((key) => !allowed.includes(key))
+}
+
+/** M8：把 mockDb 的规则错误转换成统一错误信封。 */
+function guarded(fn: () => MockResult): MockResult {
+  try {
+    return fn()
+  } catch (error) {
+    if (error instanceof MockAdminRuleError) {
+      return fail(error.status, error.code, error.message, error.details)
+    }
+    throw error
   }
 }
 
@@ -255,6 +272,200 @@ export async function handleMockRequest(req: MockRequest): Promise<MockResult> {
       const deleted = mockDb.deleteConversation(id)
       return deleted ? ok(null, 204) : fail(404, 'not_found', '会话不存在')
     }
+  }
+
+  // ---------- M8 管理台 ----------
+  if (path.startsWith('/admin/')) {
+    if (!hasAuth(req)) return fail(401, 'unauthorized', '请先登录')
+    if (mockDb.user.role !== 'admin') {
+      return fail(403, 'forbidden', '需要管理员权限', { required_role: 'admin' })
+    }
+  }
+
+  if (method === 'GET' && path === '/admin/users') {
+    return ok(
+      mockDb.adminListUsers({
+        q: stringParam(req.query, 'q'),
+        role: stringParam(req.query, 'role'),
+        status: stringParam(req.query, 'status'),
+        limit: numberParam(req.query, 'limit'),
+        cursor: stringParam(req.query, 'cursor'),
+      }),
+    )
+  }
+
+  const adminUserMatch = /^\/admin\/users\/([^/]+)$/.exec(path)
+  if (adminUserMatch) {
+    const userId = adminUserMatch[1]!
+    if (method === 'GET') {
+      const user = mockDb.adminGetUser(userId)
+      return user ? ok(user) : fail(404, 'not_found', '用户不存在')
+    }
+    if (method === 'PATCH') {
+      const extra = unknownKeys(body, ['role', 'status'])
+      if (extra.length > 0) {
+        return fail(422, 'validation_error', `字段不可编辑：${extra.join(', ')}`)
+      }
+      return guarded(() => {
+        const updated = mockDb.adminUpdateUser(userId, {
+          role: body.role as 'user' | 'admin' | undefined,
+          status: body.status as 'active' | 'disabled' | undefined,
+        })
+        return updated ? ok(updated) : fail(404, 'not_found', '用户不存在')
+      })
+    }
+  }
+
+  if (method === 'GET' && path === '/admin/overview') {
+    return ok(mockDb.adminOverview())
+  }
+
+  if (path === '/admin/settings/instruction') {
+    if (method === 'GET') return ok(mockDb.adminGetInstruction())
+    if (method === 'PUT') {
+      if (!('content' in body)) {
+        return fail(422, 'validation_error', 'content 为必填字段')
+      }
+      const content = body.content
+      if (content !== null && typeof content !== 'string') {
+        return fail(422, 'validation_error', 'content 必须为字符串或 null')
+      }
+      return guarded(() => ok(mockDb.adminSaveInstruction(content)))
+    }
+  }
+
+  if (method === 'GET' && path === '/admin/skills') {
+    return ok(mockDb.adminListSkills(stringParam(req.query, 'q')))
+  }
+
+  const adminSkillEnabledMatch = /^\/admin\/skills\/([^/]+)\/enabled$/.exec(path)
+  if (method === 'PUT' && adminSkillEnabledMatch) {
+    if (typeof body.enabled !== 'boolean') {
+      return fail(422, 'validation_error', 'enabled 必须为布尔值')
+    }
+    return guarded(() => {
+      const skill = mockDb.adminSetSkillEnabled(adminSkillEnabledMatch[1]!, body.enabled as boolean)
+      return skill ? ok(skill) : fail(404, 'not_found', '系统技能不存在')
+    })
+  }
+
+  const adminSkillForceMatch = /^\/admin\/skills\/([^/]+)\/force-disable$/.exec(path)
+  if (method === 'PUT' && adminSkillForceMatch) {
+    if (typeof body.force_disabled !== 'boolean') {
+      return fail(422, 'validation_error', 'force_disabled 必须为布尔值')
+    }
+    return guarded(() => {
+      const skill = mockDb.adminSetSkillForceDisabled(
+        adminSkillForceMatch[1]!,
+        body.force_disabled as boolean,
+      )
+      return skill ? ok(skill) : fail(404, 'not_found', '系统技能不存在')
+    })
+  }
+
+  if (path === '/admin/mcp/servers') {
+    if (method === 'GET') return ok(mockDb.adminListMcpServers())
+    if (method === 'POST') {
+      return guarded(() => {
+        if (typeof body.name !== 'string' || !body.name.trim()) {
+          return fail(422, 'validation_error', 'name 不能为空')
+        }
+        if (typeof body.slug !== 'string' || !/^[a-z0-9][a-z0-9-]{1,63}$/.test(body.slug)) {
+          return fail(422, 'validation_error', 'slug 格式不合法')
+        }
+        return ok(
+          mockDb.adminCreateMcpServer({
+            name: body.name,
+            slug: body.slug,
+            description: typeof body.description === 'string' ? body.description : undefined,
+            transport: body.transport as 'streamable_http' | 'sse' | 'stdio' | undefined,
+            url: typeof body.url === 'string' ? body.url : undefined,
+            headers:
+              body.headers && typeof body.headers === 'object'
+                ? (body.headers as Record<string, string>)
+                : undefined,
+          }),
+          201,
+        )
+      })
+    }
+  }
+
+  const adminMcpMatch = /^\/admin\/mcp\/servers\/([^/]+)$/.exec(path)
+  if (adminMcpMatch) {
+    const serverId = adminMcpMatch[1]!
+    if (method === 'PATCH') {
+      const readOnly = unknownKeys(body, [
+        'name',
+        'description',
+        'url',
+        'headers',
+        'auto_inject',
+        'enabled',
+        'force_disabled',
+      ])
+      if (readOnly.length > 0) {
+        return fail(422, 'validation_error', `字段不可编辑：${readOnly.join(', ')}`)
+      }
+      return guarded(() => {
+        const server = mockDb.adminUpdateMcpServer(serverId, {
+          name: typeof body.name === 'string' ? body.name : undefined,
+          description: typeof body.description === 'string' ? body.description : undefined,
+          url: typeof body.url === 'string' ? body.url : undefined,
+          headers:
+            body.headers && typeof body.headers === 'object'
+              ? (body.headers as Record<string, string>)
+              : undefined,
+          auto_inject: typeof body.auto_inject === 'boolean' ? body.auto_inject : undefined,
+          enabled: typeof body.enabled === 'boolean' ? body.enabled : undefined,
+          force_disabled:
+            typeof body.force_disabled === 'boolean' ? body.force_disabled : undefined,
+        })
+        return server ? ok(server) : fail(404, 'not_found', '系统 MCP 不存在')
+      })
+    }
+    if (method === 'DELETE') {
+      return mockDb.adminDeleteMcpServer(serverId)
+        ? ok(null, 204)
+        : fail(404, 'not_found', '系统 MCP 不存在')
+    }
+  }
+
+  if (method === 'GET' && path === '/admin/agents') {
+    return ok(
+      mockDb.adminListAgents({
+        health_status: stringParam(req.query, 'health_status'),
+        enabled: stringParam(req.query, 'enabled'),
+        q: stringParam(req.query, 'q'),
+        limit: numberParam(req.query, 'limit'),
+        cursor: stringParam(req.query, 'cursor'),
+      }),
+    )
+  }
+
+  const adminAgentMatch = /^\/admin\/agents\/([^/]+)$/.exec(path)
+  if (method === 'PATCH' && adminAgentMatch) {
+    const readOnly = unknownKeys(body, ['name', 'enabled', 'requires_approval', 'auth', 'headers'])
+    if (readOnly.length > 0) {
+      return fail(422, 'validation_error', `字段不可编辑：${readOnly.join(', ')}`)
+    }
+    return guarded(() => {
+      const agent = mockDb.adminUpdateAgent(adminAgentMatch[1]!, {
+        name: typeof body.name === 'string' ? body.name : undefined,
+        enabled: typeof body.enabled === 'boolean' ? body.enabled : undefined,
+        requires_approval:
+          typeof body.requires_approval === 'boolean' ? body.requires_approval : undefined,
+        auth:
+          body.auth && typeof body.auth === 'object'
+            ? (body.auth as AdminAgentUpdateRequest['auth'])
+            : undefined,
+        headers:
+          body.headers && typeof body.headers === 'object'
+            ? (body.headers as Record<string, string>)
+            : undefined,
+      })
+      return agent ? ok(agent) : fail(404, 'not_found', 'Agent 不存在')
+    })
   }
 
   // ---------- 运行 ----------
