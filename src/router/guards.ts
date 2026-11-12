@@ -14,6 +14,12 @@ export function setupGuards(router: Router): void {
       return { name: 'chat' }
     }
 
+    // M8：管理台仅管理员可进；非管理员显示无权限页（不静默跳走）。
+    if (to.meta.requiresAdmin && auth.isAuthenticated) {
+      if (!auth.user) await auth.restore()
+      if (!auth.isAdmin) return { name: 'admin-forbidden' }
+    }
+
     // 后端能力关闭的页面直接退回对话；M1 不请求 /agents、/tasks 等未注册端点。
     if (to.meta.capability && auth.isAuthenticated) {
       const system = useSystemStore()

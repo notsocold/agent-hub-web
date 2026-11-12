@@ -12,6 +12,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   settings: []
   diagnostics: []
+  admin: []
   theme: []
   logout: []
 }>()
@@ -49,6 +50,11 @@ function openSettings(): void {
 
 function openDiagnostics(): void {
   emit('diagnostics')
+  close()
+}
+
+function openAdmin(): void {
+  emit('admin')
   close()
 }
 
@@ -105,6 +111,15 @@ onUnmounted(() => {
       </div>
       <div class="sep"></div>
       <button type="button" role="menuitem" class="menu-item" @click="openSettings">设置</button>
+      <button
+        v-if="user?.role === 'admin'"
+        type="button"
+        role="menuitem"
+        class="menu-item"
+        @click="openAdmin"
+      >
+        管理控制台
+      </button>
       <button type="button" role="menuitem" class="menu-item" @click="openDiagnostics">
         诊断信息
       </button>

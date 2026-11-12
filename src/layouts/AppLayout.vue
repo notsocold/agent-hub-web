@@ -60,6 +60,11 @@ function openSettings(): void {
   void router.push({ name: 'settings' })
 }
 
+function openAdmin(): void {
+  mobileOpen.value = false
+  void router.push({ name: 'admin-overview' })
+}
+
 async function createConversation(): Promise<void> {
   if (chat.state.streaming) chat.stop()
   try {
@@ -128,6 +133,7 @@ async function logout(): Promise<void> {
       @navigate="mobileOpen = false"
       @search="paletteOpen = true"
       @settings="openSettings"
+      @admin="openAdmin"
       @diagnostics="diagnosticsOpen = true"
       @toggle-theme="toggle"
       @logout="logout"

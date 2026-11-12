@@ -21,6 +21,7 @@ const emit = defineEmits<{
   search: []
   settings: []
   diagnostics: []
+  admin: []
   'toggle-theme': []
   logout: []
 }>()
@@ -31,6 +32,8 @@ interface NavItem {
   icon: string
   capability?: keyof SystemCapabilities
   stage?: string
+  /** M8：仅管理员可见（不参与能力开关判断）。 */
+  adminOnly?: boolean
 }
 
 const items: NavItem[] = [
@@ -66,6 +69,12 @@ const items: NavItem[] = [
     icon: 'M4 5c0-1 3.6-2 8-2s8 1 8 2v14c0 1-3.6 2-8 2s-8-1-8-2V5ZM4 5c0 1 3.6 2 8 2s8-1 8-2',
     capability: 'knowledge',
     stage: 'M4',
+  },
+  {
+    name: 'admin-overview',
+    label: '管理控制台',
+    icon: 'M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Zm8-3.5-1.9-.7-.5-1.2 1-1.8-1.4-1.4-1.8 1-1.2-.5L13.5 4h-2l-.7 1.9-1.2.5-1.8-1L6.4 6.8l1 1.8-.5 1.2L5 10.5v2l1.9.7.5 1.2-1 1.8 1.4 1.4 1.8-1 1.2.5.7 1.9h2l.7-1.9 1.2-.5 1.8 1 1.4-1.4-1-1.8.5-1.2 1.9-.7v-2Z',
+    adminOnly: true,
   },
 ]
 
@@ -133,6 +142,7 @@ function disabledHint(item: NavItem): string {
         <kbd class="sb-kbd">⌘K</kbd>
       </button>
       <template v-for="item in items" :key="item.name">
+        <template v-if="item.adminOnly ? user?.role === 'admin' : true">
         <RouterLink
           v-if="isEnabled(item)"
           :to="{ name: item.name }"
@@ -158,6 +168,7 @@ function disabledHint(item: NavItem): string {
           <span>{{ item.label }}</span>
           <span class="stage mono">{{ item.stage }}</span>
         </button>
+        </template>
       </template>
     </nav>
 
@@ -171,6 +182,7 @@ function disabledHint(item: NavItem): string {
         :theme="theme"
         @settings="emit('settings')"
         @diagnostics="emit('diagnostics')"
+        @admin="emit('admin')"
         @theme="emit('toggle-theme')"
         @logout="emit('logout')"
       />
