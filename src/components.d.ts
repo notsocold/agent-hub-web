@@ -13,6 +13,10 @@ declare module 'vue' {
   export interface GlobalComponents {
     A2ACard: typeof import('./components/chat/cards/A2ACard.vue')['default']
     AccountMenu: typeof import('./components/layout/AccountMenu.vue')['default']
+    AdminAgentCard: typeof import('./components/admin/AdminAgentCard.vue')['default']
+    AdminInstructionCard: typeof import('./components/admin/AdminInstructionCard.vue')['default']
+    AdminMcpCard: typeof import('./components/admin/AdminMcpCard.vue')['default']
+    AdminSkillCard: typeof import('./components/admin/AdminSkillCard.vue')['default']
     AgentDetailDrawer: typeof import('./components/agents/AgentDetailDrawer.vue')['default']
     AgentOutputDrawer: typeof import('./components/chat/AgentOutputDrawer.vue')['default']
     AgentRegisterDialog: typeof import('./components/agents/AgentRegisterDialog.vue')['default']
