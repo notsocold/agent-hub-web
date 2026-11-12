@@ -168,6 +168,8 @@ async function readChatStream(token, payload) {
           dataLines.push(line.slice(5).trim())
         }
       }
+      // run.interrupted 即断流：审批挂起后本脚本不保持连接等待恢复，
+      // 审批恢复帧（run.resumed / workflow.step ok / message.done）不在本脚本断言范围。
       if (events.includes('message.done') || events.includes('run.interrupted')) break
     }
   } finally {
@@ -320,8 +322,21 @@ async function main() {
     for (const key of ['run_status', 'run_finished_at', 'run_duration_ms', 'run_error_code']) {
       assert(key in runRow, `历史行缺少终态快照字段 ${key}：${JSON.stringify(runRow)}`)
     }
+    // 终态同步值断言：终态写入发生在 run 完成后的同一事务边界，直读可能尚为
+    // running——短轮询（最多 10 次 × 500ms）等到 run_status=succeeded。
+    let syncedRow = runRow
+    for (let attempt = 0; attempt < 10 && syncedRow.run_status !== 'succeeded'; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 500))
+      const polled = await api(`/workflows/${wf.id}/runs`, { token })
+      assert(polled.status === 200, `轮询 GET runs 期望 200，实际 ${polled.status}`)
+      syncedRow = polled.data.items[0]
+    }
+    assert(
+      syncedRow.run_status === 'succeeded',
+      `run_status 终态同步期望 succeeded，实际 ${syncedRow.run_status}（10 次 × 500ms 内未追平）`,
+    )
     console.log(
-      `✓ 运行后 GET /workflows/{id}/runs：${runsAfter.data.items.length} 行（run_id=${runRow.run_id.slice(0, 8)}…，status=${runRow.status}）`,
+      `✓ 运行后 GET /workflows/{id}/runs：${runsAfter.data.items.length} 行（run_id=${syncedRow.run_id.slice(0, 8)}…，run_status=${syncedRow.run_status} 终态已同步）`,
     )
 
     // 版本冲突：携带过期 version → 409 workflow_version_conflict。

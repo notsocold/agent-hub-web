@@ -30,7 +30,7 @@
 | `pnpm test` | 80 文件 / 473 例通过 |
 | `pnpm e2e` | 42 passed + 1 skipped（admin 用户页无其他可停用用户的既有条件跳过），1.4m |
 | `pnpm size` | 通过（见提交前复验输出） |
-| `pnpm smoke:m9` | **56 项通过，0 失败**：登录 → `capabilities.workflows=true` → 清理残留 → POST 201（scope/user/version/enabled 契约）→ 详情/列表 → PATCH version 1→2 → 启停往返（version 不变）→ 运行前空 → 422 `workflow_steps_invalid` → 404 三连 → `chat/stream` 带 `workflow_id` 收到 `workflow.step`（五键齐全、含检索步骤）→ 运行后 `workflow_runs` 登记（`run_status=succeeded` 终态同步）→ 过期 version 409 `workflow_version_conflict` → 停用 409 `workflow_disabled` → 无效 id 404 → DELETE 204（runs 随 CASCADE 删除）→ 清理无痕 |
+| `pnpm smoke:m9` | **56 项通过，0 失败**：登录 → `capabilities.workflows=true` → 清理残留 → POST 201（scope/user/version/enabled 契约）→ 详情/列表 → PATCH version 1→2 → 启停往返（version 不变）→ 运行前空 → 422 `workflow_steps_invalid` → 404 三连 → `chat/stream` 带 `workflow_id` 收到 `workflow.step`（五键齐全、含检索步骤）→ 运行后 `workflow_runs` 登记 + `run_status=succeeded` 值断言（轮询最多 10 次 × 500ms 等终态追平）→ 过期 version 409 `workflow_version_conflict` → 停用 409 `workflow_disabled` → 无效 id 404 → DELETE 204（runs 随 CASCADE 删除）→ 清理无痕 |
 | E2E 主链路 | 列表 4 卡 → 新建 → 编辑器 3 步（检索/a2a/审批）→ 保存回列表 → 卡片 v1/3 步 → 「在对话中使用」→ chip `名称 · v1 · 3 步` → 发送 → 时间线 `.pcard.kind-workflow`「检索工单」卡 → 新模板运行历史空态（mock 限制）→ 客服周报运行历史 3 行 |
 | E2E 门控 | `workflows=false`（localStorage 覆盖钩子）：侧栏「工作流」按钮 disabled → `goto /workflows` 被守卫退回 `/chat` 并 toast → 「+ 上下文」菜单工作流入口「未启用」 |
 
@@ -54,7 +54,7 @@
 | `capability=false` 时列表请求仍发出 | `WorkflowsView.onMounted` 无条件 `workflows.load()`；后端 CRUD 配置面不受开关影响（R1 惯例），列表可读 | 门控只置灰按钮与导航，不发假请求语义成立；后端若将来对 `/workflows` 也加开关校验需同步调整 |
 | 系统模板编辑 URL 直达 | `/workflows/{系统模板id}` 直达可读（get 200），表单可改但保存 PATCH 404，错误行内展示「保存失败（not_found）」 | 无编辑入口（列表不渲染系统模板编辑按钮）；直达 URL 是兜底路径，不破坏数据 |
 | mock 不登记新运行 | mock chat 运行不写 `workflowRuns`（静态 fixture 挂客服周报 3 条） | mock E2E 中新模板运行历史为空态；真实后端已验证登记 + 终态同步（`smoke:m9`） |
-| 审批步骤卡在演示态可见 | 前端 `canceled`/`failed` 演示态覆盖取消/失败语义；审批超时语义沿用 M5 既有实现 | 真实「审批中断 → 恢复 → workflow.step(ok/rejected)」链路由后端 T6 保证（`smoke:m9` 未自动驱动审批轮） |
+| 审批步骤卡在演示态可见 | 前端 `canceled`/`failed` 演示态覆盖取消/失败语义；审批超时语义沿用 M5 既有实现 | 真实「审批中断 → 恢复 → workflow.step(ok/rejected)」链路由后端 T6 保证；`smoke:m9` 收到 `run.interrupted` 即断流（恢复帧 run.resumed/workflow.step ok/message.done 不在其断言范围），脚本仅验证了审批决策端点可达（200） |
 | `smoke:m9` 运行断言依赖 LLM | `workflow.step` 帧在后端由「工具完成 → 步骤命中」映射发出；LLM/embedding 不可用时该段失败 | 脚本顶部已注明；CRUD 与错误语义断言不依赖 LLM |
 
 ## 7. 真实联调状态与待办
