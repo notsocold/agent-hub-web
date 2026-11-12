@@ -1,4 +1,4 @@
-import type { AdminAgentUpdateRequest } from '@/types'
+import type { AdminAgentUpdateRequest, WorkflowStep } from '@/types'
 import { SECRET_NAME_PATTERN, type AuthTokens } from '@/types'
 
 import { MockAdminRuleError, mockDb } from './db'
@@ -1212,15 +1212,71 @@ export async function handleMockRequest(req: MockRequest): Promise<MockResult> {
     }
   }
 
-  // ---------- 工作流 ----------
+  // ---------- 工作流（M9 七端点，与真实后端同形状） ----------
   if (method === 'GET' && path === '/workflows') {
-    return ok(
-      mockDb.listWorkflows({
-        q: stringParam(req.query, 'q'),
-        status: stringParam(req.query, 'status'),
-        ...pageQuery(req.query),
-      }),
-    )
+    return ok(mockDb.listWorkflows(pageQuery(req.query)))
+  }
+
+  if (method === 'POST' && path === '/workflows') {
+    return guarded(() => {
+      if (typeof body.name !== 'string' || !body.name.trim()) {
+        return fail(422, 'validation_error', 'name 为必填字段')
+      }
+      if (!Array.isArray(body.steps)) {
+        return fail(422, 'workflow_steps_invalid', 'steps 必须是数组')
+      }
+      return ok(
+        mockDb.createWorkflow({
+          name: body.name,
+          description: typeof body.description === 'string' ? body.description : undefined,
+          steps: body.steps as WorkflowStep[],
+        }),
+        201,
+      )
+    })
+  }
+
+  const workflowRunsMatch = /^\/workflows\/([^/]+)\/runs$/.exec(path)
+  if (method === 'GET' && workflowRunsMatch) {
+    return guarded(() => {
+      const page = mockDb.listWorkflowRuns(workflowRunsMatch[1]!, pageQuery(req.query))
+      return page ? ok(page) : fail(404, 'not_found', '工作流不存在')
+    })
+  }
+
+  const workflowEnabledMatch = /^\/workflows\/([^/]+)\/enabled$/.exec(path)
+  if (method === 'PUT' && workflowEnabledMatch) {
+    if (typeof body.enabled !== 'boolean') {
+      return fail(422, 'validation_error', 'enabled 必须是布尔值')
+    }
+    return guarded(() => {
+      const workflow = mockDb.setWorkflowEnabled(workflowEnabledMatch[1]!, body.enabled as boolean)
+      return workflow ? ok(workflow) : fail(404, 'not_found', '工作流不存在')
+    })
+  }
+
+  const workflowMatch = /^\/workflows\/([^/]+)$/.exec(path)
+  if (workflowMatch) {
+    const id = workflowMatch[1]!
+    if (method === 'GET') {
+      const workflow = mockDb.getWorkflow(id)
+      return workflow ? ok(workflow) : fail(404, 'not_found', '工作流不存在')
+    }
+    if (method === 'PATCH') {
+      return guarded(() => {
+        const workflow = mockDb.updateWorkflow(id, {
+          name: body.name === undefined ? undefined : String(body.name),
+          description: body.description === undefined ? undefined : String(body.description),
+          steps: Array.isArray(body.steps) ? (body.steps as WorkflowStep[]) : undefined,
+        })
+        return workflow ? ok(workflow) : fail(404, 'not_found', '工作流不存在')
+      })
+    }
+    if (method === 'DELETE') {
+      return mockDb.deleteWorkflow(id)
+        ? ok(null, 204)
+        : fail(404, 'not_found', '工作流不存在')
+    }
   }
 
   return fail(404, 'not_found', `Mock 未实现：${method} ${path}`)

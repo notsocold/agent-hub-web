@@ -20,6 +20,7 @@ import type {
   SystemInfo,
   User,
   Workflow,
+  WorkflowRun,
 } from '@/types'
 
 const HOUR = 60 * 60 * 1000
@@ -458,6 +459,60 @@ export const mockRuns: Record<string, Run> = {
         state: 'idle',
       },
     ],
+    error: null,
+  },
+  // M9 工作流运行历史的演示 run：failed 与 running 各一条，供 workflow_runs
+  // 的 run_* 终态快照动态关联（started_at 早于周报 run，不改变会话最新一轮）。
+  '33333333-3333-4333-8333-333333333331': {
+    id: '33333333-3333-4333-8333-333333333331',
+    conversation_id: '22222222-2222-4222-8222-222222222223',
+    status: 'failed',
+    source: 'chat',
+    model: 'deepseek-chat',
+    reasoning_effort: 'low',
+    workflow: { id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', name: '客服周报', version: 2 },
+    capabilities: {
+      skills: [],
+      mcp_servers: [],
+      mcp_tools: [],
+      knowledge_categories: ['客服'],
+      workflow_id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    },
+    usage: null,
+    started_at: ago(30),
+    finished_at: ago(29),
+    duration_ms: 42000,
+    active_duration_ms: 12000,
+    first_token_ms: 140,
+    pending: { kind: null, approval_id: null, task_id: null },
+    message_ids: { user: null, assistant: null },
+    agents: [],
+    error: { code: 'model_error', message: '演示失败：模型返回异常。', retryable: true },
+  },
+  '33333333-3333-4333-8333-333333333332': {
+    id: '33333333-3333-4333-8333-333333333332',
+    conversation_id: '22222222-2222-4222-8222-222222222223',
+    status: 'running',
+    source: 'chat',
+    model: 'deepseek-chat',
+    reasoning_effort: 'low',
+    workflow: { id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', name: '客服周报', version: 2 },
+    capabilities: {
+      skills: [],
+      mcp_servers: [],
+      mcp_tools: [],
+      knowledge_categories: ['客服'],
+      workflow_id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    },
+    usage: null,
+    started_at: ago(2),
+    finished_at: null,
+    duration_ms: null,
+    active_duration_ms: null,
+    first_token_ms: null,
+    pending: { kind: null, approval_id: null, task_id: null },
+    message_ids: { user: null, assistant: null },
+    agents: [],
     error: null,
   },
 }
@@ -1000,19 +1055,27 @@ export const mockKnowledgeDocuments: KnowledgeDocument[] = [
 ]
 
 /**
- * M9 最小对齐版：与新 Workflow 契约同形状保证编译，完整 fixtures 重写
- * （含系统模板与三步验收样例）在 Task 2 落地。
+ * M9 真实契约 fixtures：字段与 WorkflowOut 逐字对齐（无 slug/status/step_count）。
+ * 三条本人模板保持旧 id 不变——memory 的 workflow_run label 与 E2E 引用不破；
+ * 另新增 1 条系统模板（scope='system'）演示只读归属。
  */
+const weeklyWorkflowId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+
 export const mockWorkflows: Workflow[] = [
   {
-    id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    id: weeklyWorkflowId,
     scope: 'user',
     name: '客服周报',
     description:
       '检索复盘与工单表，生成周报草稿，交给数据分析与措辞审阅，校验 Slack 频道后审批发布。',
     steps: [
-      { id: 's1', type: 'knowledge_search', title: '检索复盘', instruction: '检索本周工单与复盘文档' },
-      { id: 's2', type: 'a2a', title: '生成周报草稿' },
+      {
+        id: 's1',
+        type: 'knowledge_search',
+        title: '检索复盘',
+        instruction: '检索本周工单与复盘文档',
+      },
+      { id: 's2', type: 'a2a', title: '生成周报草稿', instruction: '交给数据核对智能体生成草稿' },
       { id: 's3', type: 'approval', title: '审批发布', config: { tools: ['send_message'] } },
     ],
     enabled: true,
@@ -1024,10 +1087,16 @@ export const mockWorkflows: Workflow[] = [
     id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaab',
     scope: 'user',
     name: '知识库巡检',
-    description: '列出知识库文档，检查索引与分块状态，重建过期索引并生成巡检报告。',
+    description: '调用知识库工具列出文档与索引状态，检查分块质量并生成巡检报告。',
     steps: [
-      { id: 's1', type: 'knowledge_search', title: '检索知识库' },
-      { id: 's2', type: 'answer', title: '生成巡检报告' },
+      {
+        id: 's1',
+        type: 'tool',
+        title: '列出知识库文档',
+        instruction: '调用知识库工具，列出当前文档与索引状态',
+        config: { tools: ['search_knowledge'] },
+      },
+      { id: 's2', type: 'answer', title: '生成巡检报告', instruction: '按文档/索引/待办三段输出' },
     ],
     enabled: true,
     version: 1,
@@ -1040,7 +1109,7 @@ export const mockWorkflows: Workflow[] = [
     name: '发布简报',
     description: '汇总本周合并的变更，生成中英双语发布简报，等待人工确认后归档。',
     steps: [
-      { id: 's1', type: 'knowledge_search', title: '汇总变更' },
+      { id: 's1', type: 'knowledge_search', title: '汇总变更', instruction: '检索本周变更记录' },
       { id: 's2', type: 'approval', title: '确认归档', config: { tools: ['send_message'] } },
     ],
     enabled: false,
@@ -1048,7 +1117,71 @@ export const mockWorkflows: Workflow[] = [
     created_at: '2026-10-05T00:00:00Z',
     updated_at: '2026-10-12T00:00:00Z',
   },
+  {
+    id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaad',
+    scope: 'system',
+    name: '客户访谈纪要',
+    description: '检索客户历史工单与产品使用记录，生成结构化访谈纪要，供团队复用。',
+    steps: [
+      {
+        id: 's1',
+        type: 'knowledge_search',
+        title: '检索客户上下文',
+        instruction: '检索该客户历史工单与产品使用记录',
+      },
+      {
+        id: 's2',
+        type: 'answer',
+        title: '生成访谈纪要',
+        instruction: '按「背景 / 关键反馈 / 后续动作」三段输出',
+      },
+    ],
+    enabled: true,
+    version: 1,
+    created_at: '2026-09-15T00:00:00Z',
+    updated_at: '2026-09-15T00:00:00Z',
+  },
 ]
+
+/**
+ * M9 workflow_runs 演示数据（挂在客服周报下）：status 覆盖 running/succeeded/failed
+ * 三种演示态；run_* 终态快照由 db.listWorkflowRuns 按 run_id 动态关联 mockRuns 填充
+ * （与后端一致：workflow_runs 表本身不存 run_* 列）。
+ */
+export const mockWorkflowRuns: Record<string, WorkflowRun[]> = {
+  [weeklyWorkflowId]: [
+    {
+      id: '99999999-9999-4999-8999-999999999911',
+      run_id: '33333333-3333-4333-8333-333333333331',
+      status: 'failed',
+      created_at: ago(30),
+      run_status: null,
+      run_finished_at: null,
+      run_duration_ms: null,
+      run_error_code: null,
+    },
+    {
+      id: '99999999-9999-4999-8999-999999999912',
+      run_id: weeklyRunId,
+      status: 'succeeded',
+      created_at: ago(0, 6),
+      run_status: null,
+      run_finished_at: null,
+      run_duration_ms: null,
+      run_error_code: null,
+    },
+    {
+      id: '99999999-9999-4999-8999-999999999913',
+      run_id: '33333333-3333-4333-8333-333333333332',
+      status: 'running',
+      created_at: ago(2),
+      run_status: null,
+      run_finished_at: null,
+      run_duration_ms: null,
+      run_error_code: null,
+    },
+  ],
+}
 
 export const mockSystemInfo: SystemInfo = {
   version: '0.1.0',

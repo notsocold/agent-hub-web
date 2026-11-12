@@ -1,4 +1,4 @@
-import type { ChatEventName, ChatMessage, ChatStreamRequest, Citation } from '@/types'
+import type { ChatEventName, ChatMessage, ChatStreamRequest, Citation, WorkflowStep } from '@/types'
 
 import { ApiRequestError } from '@/api/client'
 
@@ -90,6 +90,33 @@ function baseCapabilities(payload: ChatStreamRequest): ChatMessage['capabilities
   }
 }
 
+/** M9：workflow.step 的 tool 字段——步骤对应的演示工具名。 */
+function workflowStepTool(step: WorkflowStep): string {
+  if (step.type === 'knowledge_search') return 'search_knowledge'
+  if (step.type === 'tool' || step.type === 'approval') {
+    return step.config?.tools?.[0] ?? ''
+  }
+  if (step.type === 'a2a') return 'a2a'
+  return ''
+}
+
+/**
+ * M9：按步骤生成 workflow.step 帧；payload 恰为 T1 WorkflowStepData 五字段
+ * （status 默认 'ok'，run_id/ts/seq 由 emit 统一追加）。
+ */
+function workflowStepFrames(steps: WorkflowStep[], status: 'ok' | 'rejected' = 'ok'): Frame[] {
+  return steps.map((step) => ({
+    event: 'workflow.step',
+    data: {
+      step_id: step.id,
+      step_type: step.type,
+      step_title: step.title ?? '',
+      tool: workflowStepTool(step),
+      status,
+    },
+  }))
+}
+
 export async function mockChatStream(
   payload: ChatStreamRequest,
   handlers: MockStreamHandlers,
@@ -104,6 +131,8 @@ export async function mockChatStream(
   const clientMessageId = payload.client_message_id ?? crypto.randomUUID()
   const isApproval = /审批|发布|slack|写操作/i.test(payload.message)
   const isError = /错误|失败|error/i.test(payload.message)
+  // M9：选定的工作流模板（无效 id 静默忽略，mock 不模拟 409/404 校验）。
+  const workflow = payload.workflow_id ? mockDb.getWorkflow(payload.workflow_id) : null
 
   // M7：登记 run 与事件，使 `GET /runs/{id}` 和续流端点对 mock 新产生的 run 可达。
   mockDb.upsertRun({
@@ -113,7 +142,13 @@ export async function mockChatStream(
     source: 'chat',
     model: payload.model ?? 'deepseek-chat',
     reasoning_effort: payload.reasoning_effort ?? 'low',
-    workflow: null,
+    workflow: workflow
+      ? {
+          id: workflow.id,
+          name: workflow.name,
+          version: payload.workflow_version ?? workflow.version,
+        }
+      : null,
     capabilities: baseCapabilities(payload),
     usage: null,
     started_at: new Date().toISOString(),
@@ -394,6 +429,19 @@ export async function mockChatStream(
       },
     ])
 
+    if (workflow) {
+      if (isApproval) {
+        // 审批脚本：检索/工具步骤紧跟 search 的 tool.result 之后发（后端契约）。
+        const toolSteps = workflow.steps.filter(
+          (step) => step.type === 'knowledge_search' || step.type === 'tool',
+        )
+        if (toolSteps.length > 0) await play(workflowStepFrames(toolSteps))
+      } else {
+        // 普通脚本：无审批中断，非审批步骤在工具阶段一并逐条演示。
+        await play(workflowStepFrames(workflow.steps.filter((step) => step.type !== 'approval')))
+      }
+    }
+
     if (!isApproval) {
       // 显式选择 MCP：模拟一次工具调用；写工具仍需要审批，这里只演示只读/显式工具。
       const selectedServer = (payload.mcp_servers ?? [])
@@ -589,6 +637,12 @@ export async function mockChatStream(
       },
     ])
 
+    if (workflow) {
+      // a2a 步骤在远程任务完成帧之后发。
+      const a2aSteps = workflow.steps.filter((step) => step.type === 'a2a')
+      if (a2aSteps.length > 0) await play(workflowStepFrames(a2aSteps))
+    }
+
     const approval = mockDb.createApproval({
       run_id: runId,
       conversation_id: conversation.id,
@@ -635,6 +689,14 @@ export async function mockChatStream(
       conversation_id: conversation.id,
       status: 'running',
     })
+
+    if (workflow) {
+      // 审批中断恢复后补发审批步骤：批准 → 'ok'，拒绝 → 'rejected'（后端契约）。
+      const approvalSteps = workflow.steps.filter((step) => step.type === 'approval')
+      if (approvalSteps.length > 0) {
+        await play(workflowStepFrames(approvalSteps, decision === 'approved' ? 'ok' : 'rejected'))
+      }
+    }
 
     if (decision === 'approved') {
       await play([

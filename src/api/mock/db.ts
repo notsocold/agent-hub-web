@@ -53,7 +53,10 @@ import type {
   SystemInfo,
   User,
   Workflow,
+  WorkflowRun,
+  WorkflowStep,
 } from '@/types'
+import { validateWorkflowSteps } from '@/types'
 
 import {
   mockAdminInstruction,
@@ -77,6 +80,7 @@ import {
   mockTaskDetails,
   mockTasks,
   mockUser,
+  mockWorkflowRuns,
   mockWorkflows,
 } from './fixtures'
 import { mockAuditLogs, mockExtraApprovals, mockPlatformSecrets } from './securityFixtures'
@@ -199,6 +203,8 @@ class MockDb {
   /** mock 用 `filename:size` 模拟 checksum 幂等键；真实后端用内容 checksum。 */
   knowledgeChecksums: Record<string, string> = {}
   workflows: Workflow[] = []
+  /** 按 workflow id 分组的运行历史演示数据；run_* 终态快照在查询时动态关联 runs。 */
+  workflowRuns: Record<string, WorkflowRun[]> = {}
   systemInfo: SystemInfo = clone(mockSystemInfo)
   runs: Record<string, Run> = {}
   runEvents: Record<string, RunEvent[]> = {}
@@ -235,6 +241,7 @@ class MockDb {
     this.knowledgeDocuments = clone(mockKnowledgeDocuments)
     this.knowledgeChecksums = {}
     this.workflows = clone(mockWorkflows)
+    this.workflowRuns = clone(mockWorkflowRuns)
     this.systemInfo = clone(mockSystemInfo)
     this.runs = clone(mockRuns)
     this.runEvents = clone(mockRunEvents)
@@ -928,29 +935,130 @@ class MockDb {
     }
   }
 
-  listWorkflows(query: { q?: string; status?: string } & PageQuery): PageResult<Workflow> {
-    // M9 契约无 status 字段（enabled 布尔取代）；status 查询参数暂保留不再过滤，
-    // mock 端点在 Task 2 按七端点完整重写。
-    const keyword = query.q?.trim().toLowerCase() ?? ''
-    const filtered = this.workflows
-      .filter((workflow) => (keyword ? workflow.name.toLowerCase().includes(keyword) : true))
-      .sort((a, b) => Date.parse(b.updated_at) - Date.parse(a.updated_at))
-
-    return {
-      ...paginate(filtered, query),
-      stats: {
-        total: this.workflows.length,
-        enabled: this.workflows.filter((item) => item.enabled).length,
-        disabled: this.workflows.filter((item) => !item.enabled).length,
-        avg_steps:
-          this.workflows.length > 0
-            ? Math.round(
-                this.workflows.reduce((total, item) => total + item.steps.length, 0) /
-                  this.workflows.length,
-              )
-            : 0,
-      },
+  /**
+   * M9 工作流负载校验（镜像后端 WorkflowIn 约束）：name strip 后 1–100 字符
+   * 且禁双引号与换行、description ≤500、steps 走 T1 validateWorkflowSteps；
+   * 违规抛 MockAdminRuleError（422），由 routers 的 guarded 统一转错误信封。
+   */
+  private assertWorkflowFields(fields: {
+    name?: string
+    description?: string
+    steps?: WorkflowStep[]
+  }): void {
+    if (fields.name !== undefined) {
+      const name = fields.name.trim()
+      if (!name || name.length > 100 || /["\r\n]/.test(name)) {
+        throw new MockAdminRuleError('validation_error', '工作流名称需为 1–100 个字符，且不含双引号或换行')
+      }
     }
+    if (fields.description !== undefined && fields.description.length > 500) {
+      throw new MockAdminRuleError('validation_error', '工作流描述不能超过 500 个字符')
+    }
+    if (fields.steps !== undefined) {
+      const errors = validateWorkflowSteps(fields.steps)
+      if (errors.length > 0) {
+        throw new MockAdminRuleError('workflow_steps_invalid', errors.join('；'))
+      }
+    }
+  }
+
+  /** M9：系统模板 + 本人模板，按 created_at DESC 游标分页（新契约无 q/status/stats）。 */
+  listWorkflows(query: PageQuery): PageResult<Workflow> {
+    const filtered = [...this.workflows].sort((a, b) =>
+      a.created_at === b.created_at ? b.id.localeCompare(a.id) : Date.parse(b.created_at) - Date.parse(a.created_at),
+    )
+    return paginate(filtered, query)
+  }
+
+  /** M9：创建本人步骤模板（后端返回 201：scope=user、version=1、enabled=true）。 */
+  createWorkflow(body: { name: string; description?: string; steps: WorkflowStep[] }): Workflow {
+    this.assertWorkflowFields({
+      name: body.name,
+      description: body.description ?? '',
+      steps: body.steps,
+    })
+    const timestamp = new Date().toISOString()
+    const workflow: Workflow = {
+      id: crypto.randomUUID(),
+      scope: 'user',
+      name: body.name.trim(),
+      description: body.description ?? '',
+      steps: clone(body.steps),
+      enabled: true,
+      version: 1,
+      created_at: timestamp,
+      updated_at: timestamp,
+    }
+    this.workflows.unshift(workflow)
+    return clone(workflow)
+  }
+
+  getWorkflow(id: string): Workflow | null {
+    const workflow = this.workflows.find((item) => item.id === id)
+    return workflow ? clone(workflow) : null
+  }
+
+  /**
+   * M9：PATCH 本人模板（系统/不存在一律 null → 404）；成功后 version+1。
+   * 空负载与后端一致按合法 PATCH 处理（仅刷新版本，不臆造「至少一个字段」约束）。
+   */
+  updateWorkflow(
+    id: string,
+    body: { name?: string; description?: string; steps?: WorkflowStep[] },
+  ): Workflow | null {
+    const workflow = this.workflows.find((item) => item.id === id && item.scope === 'user')
+    if (!workflow) return null
+    this.assertWorkflowFields(body)
+    if (body.name !== undefined) workflow.name = body.name.trim()
+    if (body.description !== undefined) workflow.description = body.description
+    if (body.steps !== undefined) workflow.steps = clone(body.steps)
+    workflow.version += 1
+    workflow.updated_at = new Date().toISOString()
+    return clone(workflow)
+  }
+
+  /** M9：启停本人模板，只改 enabled 位，不改 version。 */
+  setWorkflowEnabled(id: string, enabled: boolean): Workflow | null {
+    const workflow = this.workflows.find((item) => item.id === id && item.scope === 'user')
+    if (!workflow) return null
+    workflow.enabled = enabled
+    workflow.updated_at = new Date().toISOString()
+    return clone(workflow)
+  }
+
+  /** M9：硬删本人模板（系统/不存在返回 false → 404），连带清理运行历史演示数据。 */
+  deleteWorkflow(id: string): boolean {
+    const index = this.workflows.findIndex((item) => item.id === id && item.scope === 'user')
+    if (index < 0) return false
+    this.workflows.splice(index, 1)
+    delete this.workflowRuns[id]
+    return true
+  }
+
+  /**
+   * M9：运行历史（仅模板本人可查）。不存在 → null（404）；系统模板 → 403；
+   * run_* 终态快照按 run_id 动态关联 chat run（与后端 JOIN 语义一致，
+   * 无对应 chat run 行时为 null）。
+   */
+  listWorkflowRuns(id: string, query: PageQuery): PageResult<WorkflowRun> | null {
+    const workflow = this.workflows.find((item) => item.id === id)
+    if (!workflow) return null
+    if (workflow.scope === 'system') {
+      throw new MockAdminRuleError('forbidden', '系统模板的运行历史仅模板所有者可查', 403)
+    }
+    const rows = (this.workflowRuns[id] ?? [])
+      .map((row) => {
+        const run = this.runs[row.run_id]
+        return {
+          ...row,
+          run_status: run?.status ?? null,
+          run_finished_at: run?.finished_at ?? null,
+          run_duration_ms: run?.duration_ms ?? null,
+          run_error_code: run?.error?.code ?? null,
+        }
+      })
+      .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))
+    return paginate(rows, query)
   }
 
   // ---------------------------------------------------------------- 附件
