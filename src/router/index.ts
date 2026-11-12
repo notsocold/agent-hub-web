@@ -47,6 +47,19 @@ export const routes: RouteRecordRaw[] = [
         meta: { title: '工作流', capability: 'workflows' },
       },
       {
+        // 静态段在动态段之前声明，避免 /workflows/new 被 /workflows/:id 吞掉。
+        path: 'workflows/new',
+        name: 'workflow-new',
+        component: () => import('@/views/workflows/WorkflowsEditorView.vue'),
+        meta: { title: '工作流编辑', capability: 'workflows' },
+      },
+      {
+        path: 'workflows/:id',
+        name: 'workflow-edit',
+        component: () => import('@/views/workflows/WorkflowsEditorView.vue'),
+        meta: { title: '工作流编辑', capability: 'workflows' },
+      },
+      {
         path: 'agents',
         name: 'agents',
         component: () => import('@/views/AgentsView.vue'),
