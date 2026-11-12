@@ -25,6 +25,9 @@ export const useWorkflowsStore = defineStore('workflows', () => {
    */
   async function load(reset = true): Promise<void> {
     if (loading.value) return
+    // 接「加载更多」UI 前的前置保护：已到末页时 load(false) 直接返回，
+    // 防止无 cursor 重拉第一页导致列表追加重复。
+    if (!reset && !hasMore.value) return
     loading.value = true
     error.value = null
     try {

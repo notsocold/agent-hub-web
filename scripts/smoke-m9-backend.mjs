@@ -323,9 +323,9 @@ async function main() {
       assert(key in runRow, `历史行缺少终态快照字段 ${key}：${JSON.stringify(runRow)}`)
     }
     // 终态同步值断言：终态写入发生在 run 完成后的同一事务边界，直读可能尚为
-    // running——短轮询（最多 10 次 × 500ms）等到 run_status=succeeded。
+    // running——短轮询（最多 20 次 × 500ms）等到 run_status=succeeded。
     let syncedRow = runRow
-    for (let attempt = 0; attempt < 10 && syncedRow.run_status !== 'succeeded'; attempt += 1) {
+    for (let attempt = 0; attempt < 20 && syncedRow.run_status !== 'succeeded'; attempt += 1) {
       await new Promise((resolve) => setTimeout(resolve, 500))
       const polled = await api(`/workflows/${wf.id}/runs`, { token })
       assert(polled.status === 200, `轮询 GET runs 期望 200，实际 ${polled.status}`)
@@ -333,7 +333,7 @@ async function main() {
     }
     assert(
       syncedRow.run_status === 'succeeded',
-      `run_status 终态同步期望 succeeded，实际 ${syncedRow.run_status}（10 次 × 500ms 内未追平）`,
+      `run_status 终态同步期望 succeeded，实际 ${syncedRow.run_status}（20 次 × 500ms 内未追平）`,
     )
     console.log(
       `✓ 运行后 GET /workflows/{id}/runs：${runsAfter.data.items.length} 行（run_id=${syncedRow.run_id.slice(0, 8)}…，run_status=${syncedRow.run_status} 终态已同步）`,

@@ -94,7 +94,7 @@ async function onToggleEnabled(workflow: Workflow, value: string | number | bool
 /** 删除需二次确认；成功后 store 本地剔除，卡片随之消失。 */
 async function removeWorkflow(workflow: Workflow): Promise<void> {
   try {
-    await ElMessageBox.confirm(`删除「${workflow.name}」？运行历史将保留，此操作不可撤销。`, '删除工作流', {
+    await ElMessageBox.confirm(`删除「${workflow.name}」？运行历史将一并删除，此操作不可撤销。`, '删除工作流', {
       type: 'warning',
       confirmButtonText: '删除',
       cancelButtonText: '取消',

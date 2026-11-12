@@ -73,6 +73,19 @@ describe('workflows store', () => {
     expect(store.hasMore).toBe(false)
   })
 
+  it('末页（hasMore=false）再 load(false) 直接返回不发请求', async () => {
+    vi.mocked(workflowsApi.list).mockResolvedValueOnce(page([workflow('a')], null, false))
+
+    const store = useWorkflowsStore()
+    await store.load()
+    await store.load(false)
+
+    // 末页守卫：防无 cursor 重拉第一页导致列表追加重复。
+    expect(workflowsApi.list).toHaveBeenCalledTimes(1)
+    expect(store.items.map((item) => item.id)).toEqual(['a'])
+    expect(store.loading).toBe(false)
+  })
+
   it('refresh 重置列表回到第一页', async () => {
     vi.mocked(workflowsApi.list)
       .mockResolvedValueOnce(page([workflow('a')], 'cursor-1', true))

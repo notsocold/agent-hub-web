@@ -1,5 +1,6 @@
 import { mount } from '@vue/test-utils'
-import { describe, expect, it } from 'vitest'
+import { ElMessage } from 'element-plus'
+import { describe, expect, it, vi } from 'vitest'
 
 import ChatComposer from '@/components/chat/ChatComposer.vue'
 
@@ -348,6 +349,30 @@ describe('ChatComposer 工作流', () => {
 
     expect(wrapper.findAll('[data-testid="chip-workflow"]')).toHaveLength(0)
     expect(wrapper.findAll('[data-testid="chip-skill"]')).toHaveLength(1)
+  })
+
+  it('已达技能上限时点击技能：工作流 chip 保留且收到上限提示', async () => {
+    // skills_per_message=0 表示初始即满（互斥使「技能满 + 工作流在」无法经 UI 路径构造）。
+    // 回归点：上限校验必须先于互斥清空——达上限被拒时不误清工作流。
+    const warningSpy = vi.spyOn(ElMessage, 'warning').mockImplementation(() => ({}) as never)
+    try {
+      const wrapper = mountComposer({
+        skills,
+        capabilities: workflowCapabilities,
+        workflows,
+        seedWorkflow: workflows[0],
+        limits: { ...limits, skills_per_message: 0 },
+      })
+      await wrapper.find('[data-testid="composer-plus"]').trigger('click')
+      await wrapper.find('[data-testid="ctx-skill"]').trigger('click')
+      await wrapper.find('[data-testid="skill-option"]').trigger('click')
+
+      expect(wrapper.findAll('[data-testid="chip-workflow"]')).toHaveLength(1)
+      expect(wrapper.findAll('[data-testid="chip-skill"]')).toHaveLength(0)
+      expect(warningSpy).toHaveBeenCalledTimes(1)
+    } finally {
+      warningSpy.mockRestore()
+    }
   })
 
   it('send payload 带工作流 id 与版本，互斥字段不出现', async () => {

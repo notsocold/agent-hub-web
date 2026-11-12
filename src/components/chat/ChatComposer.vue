@@ -328,12 +328,12 @@ function toggleCategory(name: string): void {
     selectedCategories.value = selectedCategories.value.filter((item) => item !== value)
     return
   }
-  // M9：选中知识库分类时清空工作流。
-  selectedWorkflow.value = null
   if (categoryLimitReached.value) {
     ElMessage.warning(`每轮最多 ${limits.value.knowledge_categories_per_message} 个知识库分类`)
     return
   }
+  // M9：确认要添加时才清空工作流（达上限被拒时不误清）。
+  selectedWorkflow.value = null
   selectedCategories.value = [...selectedCategories.value, value]
 }
 
@@ -415,12 +415,12 @@ function toggleSkill(skill: SkillCatalogItem): void {
     selectedSkills.value = selectedSkills.value.filter((item) => item.id !== skill.id)
     return
   }
-  // M9：选中技能时清空工作流。
-  selectedWorkflow.value = null
   if (skillLimitReached.value) {
     ElMessage.warning(`每轮最多 ${limits.value.skills_per_message} 个技能`)
     return
   }
+  // M9：确认要添加时才清空工作流（达上限被拒时不误清）。
+  selectedWorkflow.value = null
   selectedSkills.value = [...selectedSkills.value, skill]
 }
 
@@ -430,12 +430,12 @@ function toggleServer(server: McpAvailableServer): void {
     selectedTools.value = selectedTools.value.filter((item) => item.server_id !== server.id)
     return
   }
-  // M9：选中 MCP 服务器时清空工作流。
-  selectedWorkflow.value = null
   if (serverLimitReached.value) {
     ElMessage.warning(`每轮最多 ${limits.value.mcp_servers_per_message} 个 MCP 服务器`)
     return
   }
+  // M9：确认要添加时才清空工作流（达上限被拒时不误清）。
+  selectedWorkflow.value = null
   selectedServers.value = [...selectedServers.value, server]
 }
 
@@ -454,12 +454,12 @@ function toggleTool(tool: McpAvailableTool): void {
     selectedTools.value = selectedTools.value.filter((item) => item.id !== tool.id)
     return
   }
-  // M9：选中 MCP 工具时清空工作流。
-  selectedWorkflow.value = null
   if (selectedTools.value.length >= limits.value.mcp_tools_per_message) {
     ElMessage.warning(`每轮最多 ${limits.value.mcp_tools_per_message} 个 MCP 工具`)
     return
   }
+  // M9：确认要添加时才清空工作流（达上限被拒时不误清）。
+  selectedWorkflow.value = null
   if (!selectedServers.value.some((item) => item.id === tool.server_id)) {
     const server = props.mcpServers.find((item) => item.id === tool.server_id)
     if (server) selectedServers.value = [...selectedServers.value, server]
