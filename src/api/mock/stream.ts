@@ -1,4 +1,11 @@
-import type { ChatEventName, ChatMessage, ChatStreamRequest, Citation, WorkflowStep } from '@/types'
+import type {
+  ChatEventName,
+  ChatMessage,
+  ChatStreamRequest,
+  Citation,
+  Workflow,
+  WorkflowStep,
+} from '@/types'
 
 import { ApiRequestError } from '@/api/client'
 
@@ -117,6 +124,21 @@ function workflowStepFrames(steps: WorkflowStep[], status: 'ok' | 'rejected' = '
   }))
 }
 
+/** M9：校验选定工作流——无效 id 404、停用模板 409（与真实后端错误语义一致）。 */
+function requireEnabledWorkflow(id: string): Workflow {
+  const workflow = mockDb.getWorkflow(id)
+  if (!workflow) {
+    throw new ApiRequestError('工作流不存在', { code: 'not_found', status: 404 })
+  }
+  if (!workflow.enabled) {
+    throw new ApiRequestError('工作流已停用，无法发起运行', {
+      code: 'workflow_disabled',
+      status: 409,
+    })
+  }
+  return workflow
+}
+
 export async function mockChatStream(
   payload: ChatStreamRequest,
   handlers: MockStreamHandlers,
@@ -131,8 +153,8 @@ export async function mockChatStream(
   const clientMessageId = payload.client_message_id ?? crypto.randomUUID()
   const isApproval = /审批|发布|slack|写操作/i.test(payload.message)
   const isError = /错误|失败|error/i.test(payload.message)
-  // M9：选定的工作流模板（无效 id 静默忽略，mock 不模拟 409/404 校验）。
-  const workflow = payload.workflow_id ? mockDb.getWorkflow(payload.workflow_id) : null
+  // M9：选定的工作流模板（无效 id / 停用模板在校验处直接抛错，不登记 run）。
+  const workflow = payload.workflow_id ? requireEnabledWorkflow(payload.workflow_id) : null
 
   // M7：登记 run 与事件，使 `GET /runs/{id}` 和续流端点对 mock 新产生的 run 可达。
   mockDb.upsertRun({

@@ -285,6 +285,29 @@ describe('mock 聊天流的工作流步骤演示事件', () => {
     )
   })
 
+  it('停用模板发起运行返回 409 workflow_disabled', async () => {
+    const controller = new AbortController()
+    // 「发布简报」fixture enabled=false（消息含「发布」走审批脚本，错误在校验处即抛）。
+    await expect(
+      mockChatStream(
+        { message: '发布简报并确认归档', workflow_id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaac' },
+        { signal: controller.signal, onEvent: () => {}, onError: () => {} },
+        { frameDelay: 0 },
+      ),
+    ).rejects.toMatchObject({ code: 'workflow_disabled', status: 409 })
+  })
+
+  it('无效 workflow_id 发起运行返回 404 not_found', async () => {
+    const controller = new AbortController()
+    await expect(
+      mockChatStream(
+        { message: '你好', workflow_id: 'no-such-workflow' },
+        { signal: controller.signal, onEvent: () => {}, onError: () => {} },
+        { frameDelay: 0 },
+      ),
+    ).rejects.toMatchObject({ code: 'not_found', status: 404 })
+  })
+
   it('不带 workflow_id 时不发 workflow.step', async () => {
     const events: Captured[] = []
     const controller = new AbortController()
