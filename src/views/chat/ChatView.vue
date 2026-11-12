@@ -117,6 +117,7 @@ async function loadWorkflowOptions(): Promise<void> {
  * M9 T6：`/chat?workflow_id&workflow_version&workflow_name` 预选工作流。
  * 调详情接口校验：无效 id / 请求失败静默忽略并 console.warn；停用模板不预选。
  * query 缺 version 时用返回模板的当前 version；带 version 时以列表页展示版本为准。
+ * workflow_name 仅作展示提示，chip 文案以 get(id) 返回为准，故不读取。
  */
 async function seedWorkflowFromQuery(): Promise<void> {
   const id = typeof route.query.workflow_id === 'string' ? route.query.workflow_id : ''

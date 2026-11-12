@@ -89,6 +89,45 @@ function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T
 }
 
+/** E2E 专用 localStorage 键：JSON 形如 {"workflows": false}，按键覆盖 mock 能力开关。 */
+const MOCK_CAPABILITY_OVERRIDE_KEY = 'mock-capability-override'
+
+/** mock 会话身份键：记住登录 email，使整页加载后 /auth/me 仍是同一用户。 */
+const MOCK_SESSION_EMAIL_KEY = 'mock-session-email'
+
+/** 读 mock 会话身份；键不存在或非法时返回 null（视为未登录过的全新沙盒）。 */
+function readMockSessionEmail(): string | null {
+  if (typeof localStorage === 'undefined') return null
+  try {
+    const email = localStorage.getItem(MOCK_SESSION_EMAIL_KEY)
+    return typeof email === 'string' && email ? email : null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * E2E 专用：mock 沙盒默认全能力开启，`capabilities.xxx=false` 的入口置灰门控
+ * 在正常流程中无法演练。这里读取 localStorage 覆盖（e2e 用 addInitScript 写入）。
+ * 仅 mock 分包生效（真实构建不加载该分包）；键名非法或覆盖格式非法时静默忽略。
+ */
+function applyMockCapabilityOverride(info: SystemInfo): SystemInfo {
+  if (typeof localStorage === 'undefined') return info
+  try {
+    const raw = localStorage.getItem(MOCK_CAPABILITY_OVERRIDE_KEY)
+    if (!raw) return info
+    const overrides = JSON.parse(raw) as Record<string, unknown>
+    for (const [key, value] of Object.entries(overrides)) {
+      if (key in info.capabilities && typeof value === 'boolean') {
+        info.capabilities[key as keyof SystemInfo['capabilities']] = value
+      }
+    }
+  } catch {
+    // 覆盖 JSON 非法时忽略，mock 保持默认全开。
+  }
+  return info
+}
+
 function encodeCursor(offset: number): string {
   return `cursor_${offset}`
 }
@@ -205,7 +244,7 @@ class MockDb {
   workflows: Workflow[] = []
   /** 按 workflow id 分组的运行历史演示数据；run_* 终态快照在查询时动态关联 runs。 */
   workflowRuns: Record<string, WorkflowRun[]> = {}
-  systemInfo: SystemInfo = clone(mockSystemInfo)
+  systemInfo: SystemInfo = applyMockCapabilityOverride(clone(mockSystemInfo))
   runs: Record<string, Run> = {}
   runEvents: Record<string, RunEvent[]> = {}
   attachments: Attachment[] = []
@@ -242,7 +281,14 @@ class MockDb {
     this.knowledgeChecksums = {}
     this.workflows = clone(mockWorkflows)
     this.workflowRuns = clone(mockWorkflowRuns)
-    this.systemInfo = clone(mockSystemInfo)
+    this.systemInfo = applyMockCapabilityOverride(clone(mockSystemInfo))
+    // 会话身份：真实后端 token 在整页加载后仍指向同一用户；mock 内存态重载会丢，
+    // 这里按 localStorage 记住的登录 email 重建 user 身份（role 随 email 判定）。
+    const sessionEmail = readMockSessionEmail()
+    if (sessionEmail) {
+      this.user.email = sessionEmail
+      this.user.role = sessionEmail === 'admin@example.com' ? 'admin' : 'user'
+    }
     this.runs = clone(mockRuns)
     this.runEvents = clone(mockRunEvents)
     this.attachments = clone(mockAttachments)
@@ -261,6 +307,25 @@ class MockDb {
     this.approvalListeners.clear()
     this.runEventListeners.clear()
     this.runTerminalListeners.clear()
+  }
+
+  /**
+   * 登录/注册时记住会话身份，登出时清除（传 null）。
+   * 同步更新内存 user，整页加载后由 reset() 按 localStorage 重建。
+   */
+  setSessionEmail(email: string | null): void {
+    if (typeof localStorage !== 'undefined') {
+      try {
+        if (email) localStorage.setItem(MOCK_SESSION_EMAIL_KEY, email)
+        else localStorage.removeItem(MOCK_SESSION_EMAIL_KEY)
+      } catch {
+        // localStorage 不可用时仅保留内存态。
+      }
+    }
+    if (email) {
+      this.user.email = email
+      this.user.role = email === 'admin@example.com' ? 'admin' : 'user'
+    }
   }
 
   listConversations(query: { q?: string; status?: string } & PageQuery): PageResult<Conversation> {

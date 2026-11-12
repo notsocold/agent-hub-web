@@ -1,7 +1,7 @@
 # 前端架构
 
 - 项目：Agent Hub Web（`agent-hub-web`）
-- 状态：M0–M7 已完成（M7 续流/事件回放/RBAC/审批字段已真实联调）；F1 体验与可访问性已收口；M8 管理台、M9 工作流待后端契约；M3「A2A 入站」已取消（仅出站）
+- 状态：M0–M7 已完成（M7 续流/事件回放/RBAC/审批字段已真实联调）；F1 体验与可访问性已收口；M8 管理台已实现（真实联调待后端启动）；M9 工作流已实现（2026-11-12，后端 T1–T9 已交付、`smoke:m9` 全绿）；M3「A2A 入站」已取消（仅出站）
 - 更新时间：2026-11-11
 
 ## 1. 目标
@@ -131,7 +131,7 @@ sequenceDiagram
 | `capabilities` | 指令、记忆、技能、MCP 设置与目录 | M1.5 |
 | `system` | 系统信息、能力开关、模型/推理目录 | M1 |
 | —（无独立 store） | 智能体/任务/知识库页面局部 `ref` + `api/` 模块 | M2/M4 当前实现；不强行抽 store |
-| `workflows` | 工作流列表、步骤草稿、运行历史 | M9 已立项；当前骨架 + mock，契约冻结后接真实 API |
+| `workflows` | 工作流列表、启停/删除中状态 | M9 已实现（2026-11-12）：列表卡片 + 启停/删除动作；编辑器/运行历史为页面局部状态 + `api/workflows.ts` 直连 |
 | `admin` | 管理台概览、用户、系统项 | M8 已立项；有契约页接真实 API，无契约页只读 |
 
 约定：
@@ -151,11 +151,11 @@ sequenceDiagram
 | `/knowledge` | `KnowledgeView` | AppLayout |
 | `/settings` | `SettingsView` | AppLayout |
 | `/approvals` | **已删除**（PA-1：审批只在对话内完成） | — |
-| `/workflows` | `WorkflowsView` | AppLayout；M9 规划，受 `capabilities.workflows` 门控 |
+| `/workflows`（含 `/new`、`/:id`、`/:id/runs`） | `WorkflowsView` / `WorkflowsEditorView` / `WorkflowsRunsView` | AppLayout；M9 已实现，`meta.capability: 'workflows'` 守卫门控 |
 | `/admin` | `AdminLayout` + 七页 | 独立管理布局；M8 规划，`meta.requiresAdmin` |
 | `/login` | `LoginView`（M1） | 独立布局 |
 
-> 工作流页（M9）在后端契约冻结前保持骨架 + mock，`capabilities.workflows=false` 时导航置灰、路由退回对话页。管理台（M8）有契约页接真实 API，角色权限/菜单/字典三页无契约，只读呈现并明确提示。两者均不伪造写成功。
+> 工作流页（M9）已实现真实契约页面（列表/编辑器/运行历史/对话接入），`capabilities.workflows=false` 时侧栏导航置灰、路由退回对话页。管理台（M8）有契约页接真实 API，角色权限/菜单/字典三页无契约，只读呈现并明确提示。两者均不伪造写成功。
 
 - 布局为单侧栏：`AppLayout` 提供品牌/新建会话/导航/会话列表/账号菜单（所有页面常驻；折叠为图标栏；≤900px 抽屉）；对话页在 >1180px 增加 280px 运行轨迹右栏，≤1180px 轨迹改为抽屉；
 - 路由级懒加载（`() => import(...)`），首屏只加载布局与当前页；

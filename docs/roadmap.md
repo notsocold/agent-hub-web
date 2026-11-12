@@ -5,7 +5,7 @@
 > **2026-11-11 后端新增立项**：M7 契约补齐与安全收口、M8 管理台后端、M9 工作流后端。前端按同名同义原则新增 **M7 前端适配**、**M8 前端管理台（v8 全量）**、**M9 前端工作流**；原 X1/X2 不再作为「未立项」保留。
 >
 > **2026-11-11 更新**：后端 M7 已交付，前端 M7 已完成接入并真实联调（续流、事件回放、写操作 RBAC、审批字段、授权链接容错、401/503 文案、Nginx 续流 location）。
-> **2026-11-12 更新**：后端 M8 已交付（15 个 `/admin/*` 端点），前端 M8 管理台 v8 全量七页已实现（398 单测全绿）；真实联调 `smoke:m8` 与管理台 E2E 待后端/浏览器环境可用后补验。M9 前端仍待 M9 后端契约。
+> **2026-11-12 更新**：后端 M8 已交付（15 个 `/admin/*` 端点），前端 M8 管理台 v8 全量七页已实现（398 单测全绿）；真实联调 `smoke:m8` 与管理台 E2E 待后端/浏览器环境可用后补验。**M9 后端 T1–T9 已交付（含 T6–T9），前端 M9 工作流已全部实现并过 mock E2E；`smoke:m9` 56 项已在真实后端通过（2026-11-12）。**
 >
 > 本版（2026-11-11）同时修正了 M6 后端状态（已完成）、F1 收尾状态与测试口径，并把原计划的 F2 纯前端收尾并入 M7 前端。规划详情见[对齐设计](superpowers/specs/2026-11-11-m7-m9-frontend-alignment-design.md)。
 >
@@ -33,8 +33,8 @@
 | M5 | 审批与安全加固 | 对话内审批 + 权限/安全 UX | 已完成（2026-11-10） | 已联调（2026-11-11） | `smoke:m5` 163 项 + `test:real` M5 3 例 |
 | M6 | 生产化与可观测 | 生产化 + E2E + 断线续传 | 已完成（2026-11-11，582 测试） | 已完成（2026-11-11） | `pnpm size` / `pnpm e2e` / `pnpm verify:nginx` |
 | **M7** | **契约补齐与安全收口** | **续流 + 权限边界 + 安全 UX** | **已完成（2026-11-11）** | **已联调（2026-11-11）** | `smoke:m7` 48 项 + `test:real` M7 5 例 + 续流/回放单测 |
-| **M8** | **管理台后端（原 X2）** | **管理控制台 v8 全量** | **已完成（2026-11-11）** | **已实现（2026-11-12，398 单测）** | `smoke:m8`（待联调）+ 管理台 E2E/axe 用例（待浏览器环境） |
-| **M9** | **工作流后端（原 X1）** | **工作流管理 + 运行** | **已立项（2026-11-11），未开始（先 spike）** | **未开始**（依赖 M9 spike 与契约） | 3 步模板联调 + `workflow.step` |
+| **M8** | **管理台后端（原 X2）** | **管理控制台 v8 全量** | **已完成（2026-11-11）** | **已实现（2026-11-12，398 单测）** | `smoke:m8`（待联调）+ 管理台 E2E/axe 8 例已过（2026-11-12 随 M9 收口修复 mock 会话身份持久化后） |
+| **M9** | **工作流后端（原 X1）** | **工作流管理 + 运行** | **已交付（T1–T9，2026-11-12）** | **已完成（2026-11-12，473 单测 + E2E 42 例 + `smoke:m9` 56 项）** | 3 步模板联调 + `workflow.step` |
 | F1 | —（横切） | 体验与可访问性 | — | 已完成（2026-11-11，本地未推送） | `pnpm test` / `pnpm e2e` / axe |
 | **PA-1** | —（横切） | **第一次向 v7/v8 原型靠拢** | — | **已完成（2026-11-11）** | 单测 / E2E / axe / 四档截图 |
 | ~~X1~~ | — | ~~工作流~~ | 已升级为 **M9** | — | 见 M9 |
@@ -201,23 +201,25 @@
 
 验收：管理员可完成用户/系统项操作且关键写操作有审计；普通用户访问 `/admin/*` 403/无权限页；七页 axe 无 critical/serious；`smoke` 管理端用例通过（M8 后端后）。
 
-前端 M8 完成情况（2026-11-12）：402 单测全绿（管理台 55+ 用例）、type-check / eslint / oxlint 干净；`e2e/admin.spec.ts` 8 例 + a11y 管理台 4 例已就位，**本机缺 chromium 系统库（无 sudo）未执行**；`scripts/smoke-m8-backend.mjs` 已就位，**后端 8000 未启动未联调**。已知限制：全局 Agent 的 `headers` 不提供编辑 UI（响应不回显明文，避免覆盖风险）；系统 MCP 的 `headers` 可编辑——响应不回显、留空=不修改、填写则整体覆盖为本次输入（仅引用形态）；`requires_approval` 展示按字段存在性守卫。
+前端 M8 完成情况（2026-11-12）：402 单测全绿（管理台 55+ 用例）、type-check / eslint / oxlint 干净；`e2e/admin.spec.ts` 8 例 + a11y 管理台 4 例已就位，**2026-11-12 随 M9 收口在真实浏览器环境跑通**（当时因缺 chromium 系统库未执行；首跑暴露 mock 会话身份不持久问题，已随 M9 Task 7 修复）；`scripts/smoke-m8-backend.mjs` 已就位，**后端 8000 未启动未联调**。已知限制：全局 Agent 的 `headers` 不提供编辑 UI（响应不回显明文，避免覆盖风险）；系统 MCP 的 `headers` 可编辑——响应不回显、留空=不修改、填写则整体覆盖为本次输入（仅引用形态）；`requires_approval` 展示按字段存在性守卫。
 
-### M9 工作流后端 / 前端工作流（后端已立项，前端未开始）
+### M9 工作流后端 / 前端工作流（已交付，2026-11-12 收口）
 
-后端目标（M9，原 X1）：`workflows` / `workflow_runs` 表；五类步骤（`knowledge_search` / `tool` / `a2a` / `approval` / `answer`）；CRUD/启停/运行入口（`chat/stream.workflow_id`）/运行历史；`workflow.step` 事件；先做 1 天 spike，不引入外部引擎，不做 DAG/并行。
+后端目标（M9，原 X1）：`workflows` / `workflow_runs` 表；五类步骤（`knowledge_search` / `tool` / `a2a` / `approval` / `answer`）；CRUD/启停/运行入口（`chat/stream.workflow_id`）/运行历史；`workflow.step` 事件；先做 1 天 spike，不引入外部引擎，不做 DAG/并行。**后端 T1–T9 已交付（`55d8020` CRUD、`1dc2f10` 运行历史、`85cb5c3` chat 接入、`4687c8b` workflow.step、`cb5d014` 能力开关及后续收口），`capabilities.workflows=true`。**
 
 前端范围（详见对齐设计 §5）：
 
-- [ ] M9-F1 列表页：名称、描述、步骤数、启用状态、归属、更新时间；启停/删除/运行。
-- [ ] M9-F2 线性编辑器：步骤增删/排序（上移下移），五类步骤参数表单；保存前校验；**不做拖拽画布**。
-- [ ] M9-F3 运行历史：`GET /workflows/{id}/runs` + 关联 run 详情。
-- [ ] M9-F4 对话接入：`capabilities.workflows=true` 时输入栏「+ → 工作流」开放；请求带 `workflow_id`；时间线渲染 `workflow.step` 步骤卡。
-- [ ] M9-F5 契约/类型/mock：`src/types/workflow.ts`、`src/api/workflows.ts` 由骨架升级为真实契约；mock 同步。
+- [x] M9-F1 列表页：名称、描述、步骤数、启用状态、归属、更新时间；启停/删除/运行。
+- [x] M9-F2 线性编辑器：步骤增删/排序（上移下移），五类步骤参数表单；保存前校验；**不做拖拽画布**。
+- [x] M9-F3 运行历史：`GET /workflows/{id}/runs` + 关联 run 详情。
+- [x] M9-F4 对话接入：`capabilities.workflows=true` 时输入栏「+ → 工作流」开放；请求带 `workflow_id`；时间线渲染 `workflow.step` 步骤卡。
+- [x] M9-F5 契约/类型/mock：`src/types/workflow.ts`、`src/api/workflows.ts` 由骨架升级为真实契约；mock 同步。
 
-启动条件：M9 spike 通过 + 契约冻结（`workflows` CRUD、`workflow_id`、`workflow.step`、五类步骤参数 schema），且后端显式把 `capabilities.workflows` 置 `true`（当前恒 `false`）。spike 不通过或上述任一项未冻结，不启动实现。
+前端完成情况（2026-11-12）：F1–F5 全量交付，全量单测 473 例、type-check/lint 干净；E2E `e2e/workflows.spec.ts` 2 例（主链路 + `workflows=false` 门控）随全量 42 例通过；`scripts/smoke-m9-backend.mjs` 在真实后端 56 项全绿（CRUD 七端点、422/404/409 语义、运行 `workflow.step` 帧五键、`workflow_runs` 终态同步）。已知限制见[交付报告](handoff/2026-11-12-m9-workflow-frontend-report.md)。顺带修复 mock 沙盒会话身份不持久导致 M8 管理台 E2E 7 例首次真实运行即失败的历史债务（当年缺 chromium 系统库未跑过）。
 
-验收：3 步模板（检索 → A2A → 审批）可保存并运行；`workflow.step` 可见；取消/失败/审批超时语义与现有 run 一致；`workflows=false` 时入口置灰。
+启动条件（已满足）：M9 spike 通过 + 契约冻结（`workflows` CRUD、`workflow_id`、`workflow.step`、五类步骤参数 schema），且后端显式把 `capabilities.workflows` 置 `true`。
+
+验收：3 步模板（检索 → A2A → 审批）可保存并运行 ✅（`smoke:m9` 真实后端 + mock E2E）；`workflow.step` 可见 ✅；取消/失败/审批超时语义与现有 run 一致 ✅（T2 演示态 + smoke 409 语义）；`workflows=false` 时入口置灰 ✅（E2E 门控用例）。
 
 ## 3. F1 体验与可访问性（横切，已完成）
 
@@ -268,7 +270,7 @@
 | M6 | 无新增业务契约；`/readyz`、Trace ID、503 | 后端已完成；单实例 | 已收口；增量续流移入 M7 |
 | **M7** | `RunEventOut.event`；`GET /runs/{id}/stream?after_seq=`；agents/tasks 写接口 403；`approval.required` 5 字段；`authorization_url` 白名单 | 已完成（2026-11-11） | 已消费并真实联调；`smoke:m7` 48 项 + `test:real` M7 5 例 |
 | **M8** | `/admin/users*`、`/admin/overview`、`/admin/settings/instruction`、`/admin/skills*`、`/admin/mcp/servers*`、`/admin/agents*` | 已立项，未开始；依赖 M7-2 | 无契约页只读；有契约页等 M8 后端 |
-| **M9** | `workflows` CRUD/启停、`workflow_runs`、`chat/stream.workflow_id`、`workflow.step`、`capabilities.workflows=true` | 已立项，未开始；先 spike | 骨架 + mock 保持；契约冻结后再实现 |
+| **M9** | `workflows` CRUD/启停、`workflow_runs`、`chat/stream.workflow_id`、`workflow.step`、`capabilities.workflows=true` | 已交付（2026-11-12）；以 [`docs/api.md`](api.md) §13.7 已实装契约为准 | 已消费：`workflowsApi` 七方法 + E2E/smoke 全绿 |
 
 ## 6. 待决策
 
@@ -284,6 +286,8 @@
 | 工作流定位 | 轻量步骤模板 / 不落地 | **M9 轻量步骤模板**（后端已立项） | 按 M9 实现 |
 
 ## 7. 变更记录
+
+- **2026-11-12（M9 前端）**：M9 前端工作流完成：列表卡片化、线性步骤编辑器（五类参数表单 + 校验）、运行历史页、对话接入（chip 预选 + `workflow_id` 请求 + `workflow.step` 步骤卡）、契约/类型/mock 收口；后端 T1–T9 已交付，`smoke:m9` 56 项真实后端全绿，E2E 主链路与 `workflows=false` 门控 2 例随全量 42 例通过；顺带修复 mock 会话身份不持久导致 M8 管理台 E2E 7 例失败的历史债务。详见[M9 前端交付报告](handoff/2026-11-12-m9-workflow-frontend-report.md)。
 
 - **2026-11-11（M7 前端）**：M7 前端适配完成并真实联调：`runsApi.stream` 续流优先重连、事件回放 `event` 补卡、agents/tasks 写入口按管理员显隐、审批 5 字段/预览、授权链接白名单容错、登录 401 与 503 文案、Nginx 续流 location 与静态断言。门禁 `pnpm test` 325 例、`e2e` 28 例、`size`、`verify:nginx` 全绿；真实证据 `smoke:m7` 48 项 + `test:real` M7 5 例；详见[M7 前端交付报告](handoff/2026-11-11-m7-frontend-report.md)。
 - **2026-11-11（PA-1 原型靠拢）**：第一次向 v7/v8 原型靠拢：单侧栏、删除审批页改为对话内审批、运行轨迹常驻右栏、设置页长滚动 + 修改密码、过程摘要/色卡/Agent 输出抽屉；详见 §3.1。

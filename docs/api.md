@@ -375,16 +375,22 @@ await fetchEventSource(`/api/v1/runs/${runId}/stream?after_seq=${lastSeq}`, {
 
 > v1 只有 `user`/`admin` 两角色；角色权限、菜单、字典三页无后端契约，前端只读呈现并标注。
 
-### 13.7 M9 工作流端点（草案）
+### 13.7 M9 工作流端点（已实装，2026-11-12 以后端 T3–T5 已提交代码为准）
 
-| 能力 | 端点 |
+后端 M9 T1–T9 已交付（`55d8020` CRUD、`1dc2f10` 运行历史、`85cb5c3` chat 接入、`4687c8b` workflow.step、`cb5d014` 能力开关），`capabilities.workflows=true`；前端 `src/api/workflows.ts` 七方法与其逐字对齐。模板 CRUD 配置面不受 `workflows_enabled` 开关影响（同 M8 R1 惯例）。
+
+| 能力 | 端点与契约 |
 |---|---|
-| CRUD | `GET/POST /workflows`、`GET/PATCH/DELETE /workflows/{id}` |
-| 启停 | `PUT /workflows/{id}/enabled` |
-| 运行历史 | `GET /workflows/{id}/runs` |
-| 对话运行 | `POST /chat/stream` 带 `workflow_id`；需 `capabilities.workflows=true` |
-| 步骤事件 | SSE `workflow.step`（步骤开始/完成/失败/等待审批） |
+| 列表 | `GET /workflows?limit&cursor`：系统模板 + 本人模板，`created_at DESC` 游标分页（`items`/`next_cursor`/`has_more`） |
+| 创建 | `POST /workflows` → 201：`scope=user`、`version=1`、`enabled=true`；name 1–100 字符（禁双引号/换行）、description ≤500、steps 过装配器校验（422 `workflow_steps_invalid`） |
+| 详情 | `GET /workflows/{id}`：系统或本人 → 200；他人/不存在 → 404（不泄露存在性） |
+| 更新 | `PATCH /workflows/{id}`：本人模板（系统/他人一律 404）；成功 `version += 1` |
+| 启停 | `PUT /workflows/{id}/enabled`：只改 `enabled` 位，不改 `version` |
+| 删除 | `DELETE /workflows/{id}` → 204：硬删本人模板；`workflow_runs` 随 FK CASCADE 一并删除 |
+| 运行历史 | `GET /workflows/{id}/runs`：仅模板 owner 可查；系统模板 403 `forbidden`、他人/不存在 404；行含 `run_id`/`status`/`created_at` 与 `run_status`/`run_finished_at`/`run_duration_ms`/`run_error_code` 终态快照（外连接 runs，缺行时 null）；发起 run 即登记（`status=running`），终态由 chat 回调同步 |
+| 对话运行 | `POST /chat/stream` 带 `workflow_id`（可选 `workflow_version`）：需 `capabilities.workflows=true`（关闭 → 409 `workflow_disabled`）；无效 id → 404 `not_found`；停用模板 → 409 `workflow_disabled`；版本不匹配 → 409 `workflow_version_conflict`；steps 未过校验 → 422 `workflow_steps_invalid`；与手动上下文同用 → 409 `workflow_context_conflict` |
+| 步骤事件 | SSE `workflow.step`：工具完成后按「工具名 → 首个命中步骤」映射发出；payload 恰为 5 键 `step_id`/`step_type`/`step_title`/`tool`/`status`（status 复用工具执行结果 ok/error/rejected） |
 
-> 步骤类型五类：`knowledge_search`、`tool`、`a2a`、`approval`、`answer`；不做 DAG/并行/外部引擎。
+> 步骤类型五类：`knowledge_search`、`tool`、`a2a`、`approval`、`answer`（顺序与后端 `assembler.STEP_TYPES` 一致）；不做 DAG/并行/外部引擎。
 >
-> **待冻结**：五类步骤的参数 schema 尚未定义，以上为前端表单草案；M9 handoff 需同时冻结 `steps` JSONB 结构，并显式把 `capabilities.workflows` 置 `true`（当前恒 `false`）。
+> 约束（后端 `validate_steps` 与前端镜像一致）：steps 非空数组、≤12 步、type ∈ 全集、id 唯一非空、`instruction` ≤500 字符、单工具名 ≤200 字符、`tool` 步骤必须显式非空 `config.tools`、全部文本总长 ≤8000 字符。`workflow_id` 与手动能力上下文（skills/mcp/knowledge）互斥。

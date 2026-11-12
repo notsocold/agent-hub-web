@@ -147,9 +147,9 @@ export async function handleMockRequest(req: MockRequest): Promise<MockResult> {
     if (password === 'wrong-password') {
       return fail(401, 'invalid_credentials', '邮箱或密码错误')
     }
-    mockDb.user.email = email
-    // mock 沙盒：admin@example.com 登录后按管理员渲染设置页管理分区。
-    mockDb.user.role = email === 'admin@example.com' ? 'admin' : 'user'
+    // mock 沙盒：admin@example.com 登录后按管理员渲染设置页管理分区；
+    // 同时记住会话身份，整页加载后 /auth/me 保持同一用户（与真实后端 token 语义一致）。
+    mockDb.setSessionEmail(email)
     mockDb.user.last_login_at = new Date().toISOString()
     return ok(tokens())
   }
@@ -173,6 +173,8 @@ export async function handleMockRequest(req: MockRequest): Promise<MockResult> {
     mockDb.user.email = email
     mockDb.user.display_name = displayName
     mockDb.user.last_login_at = new Date().toISOString()
+    // 注册即登录：同样记住会话身份（默认 role=user）。
+    mockDb.setSessionEmail(email)
     return ok(tokens(), 201)
   }
 
@@ -185,6 +187,8 @@ export async function handleMockRequest(req: MockRequest): Promise<MockResult> {
   }
 
   if (method === 'POST' && path === '/auth/logout') {
+    // 登出清除会话身份：重载后回到全新沙盒（you@example.com / role=user）。
+    mockDb.setSessionEmail(null)
     return ok(null, 204)
   }
 
