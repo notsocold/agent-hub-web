@@ -212,14 +212,14 @@ export interface RunResumedData extends BaseEventData {
   status: 'running'
 }
 
+/** M9 T6 契约：``workflow.step`` payload 恰为这五个字段，紧跟对应 ``tool.result`` 之后。 */
 export interface WorkflowStepData extends BaseEventData {
-  workflow_id: string
-  workflow_version: number
-  step_index: number
+  step_id: string
   step_type: string
-  name: string
-  status: 'pending' | 'running' | 'done' | 'error' | 'skipped'
-  duration_ms?: number | null
+  step_title: string
+  tool: string
+  /** 后端宽松处理：'ok' | 'rejected' | 其余字符串一律按未知值降级。 */
+  status: 'ok' | 'rejected' | string
 }
 
 export interface MemorySavedData extends BaseEventData {
@@ -395,12 +395,13 @@ export interface ApprovalProcess extends ProcessBase {
   decision: 'approve' | 'reject' | null
 }
 
+/** M9 时间线步骤卡：主键由 ``step_id`` 派生（reducer 拼 ``workflow:{step_id}``）。 */
 export interface WorkflowStepProcess extends ProcessBase {
   kind: 'workflow'
-  workflowId: string
-  stepIndex: number
+  stepId: string
   stepType: string
-  name: string
+  stepTitle: string
+  tool: string
 }
 
 export interface NoticeProcess extends ProcessBase {

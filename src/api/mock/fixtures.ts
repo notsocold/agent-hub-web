@@ -999,42 +999,53 @@ export const mockKnowledgeDocuments: KnowledgeDocument[] = [
   },
 ]
 
+/**
+ * M9 最小对齐版：与新 Workflow 契约同形状保证编译，完整 fixtures 重写
+ * （含系统模板与三步验收样例）在 Task 2 落地。
+ */
 export const mockWorkflows: Workflow[] = [
   {
     id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
-    slug: 'customer-weekly',
+    scope: 'user',
     name: '客服周报',
     description:
       '检索复盘与工单表，生成周报草稿，交给数据分析与措辞审阅，校验 Slack 频道后审批发布。',
-    scope: 'user',
-    status: 'published',
+    steps: [
+      { id: 's1', type: 'knowledge_search', title: '检索复盘', instruction: '检索本周工单与复盘文档' },
+      { id: 's2', type: 'a2a', title: '生成周报草稿' },
+      { id: 's3', type: 'approval', title: '审批发布', config: { tools: ['send_message'] } },
+    ],
+    enabled: true,
     version: 2,
-    step_count: 7,
-    run_count: 12,
+    created_at: '2026-10-20T00:00:00Z',
     updated_at: '2026-10-30T00:00:00Z',
   },
   {
     id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaab',
-    slug: 'knowledge-audit',
+    scope: 'user',
     name: '知识库巡检',
     description: '列出知识库文档，检查索引与分块状态，重建过期索引并生成巡检报告。',
-    scope: 'user',
-    status: 'draft',
+    steps: [
+      { id: 's1', type: 'knowledge_search', title: '检索知识库' },
+      { id: 's2', type: 'answer', title: '生成巡检报告' },
+    ],
+    enabled: true,
     version: 1,
-    step_count: 3,
-    run_count: 0,
+    created_at: '2026-11-01T00:00:00Z',
     updated_at: '2026-11-05T00:00:00Z',
   },
   {
     id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaac',
-    slug: 'release-brief',
+    scope: 'user',
     name: '发布简报',
     description: '汇总本周合并的变更，生成中英双语发布简报，等待人工确认后归档。',
-    scope: 'user',
-    status: 'disabled',
+    steps: [
+      { id: 's1', type: 'knowledge_search', title: '汇总变更' },
+      { id: 's2', type: 'approval', title: '确认归档', config: { tools: ['send_message'] } },
+    ],
+    enabled: false,
     version: 3,
-    step_count: 4,
-    run_count: 5,
+    created_at: '2026-10-05T00:00:00Z',
     updated_at: '2026-10-12T00:00:00Z',
   },
 ]

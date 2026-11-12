@@ -100,7 +100,7 @@ function titleOf(item: ProcessItem): string {
     case 'approval':
       return item.toolDisplayName || item.tool
     case 'workflow':
-      return item.name
+      return item.stepTitle
     case 'notice':
       return item.message
     case 'error':

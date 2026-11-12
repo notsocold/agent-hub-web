@@ -138,12 +138,9 @@ function mapA2aStatus(state: string): A2aProcess['status'] {
   return 'error'
 }
 
+/** M9 T6 契约：'ok' 映射成功；'rejected' 与未知值一律映射失败。 */
 function mapWorkflowStatus(status: string): WorkflowStepProcess['status'] {
-  if (status === 'running') return 'running'
-  if (status === 'error') return 'error'
-  if (status === 'skipped') return 'skipped'
-  if (status === 'pending') return 'waiting'
-  return 'ok'
+  return status === 'ok' ? 'ok' : 'error'
 }
 
 function normalizeA2aState(value: string): A2aTaskData['state'] {
@@ -662,19 +659,18 @@ export function reduceChat(state: ChatState, event: ChatEventName, raw: unknown)
     }
 
     case 'workflow.step': {
-      const workflowId = str(data.workflow_id)
-      const stepIndex = typeof data.step_index === 'number' ? data.step_index : null
-      if (!workflowId || stepIndex === null) return next
+      // M9 payload：{step_id, step_type, step_title, tool, status}；step_id 作主键。
+      const stepId = str(data.step_id)
+      if (!stepId) return next
       const item: WorkflowStepProcess = {
         kind: 'workflow',
-        id: `workflow:${workflowId}:${stepIndex}`,
+        id: `workflow:${stepId}`,
         status: mapWorkflowStatus(str(data.status)),
         startedAt: str(data.ts),
-        durationMs: numOrNull(data.duration_ms),
-        workflowId,
-        stepIndex,
+        stepId,
         stepType: str(data.step_type),
-        name: str(data.name),
+        stepTitle: str(data.step_title),
+        tool: str(data.tool),
       }
       next.process = upsertProcess(next.process, item)
       return next

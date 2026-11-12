@@ -929,25 +929,23 @@ class MockDb {
   }
 
   listWorkflows(query: { q?: string; status?: string } & PageQuery): PageResult<Workflow> {
+    // M9 契约无 status 字段（enabled 布尔取代）；status 查询参数暂保留不再过滤，
+    // mock 端点在 Task 2 按七端点完整重写。
     const keyword = query.q?.trim().toLowerCase() ?? ''
     const filtered = this.workflows
-      .filter((workflow) => (query.status ? workflow.status === query.status : true))
-      .filter((workflow) =>
-        keyword ? `${workflow.name} ${workflow.slug}`.toLowerCase().includes(keyword) : true,
-      )
+      .filter((workflow) => (keyword ? workflow.name.toLowerCase().includes(keyword) : true))
       .sort((a, b) => Date.parse(b.updated_at) - Date.parse(a.updated_at))
 
     return {
       ...paginate(filtered, query),
       stats: {
         total: this.workflows.length,
-        published: this.workflows.filter((item) => item.status === 'published').length,
-        draft: this.workflows.filter((item) => item.status === 'draft').length,
-        disabled: this.workflows.filter((item) => item.status === 'disabled').length,
+        enabled: this.workflows.filter((item) => item.enabled).length,
+        disabled: this.workflows.filter((item) => !item.enabled).length,
         avg_steps:
           this.workflows.length > 0
             ? Math.round(
-                this.workflows.reduce((total, item) => total + item.step_count, 0) /
+                this.workflows.reduce((total, item) => total + item.steps.length, 0) /
                   this.workflows.length,
               )
             : 0,

@@ -18,40 +18,32 @@ const stats = ref<Record<string, number>>({})
 const loading = ref(false)
 const error = ref<string | null>(null)
 const keyword = ref('')
-const statusFilter = ref<'all' | 'published' | 'draft' | 'disabled'>('all')
 
+// M9 最小对齐版：仅移除已废除字段的引用（slug/status/step_count/run_count），
+// 列表页卡片化重写在 Task 3 落地。
 const filtered = computed(() =>
   items.value.filter((item) => {
-    if (statusFilter.value !== 'all' && item.status !== statusFilter.value) return false
     const query = keyword.value.trim().toLowerCase()
     if (!query) return true
-    return `${item.name} ${item.slug}`.toLowerCase().includes(query)
+    return item.name.toLowerCase().includes(query)
   }),
 )
 
 const total = computed(() => stats.value.total ?? items.value.length)
-const published = computed(
-  () => stats.value.published ?? items.value.filter((item) => item.status === 'published').length,
+const enabled = computed(
+  () => stats.value.enabled ?? items.value.filter((item) => item.enabled).length,
 )
-const draft = computed(
-  () => stats.value.draft ?? items.value.filter((item) => item.status === 'draft').length,
+const disabled = computed(
+  () => stats.value.disabled ?? items.value.filter((item) => !item.enabled).length,
 )
 const avgSteps = computed(() => stats.value.avg_steps ?? 0)
 
-const STATUS_LABELS: Record<Workflow['status'], string> = {
-  published: '已发布',
-  draft: '草稿',
-  disabled: '已停用',
+function enabledTone(enabled: boolean): 'ok' | 'muted' {
+  return enabled ? 'ok' : 'muted'
 }
 
-function statusLabel(status: string): string {
-  return STATUS_LABELS[status as Workflow['status']] ?? status
-}
-
-function statusTone(status: string): 'ok' | 'warn' | 'muted' {
-  if (status === 'published') return 'ok'
-  if (status === 'draft') return 'warn'
-  return 'muted'
+function enabledLabel(enabled: boolean): string {
+  return enabled ? '已启用' : '已停用'
 }
 
 function notReady(label: string): void {
@@ -92,8 +84,8 @@ onMounted(load)
 
     <div class="stat-row">
       <StatCard label="全部工作流" :value="total" />
-      <StatCard label="已发布" :value="published" tone="ok" />
-      <StatCard label="草稿" :value="draft" tone="warn" />
+      <StatCard label="已启用" :value="enabled" tone="ok" />
+      <StatCard label="已停用" :value="disabled" />
       <StatCard label="平均步骤" :value="avgSteps" />
     </div>
 
@@ -102,15 +94,9 @@ onMounted(load)
         v-model="keyword"
         class="input"
         type="search"
-        placeholder="搜索名称或 slug"
+        placeholder="搜索名称"
         aria-label="搜索工作流"
       />
-      <select v-model="statusFilter" class="input" aria-label="筛选状态">
-        <option value="all">全部状态</option>
-        <option value="published">已发布</option>
-        <option value="draft">草稿</option>
-        <option value="disabled">已停用</option>
-      </select>
     </div>
 
     <ErrorState v-if="error" :message="error" @retry="load" />
@@ -120,20 +106,23 @@ onMounted(load)
       <el-table :data="filtered" style="width: 100%">
         <el-table-column label="名称" min-width="230">
           <template #default="{ row }">
-            <div class="name-cell">
-              <span class="name">{{ row.name }}</span>
-              <span class="slug mono">{{ row.slug }}</span>
-            </div>
+            <span class="name">{{ row.name }}</span>
           </template>
         </el-table-column>
         <el-table-column label="状态" width="112">
           <template #default="{ row }">
-            <StatusBadge :tone="statusTone(row.status)" :label="statusLabel(row.status)" />
+            <StatusBadge
+              :tone="enabledTone(Boolean(row.enabled))"
+              :label="enabledLabel(Boolean(row.enabled))"
+            />
           </template>
         </el-table-column>
         <el-table-column prop="version" label="版本" width="76" />
-        <el-table-column prop="step_count" label="步骤" width="76" />
-        <el-table-column prop="run_count" label="运行次数" width="92" />
+        <el-table-column label="步骤" width="76">
+          <template #default="{ row }">
+            {{ Array.isArray(row.steps) ? row.steps.length : 0 }}
+          </template>
+        </el-table-column>
         <el-table-column label="更新时间" width="160">
           <template #default="{ row }">
             <span class="muted mono">{{ formatDateTime(row.updated_at) }}</span>
@@ -157,20 +146,9 @@ onMounted(load)
 </template>
 
 <style scoped>
-.name-cell {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
 .name {
   color: var(--ink);
   font-weight: 550;
-}
-
-.slug {
-  color: var(--ink-3);
-  font-size: 10px;
 }
 
 .muted {
