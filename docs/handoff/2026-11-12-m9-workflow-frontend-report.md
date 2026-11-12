@@ -7,19 +7,19 @@
 
 ## 1. 一句话结论
 
-前端 M9 五项功能全量落地：列表卡片化（启停/删除/运行入口）、线性步骤编辑器（五类参数表单 + `validateWorkflowSteps` 前端镜像校验 + 离开守卫）、运行历史页（终态快照 + 游标分页）、对话接入（候选单选 + query 预选 + `workflow_id` 请求 + `workflow.step` 步骤卡）、契约/类型/mock 收口。全量单测 473 例、E2E 42 例（含新增 M9 主链路与门控 2 例）、`smoke:m9` 56 项真实后端全绿。
+前端 M9 五项功能全量落地：列表卡片化（启停/删除/运行入口）、线性步骤编辑器（五类参数表单 + `validateWorkflowSteps` 前端镜像校验 + 离开守卫）、运行历史页（终态快照 + 游标分页）、对话接入（候选单选 + query 预选 + `workflow_id` 请求 + `workflow.step` 步骤卡）、契约/类型/mock 收口。全量单测 475 例（含终审修复波新增互斥时序与末页守卫 2 例）、E2E 42 例（含新增 M9 主链路与门控 2 例）、`smoke:m9` 67 项真实后端全绿。
 
 ## 2. 各任务交付（Task 1–7）
 
 | 任务 | 交付 |
 |---|---|
 | T1 契约/类型 | `src/types/workflow.ts`（Workflow/WorkflowStep/WorkflowRun/WorkflowStepProcess + `validateWorkflowSteps` 镜像）；`src/api/workflows.ts` 七方法 |
-| T2 列表页 | `src/views/WorkflowsView.vue` + `src/stores/workflows.ts`；启停/删除二次确认、关键词过滤、能力门控；mock db `workflows` CRUD + 停用运行 409 |
-| T3 编辑器 | `src/views/workflows/WorkflowsEditorView.vue` + `src/components/workflows/WorkflowStepCard.vue`；增删/上移下移、id 重排、五类表单、校验错误行内展示、未保存离开守卫 |
-| T4 运行历史 | `src/views/workflows/WorkflowsRunsView.vue`；游标加载更多、run_id 复制、403/404 固定文案；mock fixture 3 条演示运行（running/succeeded/failed） |
-| T5 对话接入 | `ChatComposer` 工作流单选（chip + 步骤预览）、`ChatView` 候选加载与 query 预选（`seedWorkflowFromQuery`）、mock stream `workflow.step` 帧与 409 语义 |
-| T6 workflow.step 卡 | `src/components/chat/cards/WorkflowStepCard.vue`（ProcessCardShell kind=workflow）；chat-reducer 归约 `workflow.step` 帧 |
-| T7 收口 | `e2e/workflows.spec.ts` 2 例、`scripts/smoke-m9-backend.mjs` 56 项、`package.json` `smoke:m9`、六份文档同步、顺手修项（见 §5） |
+| T2 mock | mock db `workflows` CRUD + 停用运行 409；mock stream `workflow.step` 帧与 409 语义 |
+| T3 列表页 | `src/views/WorkflowsView.vue` + `src/stores/workflows.ts`；启停/删除二次确认、关键词过滤、能力门控 |
+| T4 编辑器 | `src/views/workflows/WorkflowsEditorView.vue` + `src/components/workflows/WorkflowStepCard.vue`；增删/上移下移、id 重排、五类表单、校验错误行内展示、未保存离开守卫 |
+| T5 运行历史 | `src/views/workflows/WorkflowsRunsView.vue`；游标加载更多、run_id 复制、403/404 固定文案；mock fixture 3 条演示运行（running/succeeded/failed） |
+| T6 对话接入 | `ChatComposer` 工作流单选（chip + 步骤预览）、`ChatView` 候选加载与 query 预选（`seedWorkflowFromQuery`）；`workflow.step` 步骤卡 `src/components/chat/cards/WorkflowStepCard.vue`（ProcessCardShell kind=workflow）与 chat-reducer 归约 `workflow.step` 帧 |
+| T7 收口 | `e2e/workflows.spec.ts` 2 例、`scripts/smoke-m9-backend.mjs` 67 项、`package.json` `smoke:m9`、六份文档同步、顺手修项（见 §5） |
 
 ## 3. 验证证据（2026-11-12 实测）
 
@@ -27,10 +27,10 @@
 |---|---|
 | `pnpm type-check` | 通过 |
 | `pnpm lint` | oxlint + eslint 0 error |
-| `pnpm test` | 80 文件 / 473 例通过 |
+| `pnpm test` | 80 文件 / 475 例通过（含修复波新增 2 例） |
 | `pnpm e2e` | 42 passed + 1 skipped（admin 用户页无其他可停用用户的既有条件跳过），1.4m |
 | `pnpm size` | 通过（见提交前复验输出） |
-| `pnpm smoke:m9` | **56 项通过，0 失败**：登录 → `capabilities.workflows=true` → 清理残留 → POST 201（scope/user/version/enabled 契约）→ 详情/列表 → PATCH version 1→2 → 启停往返（version 不变）→ 运行前空 → 422 `workflow_steps_invalid` → 404 三连 → `chat/stream` 带 `workflow_id` 收到 `workflow.step`（五键齐全、含检索步骤）→ 运行后 `workflow_runs` 登记 + `run_status=succeeded` 值断言（轮询最多 10 次 × 500ms 等终态追平）→ 过期 version 409 `workflow_version_conflict` → 停用 409 `workflow_disabled` → 无效 id 404 → DELETE 204（runs 随 CASCADE 删除）→ 清理无痕 |
+| `pnpm smoke:m9` | **67 项通过，0 失败**：登录 → `capabilities.workflows=true` → 清理残留 → POST 201（scope/user/version/enabled 契约）→ 详情/列表 → PATCH version 1→2 → 启停往返（version 不变）→ 运行前空 → 422 `workflow_steps_invalid` → 404 三连 → `chat/stream` 带 `workflow_id` 收到 `workflow.step`（五键齐全、含检索步骤）→ 运行后 `workflow_runs` 登记 + `run_status=succeeded` 值断言（轮询最多 20 次 × 500ms 等终态追平）→ 过期 version 409 `workflow_version_conflict` → 停用 409 `workflow_disabled` → 无效 id 404 → DELETE 204（runs 随 CASCADE 删除）→ 清理无痕 |
 | E2E 主链路 | 列表 4 卡 → 新建 → 编辑器 3 步（检索/a2a/审批）→ 保存回列表 → 卡片 v1/3 步 → 「在对话中使用」→ chip `名称 · v1 · 3 步` → 发送 → 时间线 `.pcard.kind-workflow`「检索工单」卡 → 新模板运行历史空态（mock 限制）→ 客服周报运行历史 3 行 |
 | E2E 门控 | `workflows=false`（localStorage 覆盖钩子）：侧栏「工作流」按钮 disabled → `goto /workflows` 被守卫退回 `/chat` 并 toast → 「+ 上下文」菜单工作流入口「未启用」 |
 
@@ -59,7 +59,7 @@
 
 ## 7. 真实联调状态与待办
 
-- ✅ `smoke:m9` 56 项已在真实后端（T1–T9 全交付）通过，运行链路（`workflow.step` 五键、`workflow_runs` 终态同步、409/404 语义）已验证——原计划「等后端 T6–T9 后联调」已闭环。
+- ✅ `smoke:m9` 67 项已在真实后端（T1–T9 全交付）通过，运行链路（`workflow.step` 五键、`workflow_runs` 终态同步、409/404 语义）已验证——原计划「等后端 T6–T9 后联调」已闭环。
 - 待办（非本任务阻塞项）：
   1. 后端 `smoke:m9` 纳入常规回归（随 M9 后端回归一起跑）；
   2. 审批轮真实链路（带 approval 步骤模板的 `approval.required` → 批准 → 恢复 → `workflow.step`）建议在后端回归用例中补自动断言；
