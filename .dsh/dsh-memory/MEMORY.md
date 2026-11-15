@@ -5,8 +5,25 @@
 
 Project: `/home/zhaodan/work/NodeJsProjects/agent-hub-web`
 
-Active topics: 33
+Active topics: 55
 
+- [差异整改方案（2026-11-13）：修 15 / 缩 4 / 接受 9 / 决策 2，推荐路径 B](m_43be688c-差异整改方案-2026-11-13-修-15-缩-4-接受-9-决策-2-推荐路.md) — 针对 30 项差异审计产出整改方案 docs/superpowers/plans/2026-11-13-gap-remediation.md，主张不全量补齐、按路径 B 先补可信数据与缺失交互，等用户拍板后再拆实施计划。 · `decision` · importance 4 · 2026-11-13
+- [2026-11-13 差异审计：前后端与原型/需求 30 项差距，P1 7 项](m_685099b5-2026-11-13-差异审计-前后端与原型-需求-30-项差距-p1-7-项.md) — agent-hub-web 与 v7/v8 原型、docs/pages.md、roadmap 及后端 OpenAPI 的静态差异审计，产出 30 项差异台账与报告，结论是「接口接得上、功能对不齐」。 · `reference` · importance 4 · 2026-11-12
+- [像素级对齐（阶段 2）完成：v7 六页 + v8 七页按原型重做呈现层](m_a94e1c18-像素级对齐-阶段-2-完成-v7-六页-v8-七页按原型重做呈现层.md) — 2026-11-12 完成 agent-hub-web 像素级对齐：新增 prototype.css/admin.css/图标 sprite 基座，六页工作台与管理台七页按 v7/v8 原型重做呈现层，逻辑与契约零改动，并留下有意为之的差异清单。 · `project` · importance 4 · 2026-11-12
+- [后端 M8 管理端已交付（2026-11-11）：15 个 /admin/* 端点 + 前端交接文档](m_79921508-后端-m8-管理端已交付-2026-11-11-15-个-admin-端点-前端.md) — agent-hub 后端 M8 管理端已于 2026-11-11 交付，含 15 个 /admin/* 端点、无数据库迁移，并提供前端交接文档，前端 M8 可据此对接。 · `reference` · importance 4 · 2026-11-12
+- [a2a-agents 5 个远程智能体本地对话测试：适配方式、结果与对端遗留问题](m_6e623f66-a2a-agents-5-个远程智能体本地对话测试-适配方式-结果与对端遗留问题.md) — 5 个 ADK A2A 智能体已接入 agent-hub 后端并完成真实委派对话（10 任务 9 成功），靠临时 launcher、补依赖、Card 兼容字段和 A2A-Version:1.0 头打通，同时暴露 a2a-agents 与后端的若干遗留问题。 · `project` · importance 4 · 2026-11-12
+- [agent-hub-web 前端走 mock 的根因：.env.development 写死 VITE_USE_MOCK=true（Vite env 优先级坑）](m_ecd96990-agent-hub-web-前端走-mock-的根因-env-developme.md) — 前端 dev server 默认用 mock 是因为 .env.development 里写死 VITE_USE_MOCK=true，覆盖它必须新建 .env.development.local（不是 .env.local），且改完必须重启 dev server。 · `reference` · importance 4 · 2026-11-12
+- [Element Plus 函数式组件样式需在 main.ts 显式引入（按需引入下的坑）](m_c3aee653-element-plus-函数式组件样式需在-main-ts-显式引入-按需引入.md) — unplugin-vue-components 只给模板中出现的组件注入样式，脚本里直接调用的 ElMessageBox/ElMessage 必须在 src/main.ts 显式引入对应 style/css，否则弹窗无样式、按钮几乎点不到。 · `project` · importance 4 · 2026-11-12
+- [M7 前端续流/权限落地的行为变更与已知限制](m_6674367e-m7-前端续流-权限落地的行为变更与已知限制.md) — M7 前端全量接入续流与 RBAC 后确定的四条用户可见行为变更，以及三处已知限制。 · `decision` · importance 4 · 2026-11-11
+- [M7 前端契约适配完成（2026-11-11）](m_90b880e4-m7-前端契约适配完成-2026-11-11.md) — 分支 feat/m7-frontend-contract 完成 M7 前端全量（续流/事件回放/RBAC/审批字段/授权链接/401-503 文案/Nginx），325 单测与 28 E2E 全绿，smoke:m7 48 项、test:real M7 5 例真实通过，本地 19 提交未推送；最终环境 Docker Desktop 不可用导致 --check-deploy 与真实联调无法复验。 · `project` · importance 4 · 2026-11-11
+- [agent-hub 后端 M7 Task 1–4 已落地：续流端点、event 字段、RBAC、审批字段](m_f85a78a8-agent-hub-后端-m7-task-1-4-已落地-续流端点-event-.md) — 后端 M7 前四项（真实续流端点、事件 event 字段、写操作 RBAC、审批字段）已落地，前端 M7 据此实施；本地 M4 入库与 LLM 用例因缺 embedding/key 跑不了。 · `reference` · importance 4 · 2026-11-11
+- [PA-1 第一次原型靠拢已完成并本地提交（2026-11-11）](m_23e1536d-pa-1-第一次原型靠拢已完成并本地提交-2026-11-11.md) — 前端按三条口径完成 PA-1：单侧栏、彻底删除审批页并改为对话内审批、宽屏常驻运行轨迹、设置页长滚动+改密、Agent 输出抽屉；验证全绿并本地提交未推送。 · `project` · importance 4 · 2026-11-11
+- [原型对齐分两阶段：先 PA 第一次靠拢，立项全部完成后再做最终靠拢](m_c5795037-原型对齐分两阶段-先-pa-第一次靠拢-立项全部完成后再做最终靠拢.md) — 用户 2026-11-11 口径：以现有后端能力与前端实现为基础先做第一次向原型靠拢，偏离必须纠正（审批只在对话内），最终像素级靠拢等 M7–M9 完成后进行。 · `decision` · importance 4 · 2026-11-11
+- [前端与 v7/v8 原型差距盘点：M0–M6+F1 已完成，缺口在 M7/M8/M9](m_2245ce60-前端与-v7-v8-原型差距盘点-m0-m6-f1-已完成-缺口在-m7-m8-.md) — 对齐 docs/pages.md、roadmap 与 v7/v8 定稿原型后，前端已交付 M0–M6+F1（8/11 立项项），剩余三块全部依赖后端契约。 · `project` · importance 4 · 2026-11-11
+- [M7–M9 前端规划对齐（2026-11-11）与落地口径](m_90b09e7a-m7-m9-前端规划对齐-2026-11-11-与落地口径.md) — 前端已按后端 M7/M8/M9 立项完成规划对齐（只改文档）：M7 增量续流+RBAC+审批字段、M8 v8 全量管理台（无契约三页只读）、M9 线性工作流；含 Nginx 续流 location、capabilities.workflows 阻断条件等关键口径。 · `decision` · importance 4 · 2026-11-11
+- [M6 前端生产化完成（2026-11-11）](m_947efa91-m6-前端生产化完成-2026-11-11.md) — 前端 M6 已完成并 ff-only 合并进 master（13 提交未推送）：分包体积门禁、生产 mock 双层门禁、SSE 断线重连、诊断抽屉/Web Vitals、Playwright 10 例 + CI 配置、Nginx SSE 对照实测；审查问题已修，并留下一组已知限制。 · `project` · importance 4 · 2026-11-11
+- [M5 后端契约实际行为与本地联调环境](m_b64d9bc4-m5-后端契约实际行为与本地联调环境.md) — M5 联调环境：8000 已重启、DB 迁移到 2d8f6a1c3e70、CAPABILITY_SECRET_KEY 已配、dev 账号 admin；事件回放与 approval.required 字段存在缺口。 · `reference` · importance 4 · 2026-11-10
+- [M5 审批与安全加固前端完成并真实联调](m_80a61915-m5-审批与安全加固前端完成并真实联调.md) — 2026-11-11 前端 M5 完成：审批事件状态机/审批中心/审计/平台密钥/安全 UX，真实 SSE 白名单曾漏放新事件（已修），本地提交 6922fa6 未推送。 · `project` · importance 4 · 2026-11-10
 - [M4 知识库前端完成、联调通过并已快进合并到 master](m_297e13a9-m4-知识库前端完成-联调通过并已快进合并到-master.md) — M4 知识库前端已完成真实联调，并以 ff-only 快进合并进 master，提交未推送，origin/master 仍落后。 · `project` · importance 4 · 2026-11-10
 - [agent-hub-web 真实后端联调环境与限流约定](m_25168cdb-agent-hub-web-真实后端联调环境与限流约定.md) — agent-hub-web 真实联调：8000 实例 + Vite 代理、dev server 仅监听 127.0.0.1，各里程碑有冒烟与真实用例脚本；知识库联调需指定 KNOWLEDGE_DIR。 · `reference` · importance 4 · 2026-11-10
 - [agent-hub 知识库 M4 后端契约实际行为（前端按此落地，不造端点）](m_af9313d3-agent-hub-知识库-m4-后端契约实际行为-前端按此落地-不造端点.md) — M4 后端上传同步入库返回终态、无单文档重建与分类目录端点、rebuild 的 own 语义与系统文档只读等实际契约行为。 · `reference` · importance 4 · 2026-11-10
@@ -30,6 +47,11 @@ Active topics: 33
 - [agent-hub-web v8 管理员控制台（独立管理会话原型）](m_e70f698d-agent-hub-web-v8-管理员控制台-独立管理会话原型.md) — v8 管理员控制台独立为 ui-v8-admin.html：深墨管理侧栏 + 概览/用户/角色权限/菜单/字典/审计/系统设置七页，v7 工作台不出现管理员入口。 · `decision` · importance 4 · 2026-11-05
 - [输入框「@」只用于选择文件，上下文能力统一收进「+」菜单](m_93398223-输入框-只用于选择文件-上下文能力统一收进-菜单.md) — 用户明确：@ 是文件选择用途，不用于选择智能体；附件、技能、工作流、知识库等显式选择统一收进输入栏「+」上下文菜单。 · `decision` · importance 4 · 2026-11-05
 - [agent-hub-web 原型 v7：工作流管理页 + 输入区「+」菜单 + 模型/推理等级](m_6855443e-agent-hub-web-原型-v7-工作流管理页-输入区-菜单-模型-推理等.md) — v7 新增工作流管理页与可配置步骤编辑器，重做对话输入区为「+」上下文菜单（附件/技能/工作流/知识库）和右侧模型/推理等级选择，并打通工作流在对话中的调用。 · `decision` · importance 4 · 2026-11-05
+- [M9 前端工作流完成（2026-11-12）](m_5e5c2753-m9-前端工作流完成-2026-11-12.md) — 前端 M9 工作流完成：分支 feat/m9-workflow 14 提交未推送未合并，终审通过态，门禁 475 单测/42 E2E/smoke 67 项真实 0 失败；后端 M9 T1-T9 已全部交付。 · `project` · importance 3 · 2026-11-12
+- [待补：Docker 恢复后复跑 M7 最终环境验证](m_824089b7-待补-docker-恢复后复跑-m7-最终环境验证.md) — M7 前端已完成本地提交，但最终环境 Docker Desktop 不可用，需在环境恢复后补齐部署与真实联调证据。 · `todo` · importance 3 · 2026-11-11
+- [下一步顺序：PA-6 输入栏纠偏待做，最终靠拢等 M7–M9；后端续流已落地](m_d9859b24-下一步顺序-pa-6-输入栏纠偏待做-最终靠拢等-m7-m9-后端续流已落地.md) — F1 与 PA-1 已完成，后端 M7 续流端点与 event 字段已落地、前端 M7 已开工；下一小批为 PA-6 输入栏顺序与工作流 M9 标注，最终靠拢等 M7–M9。 · `todo` · importance 3 · 2026-11-11
+- [前端 F1 体验与可访问性完成（2026-11-11，含已知限制）](m_df16db57-前端-f1-体验与可访问性完成-2026-11-11-含已知限制.md) — F1 体验与可访问性已完成，并以 --ff-only 快进合并进 master（含 M7–M9 文档对齐提交），仍未推送 origin。 · `project` · importance 3 · 2026-11-11
+- [长列表虚拟滚动选型定 vitrua，弃 vue-virtual-scroller](m_48006ca2-长列表虚拟滚动选型定-vitrua-弃-vue-virtual-scroller.md) — 聊天长会话虚拟滚动选择 virtua（VList），因 vue-virtual-scroller 不支持前置插入锚定、@tanstack/vue-virtual 需自写锚定。 · `decision` · importance 3 · 2026-11-11
 - [M1 收尾与 A2A 入站下线：前端已彻底移除 a2a 类型、mock 与设置分区](m_bf11250b-m1-收尾与-a2a-入站下线-前端已彻底移除-a2a-类型-mock-与设置分.md) — 模型/推理选择已随 chat/stream 发送；A2A 入站相关内容在前端仓库整体删除（不只是隐藏门控），文档与架构同步为「仅出站」。 · `project` · importance 3 · 2026-11-10
 - [后端 agent-hub 待清理 M3 入站设计](m_f0e95fc7-后端-agent-hub-待清理-m3-入站设计.md) — 前端已按「仅出站」清理完毕；后端仓库仍需取消 M3、标注 a2a.md 入站章节、评估移除 A2A_ENABLED/Card 配置与 system/info.a2a。 · `todo` · importance 3 · 2026-11-10
 - [后端仓库 agent-hub 的 docs/roadmap.md M1/M2 勾选仍滞后，需单独同步](m_626d77c1-后端仓库-agent-hub-的-docs-roadmap-md-m1-m2-勾.md) — agent-hub-web 侧文档已收尾，但后端仓库 roadmap 的 M1/M2 完成勾选尚未更新，需在后端仓库单独提交同步。 · `todo` · importance 3 · 2026-11-10

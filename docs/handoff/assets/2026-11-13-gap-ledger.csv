@@ -1,0 +1,31 @@
+﻿编号,模块,差异项,性质,严重度,根因,证据,建议
+D1,对话,运行轨迹抽屉缺原型的时间线图例、类型筛选、搜索、回合折叠、事件行展开,缺失,P1,前端待办,src/components/chat/RunTracePanel.vue:216-330；docs/prototypes/ui-v7.html:2935-2995,补 RunTrace 全量交互，复用 ProcessItem + RunEvent
+D2,对话,消息重新生成（对最后一条助手消息）,缺失,P2,后端契约,docs/pages.md:109；后端无 regenerate 端点,后端补 regenerate 或明确不做并删需求
+D3,对话,审批决定备注输入与已决备注展示,未消费,P2,前端待办,后端 app/modules/approvals/schemas.py:50-52（note/decision_note）；src/types/approval.ts:29-38 有类型但 ApprovalCard 无输入,补备注输入并展示 decision_note
+D4,对话,工作流候选只取第一页（默认 20 条）,降级,P2,前端待办,src/views/chat/ChatView.vue:128-135；M9 报告 §6,候选分页/搜索，或提示仅前 20 条
+D5,对话,停用模板经 query 预选被静默忽略,缺失,P3,前端待办,src/views/chat/ChatView.vue:137-145；M9 报告 §6,给出「模板已停用」提示而非静默
+D6,对话,断线窗口内未落库 message.delta 不补齐（不承诺逐字续流）,有意差异,P2,设计决策,docs/pages.md:98；roadmap M6 §152,维持终态 refreshHistory；文档已声明
+D7,对话,多实例 SSE（粘性会话/事件总线）不支持,有意差异,P2,设计决策,docs/roadmap.md:283,扩容前不启动，需求触发再立项
+D8,对话,独立审批页 /approvals 已删除，改对话内审批,有意差异,P3,设计决策,docs/pages.md:167-181,保持；原型 v7 亦为对话内审批
+S1,设置,语言切换只读（原型有简中/English 选择）,降级,P2,产品决策,src/views/SettingsView.vue:337-340,i18n 未排期；界面保持禁用并说明
+S2,设置,主题/密度等偏好仅 localStorage，无服务端同步,缺失,P2,后端契约,docs/pages.md:192；docs/roadmap.md:281,后端补 preferences 接口后再同步
+S3,设置,A2A 端点设置分区移除,有意差异,P3,设计决策,docs/roadmap.md:91-98（M3 取消）,保持移除；出站能力在智能体页
+A1,智能体,已注册智能体不可编辑名称/鉴权引用/headers,缺失,P2,前端待办,后端 AgentUpdateRequest 支持 auth/headers（app/modules/agents/schemas.py:74-78）；前端仅用 enabled（AgentDetailDrawer.vue:148）,补编辑抽屉，复用注册表单字段
+A2,管理台,全局 Agent 的 headers 不提供编辑 UI（响应不回显）,降级,P2,后端契约,src/components/admin/AdminAgentCard.vue:439；roadmap:204,后端回显脱敏 headers 或维持只读说明
+K1,知识库,无单文档重建端点，页面用 retry 承载,契约差异,P2,后端契约,docs/pages.md:165；docs/roadmap.md:115,后端补 rebuild one 或正式改名为重试
+K2,知识库,无分类目录端点，分类候选由文档聚合（前 100 篇）,契约差异,P2,后端契约,src/stores/capabilities.ts:63-77；docs/pages.md:165,后端补 categories 列表；否则提示候选范围
+W1,工作流,步骤模型由原型 6 类改为后端 5 类：技能/MCP 步骤取消，新增 answer,契约差异,P2,设计变更,src/types/workflow.ts:9-16；docs/prototypes/ui-v7-pages.html:3145-3154,确认产品口径；文档标注技能/MCP 由 tool 步骤承载
+W2,工作流,卡片无「运行次数/最近运行」等统计,缺失,P2,后端契约,src/views/WorkflowsView.vue（无 runs 统计）；像素报告 §4.1,后端补聚合字段或维持不展示
+W3,工作流,无拖拽画布，仅线性步骤列表,有意差异,P3,设计决策,docs/roadmap.md:280,维持线性；画布列 F3 候选
+W4,工作流,系统模板编辑 URL 可直达读表单，保存才 404,缺失,P3,前端待办,M9 报告 §6；WorkflowsEditorView.vue,路由层拦截系统模板编辑
+M1,管理台,概览无「运行量」柱状图与 24h/7d/30d 时间范围,缺失,P1,后端契约,src/views/admin/AdminOverviewView.vue:16-20；原型 ui-v8-admin.html:1083-1088,后端补按日聚合；否则保持省略并说明
+M2,管理台,用户页无「会话数」列,缺失,P2,后端契约,后端 AdminUserOut 无 conversation_count（app/modules/admin/schemas.py:22-32）；前端表头 AdminUsersView.vue:355-362,后端补计数或维持不展示
+M3,管理台,用户页无「邀请用户/导出用户」,缺失,P2,后端契约,原型 ui-v8-admin.html:1161-1162；AdminUsersView 无入口,后端补邀请/导出接口，或明确不排期
+M4,管理台,角色权限页只读：仅 user/admin 两角色，无新建/权限编辑,降级,P1,后端契约,"src/views/admin/AdminRolesView.vue:11-12,128；原型 ui-v8-admin.html 角色页",后端补 RBAC 表/API，或正式缩范围
+M5,管理台,菜单管理只读镜像，无新建/编辑/删除,降级,P1,后端契约,"src/views/admin/AdminMenusView.vue:9-10,122",同上；菜单变更需改代码
+M6,管理台,字典管理只读，无字典类型/字典项 CRUD,降级,P1,后端契约,"src/views/admin/AdminDictionariesView.vue:28-29,229",后端补 dictionaries 表/API
+M7,管理台,审计「IP/结果」列恒为 —（接口无字段）,缺失,P1,后端契约,"AdminAuditView.vue:539-540,565-566；后端 AuditLogOut 无 ip/result（app/modules/audit/schemas.py:12-23）",后端补 ip/result 字段（模型已有 ip）
+M8,管理台,系统设置缺原型 7 分区（基础信息/认证与安全/A2A 与智能体/模型与配额/数据保留/功能开关/危险操作）,缺失,P1,后端契约,src/views/admin/AdminSettingsView.vue:30-36（仅 5 个能力分区）；原型 ui-v8-admin.html 系统设置页,后端补平台配置契约，或把原型降为目标形态
+M9,管理台,顶栏无全局搜索框与通知铃铛,缺失,P2,后端契约,src/layouts/AdminLayout.vue:225-252；原型 ui-v8-admin.html:1024,无通知接口；搜索可前端实现（路由/用户）
+M10,管理台,「原型演示」徽标等装饰未实现,有意差异,P3,设计决策,docs/handoff/2026-11-12-pixel-alignment-report.md §4.3,保持不实现
+G1,全局,A2A 入站（Agent Card 发布/JSON-RPC/入站鉴权）取消,有意差异,P3,设计决策,docs/roadmap.md:91-98,需求变更；保留编号空位
