@@ -30,6 +30,20 @@ const agentsApiMock = vi.hoisted(() => ({
 
 vi.mock('@/api/agents', () => ({ agentsApi: agentsApiMock }))
 
+const messageMock = vi.hoisted(() => ({
+  success: vi.fn(),
+  error: vi.fn(),
+  warning: vi.fn(),
+  info: vi.fn(),
+}))
+
+const messageBoxMock = vi.hoisted(() => ({ confirm: vi.fn() }))
+
+vi.mock('element-plus', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('element-plus')>()
+  return { ...actual, ElMessage: messageMock, ElMessageBox: messageBoxMock }
+})
+
 function currentUser(role: UserRole): User {
   return {
     id: '11111111-1111-4111-8111-111111111111',
@@ -206,7 +220,7 @@ async function mountView(role: UserRole): Promise<VueWrapper> {
 async function mountDetailDrawer(canManage?: boolean): Promise<VueWrapper> {
   setActivePinia(createPinia())
   agentsApiMock.get.mockResolvedValue(agentDetail())
-  const props: Record<string, unknown> = {
+  const props: { modelValue: boolean; agentId: string; canManage?: boolean } = {
     modelValue: true,
     agentId: 'agent-1',
   }
@@ -214,7 +228,7 @@ async function mountDetailDrawer(canManage?: boolean): Promise<VueWrapper> {
 
   const wrapper = mount(AgentDetailDrawer, {
     props,
-    global: { stubs: { 'el-drawer': ElDrawerStub } },
+    global: { stubs: { 'el-drawer': ElDrawerStub, 'el-dialog': true } },
   })
   await flushPromises()
   return wrapper
@@ -264,7 +278,21 @@ describe('AgentDetailDrawer 写操作显隐', () => {
     const wrapper = await mountDetailDrawer(true)
 
     const labels = wrapper.findAll('.actions button').map((button) => button.text())
-    expect(labels).toEqual(['健康检查', '刷新 Card', '禁用', '删除'])
+    expect(labels).toEqual(['编辑', '健康检查', '刷新 Card', '禁用', '删除'])
+    wrapper.unmount()
+  })
+
+  it('编辑保存后刷新列表并提示成功', async () => {
+    const wrapper = await mountView('admin')
+    const drawer = wrapper.findComponent({ name: 'AgentDetailDrawer' })
+
+    // 真实抽屉在编辑成功后同发 changed（刷新列表）与 edited（成功提示）。
+    drawer.vm.$emit('changed')
+    drawer.vm.$emit('edited', agentDetail({ name: '改名后的数据 Agent' }))
+    await flushPromises()
+
+    expect(agentsApiMock.list).toHaveBeenCalledTimes(2)
+    expect(messageMock.success).toHaveBeenCalledWith('已保存「改名后的数据 Agent」')
     wrapper.unmount()
   })
 })

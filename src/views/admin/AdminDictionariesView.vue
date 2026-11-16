@@ -226,6 +226,8 @@ function setActive(title: string): void {
     <div class="prototype-note" role="note">
       <AppIcon name="alert" />
       <span>
+        <b>目标形态（未排期）</b>：字典为内置枚举，当前只读；字典项变更需发版。
+        <br />
         <b>只读字典</b>：后端无对应管理接口，以下为前端内置枚举的只读字典：键值取自 src/types/
         下的类型定义与现有 UI 的标签映射，新增或调整枚举需同步修改前端代码。
       </span>

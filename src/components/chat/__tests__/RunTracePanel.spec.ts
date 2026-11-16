@@ -83,9 +83,10 @@ describe('RunTracePanel', () => {
     const wrapper = mountPanel({ runId: null, streaming: false })
     await flushPromises()
     expect(runsApi.get).not.toHaveBeenCalled()
-    // 会话标题改由抽屉头部承载；面板内保留事件回放区块与计数。
-    expect(wrapper.text()).toContain('服务端事件回放')
-    expect(wrapper.text()).toContain('0')
+    // 抽屉模式改由时间线 + 事件列表承载；无 run 时给出中文空态。
+    expect(wrapper.text()).toContain('执行时间线')
+    expect(wrapper.text()).toContain('本轮还没有可展示的运行轨迹。')
+    expect(wrapper.findAll('.trace-row')).toHaveLength(0)
     wrapper.unmount()
   })
 })

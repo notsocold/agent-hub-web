@@ -380,8 +380,13 @@ describe('SettingsView 界面偏好', () => {
     const wrapper = mountSettings()
 
     expect(wrapper.text()).toContain('简体中文（zh-CN）')
-    expect(wrapper.text()).toContain('多语言将在后续版本评估')
+    expect(wrapper.text()).toContain('多语言未启用（未排期）')
     expect(wrapper.text()).toContain('界面偏好仅保存在本浏览器，不随账号同步。')
+
+    // S1：语言下拉保持禁用，文案不暗示可切换。
+    const language = wrapper.find('select[aria-label="语言"]')
+    expect(language.exists()).toBe(true)
+    expect(language.attributes('disabled')).toBeDefined()
 
     const compact = wrapper.findAll('.segmented button').find((button) => button.text() === '紧凑')
     expect(compact).toBeDefined()

@@ -119,8 +119,10 @@ function setGroup(next: 'all' | 'workbench' | 'admin'): void {
     <div class="prototype-note" role="note">
       <AppIcon name="alert" />
       <span>
-        <b>只读镜像</b>：后端无对应管理接口，此页为前端路由的只读镜像；菜单数据直接取自
-        src/router/index.ts 的路由表，菜单变更需修改代码并重新构建生效。登录 / 注册等访客页与 404
+        <b>目标形态（未排期）</b>：菜单由前端路由生成，当前为只读镜像；变更需改代码发版（修改
+        src/router/index.ts 后重新构建生效）。
+        <br />
+        <b>只读镜像</b>：后端无对应管理接口，菜单数据直接取自前端路由表；登录 / 注册等访客页与 404
         不在菜单树内。
       </span>
     </div>

@@ -13,6 +13,9 @@ const adminApiMock = vi.hoisted(() => ({
 }))
 vi.mock('@/api/admin', () => ({ adminApi: adminApiMock }))
 
+const routeMock = vi.hoisted(() => ({ query: {} as Record<string, unknown> }))
+vi.mock('vue-router', () => ({ useRoute: () => routeMock }))
+
 const messageMock = vi.hoisted(() => ({
   success: vi.fn(),
   error: vi.fn(),
@@ -78,6 +81,7 @@ async function mountView(): Promise<VueWrapper> {
 
 beforeEach(() => {
   vi.clearAllMocks()
+  routeMock.query = {}
   adminApiMock.users.mockResolvedValue(defaultPage())
   adminApiMock.updateUser.mockResolvedValue(userRow())
   messageBoxMock.confirm.mockResolvedValue(true)
@@ -290,6 +294,108 @@ describe('AdminUsersView', () => {
     expect(messageMock.warning).toHaveBeenCalledWith('游标已失效，已回到第一页')
     const lastCall = adminApiMock.users.mock.calls.at(-1)![0]!
     expect(lastCall.cursor).toBeUndefined()
+    wrapper.unmount()
+  })
+
+  it('导出 CSV：UTF-8 BOM、当前页字段、特殊字符转义与时间戳文件名', async () => {
+    const createObjectURL = vi.fn(() => 'blob:users-csv')
+    const revokeObjectURL = vi.fn()
+    Object.defineProperty(URL, 'createObjectURL', {
+      configurable: true,
+      writable: true,
+      value: createObjectURL,
+    })
+    Object.defineProperty(URL, 'revokeObjectURL', {
+      configurable: true,
+      writable: true,
+      value: revokeObjectURL,
+    })
+    let downloadedFilename = ''
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (
+      this: HTMLAnchorElement,
+    ) {
+      downloadedFilename = this.download
+    })
+
+    adminApiMock.users.mockResolvedValue(
+      userPage({
+        items: [userRow({ display_name: 'A, "B"' })],
+        stats: { total: 1, active: 1, disabled: 0, admins: 0 },
+      }),
+    )
+    const wrapper = await mountView()
+
+    try {
+      const exportButton = wrapper
+        .findAll('.head-actions button')
+        .find((button) => button.text().includes('导出 CSV'))!
+      expect(exportButton.attributes('disabled')).toBeUndefined()
+      await exportButton.trigger('click')
+      await flushPromises()
+
+      expect(createObjectURL).toHaveBeenCalledTimes(1)
+      expect(revokeObjectURL).toHaveBeenCalledWith('blob:users-csv')
+      expect(downloadedFilename).toMatch(/^agent-hub-users-\d{8}-\d{6}\.csv$/)
+
+      const blob = createObjectURL.mock.calls[0]![0] as Blob
+      const bytes = Array.from(new Uint8Array(await blob.arrayBuffer()))
+      expect(bytes.slice(0, 3)).toEqual([0xef, 0xbb, 0xbf])
+      const content = await blob.text()
+      expect(content).toContain('邮箱,展示名,角色,状态,最近登录,创建时间')
+      expect(content).toContain('alice@example.com,"A, ""B""",普通用户,启用,')
+      expect(content).not.toContain('会话数')
+      expect(messageMock.success).toHaveBeenCalledWith('已导出当前页 1 条用户')
+    } finally {
+      click.mockRestore()
+      Reflect.deleteProperty(URL, 'createObjectURL')
+      Reflect.deleteProperty(URL, 'revokeObjectURL')
+      wrapper.unmount()
+    }
+  })
+
+  it('空页时导出按钮禁用', async () => {
+    adminApiMock.users.mockResolvedValue(
+      userPage({ items: [], stats: { total: 0, active: 0, disabled: 0, admins: 0 } }),
+    )
+    const wrapper = await mountView()
+
+    const exportButton = wrapper
+      .findAll('.head-actions button')
+      .find((button) => button.text().includes('导出 CSV'))!
+    expect(exportButton.attributes('disabled')).toBeDefined()
+    expect(messageMock.success).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
+  it('M9 深链：挂载时用 route.query.q 预填搜索框，只发一次首屏请求', async () => {
+    routeMock.query = { q: '  alice@example.com  ' }
+    const wrapper = await mountView()
+
+    expect(adminApiMock.users).toHaveBeenCalledTimes(1)
+    expect(adminApiMock.users.mock.calls[0]![0]!.q).toBe('alice@example.com')
+    const search = wrapper.find('input[type="search"]').element as HTMLInputElement
+    expect(search.value).toBe('alice@example.com')
+    wrapper.unmount()
+  })
+
+  it('M9 深链：q 非字符串时忽略，首屏请求不带 q', async () => {
+    routeMock.query = { q: ['a', 'b'] }
+    const wrapper = await mountView()
+
+    expect(adminApiMock.users).toHaveBeenCalledTimes(1)
+    expect(adminApiMock.users.mock.calls[0]![0]!.q).toBeUndefined()
+    const search = wrapper.find('input[type="search"]').element as HTMLInputElement
+    expect(search.value).toBe('')
+    wrapper.unmount()
+  })
+
+  it('M9 深链：无 q 时首屏行为不变', async () => {
+    const wrapper = await mountView()
+
+    expect(adminApiMock.users).toHaveBeenCalledTimes(1)
+    expect(adminApiMock.users.mock.calls[0]![0]!.q).toBeUndefined()
+    const search = wrapper.find('input[type="search"]').element as HTMLInputElement
+    expect(search.value).toBe('')
     wrapper.unmount()
   })
 })

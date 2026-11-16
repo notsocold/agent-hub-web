@@ -3,6 +3,7 @@ import { ElMessage } from 'element-plus'
 import { describe, expect, it, vi } from 'vitest'
 
 import ChatComposer from '@/components/chat/ChatComposer.vue'
+import type { Workflow } from '@/types'
 
 function mountComposer(props: Record<string, unknown> = {}) {
   return mount(ChatComposer, {
@@ -431,5 +432,64 @@ describe('ChatComposer 工作流', () => {
 
     expect(wrapper.findAll('[data-testid="chip-workflow"]')).toHaveLength(1)
     expect(wrapper.find('[data-testid="workflow-steps"]').exists()).toBe(true)
+  })
+})
+
+function workflowFixture(index: number, overrides: Partial<Workflow> = {}): Workflow {
+  return {
+    ...(workflows[0] as Workflow),
+    id: `wf-${index}`,
+    scope: 'user',
+    name: `模板 ${index}`,
+    description: `描述 ${index}`,
+    ...overrides,
+  }
+}
+
+describe('ChatComposer D4 工作流候选分页与搜索', () => {
+  it('100 条候选全部渲染，并在面板底部提示可能被截断', async () => {
+    const many = Array.from({ length: 100 }, (_, index) => workflowFixture(index))
+    const wrapper = mountComposer({ capabilities: workflowCapabilities, workflows: many })
+    await wrapper.find('[data-testid="composer-plus"]').trigger('click')
+    await wrapper.find('[data-testid="ctx-workflow"]').trigger('click')
+
+    expect(wrapper.findAll('[data-testid="workflow-option"]')).toHaveLength(100)
+    const truncated = wrapper.get('[data-testid="workflow-truncated"]')
+    expect(truncated.text()).toContain('仅显示前 100 条模板，更多请到工作流页')
+  })
+
+  it('不足 100 条时不显示截断提示', async () => {
+    const wrapper = mountComposer({ capabilities: workflowCapabilities, workflows })
+    await wrapper.find('[data-testid="composer-plus"]').trigger('click')
+    await wrapper.find('[data-testid="ctx-workflow"]').trigger('click')
+
+    expect(wrapper.find('[data-testid="workflow-truncated"]').exists()).toBe(false)
+  })
+
+  it('本地搜索按名称/描述过滤，无匹配时给空态提示', async () => {
+    const many = [
+      workflowFixture(1, { name: '客服周报', description: '每周汇总工单' }),
+      workflowFixture(2, { name: '发布公告', description: '发布到 Slack' }),
+      workflowFixture(3, { name: '知识库巡检', description: '检查过期文档' }),
+    ]
+    const wrapper = mountComposer({ capabilities: workflowCapabilities, workflows: many })
+    await wrapper.find('[data-testid="composer-plus"]').trigger('click')
+    await wrapper.find('[data-testid="ctx-workflow"]').trigger('click')
+
+    const search = wrapper.get('[data-testid="workflow-search"]')
+    await search.setValue('客服')
+    let options = wrapper.findAll('[data-testid="workflow-option"]')
+    expect(options).toHaveLength(1)
+    expect(options[0]!.text()).toContain('客服周报')
+
+    // 描述也参与匹配。
+    await search.setValue('Slack')
+    options = wrapper.findAll('[data-testid="workflow-option"]')
+    expect(options).toHaveLength(1)
+    expect(options[0]!.text()).toContain('发布公告')
+
+    await search.setValue('不存在的模板')
+    expect(wrapper.findAll('[data-testid="workflow-option"]')).toHaveLength(0)
+    expect(wrapper.text()).toContain('没有匹配的工作流')
   })
 })

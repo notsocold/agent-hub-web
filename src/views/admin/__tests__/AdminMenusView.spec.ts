@@ -11,6 +11,11 @@ describe('AdminMenusView', () => {
     expect(text).toContain('菜单管理')
     expect(text).toContain('后端无对应管理接口')
     expect(text).toContain('只读镜像')
+    expect(text).toContain('菜单由前端路由生成，当前为只读镜像；变更需改代码发版')
+    expect(text).toContain('目标形态（未排期）')
+    expect(
+      wrapper.findAll('button').filter((button) => /新建|删除|保存/.test(button.text())),
+    ).toHaveLength(0)
     expect(text).toContain('工作台路由')
     expect(text).toContain('管理台路由')
     expect(text).toContain('对话')

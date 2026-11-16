@@ -4,6 +4,7 @@ import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 import { ElMessageBox } from 'element-plus'
 
 import AppIcon from '@/components/common/AppIcon.vue'
+import CommandPalette from '@/components/common/CommandPalette.vue'
 import IconSprite from '@/components/common/IconSprite.vue'
 import { adminApi } from '@/api/admin'
 import { routes } from '@/router'
@@ -76,6 +77,8 @@ const groups = computed<AdminNavGroup[]>(() => [
 const mobileOpen = ref(false)
 const accountOpen = ref(false)
 const accountRoot = ref<HTMLElement | null>(null)
+const paletteOpen = ref(false)
+const searchButtonRef = ref<HTMLButtonElement | null>(null)
 
 const current = computed(() =>
   groups.value.flatMap((group) => group.items).find((item) => item.name === route.name),
@@ -104,6 +107,22 @@ function toggleAccount(): void {
 
 function closeAccount(): void {
   accountOpen.value = false
+}
+
+function openPalette(): void {
+  accountOpen.value = false
+  paletteOpen.value = true
+}
+
+function closePalette(): void {
+  paletteOpen.value = false
+}
+
+/** '/' 快捷键只在非输入控件上生效，避免吞掉表单里的斜杠。 */
+function isEditableTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false
+  if (target.isContentEditable) return true
+  return target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT'
 }
 
 async function logout(): Promise<void> {
@@ -138,9 +157,33 @@ function onDocumentClick(event: MouseEvent): void {
 }
 
 function onGlobalKeydown(event: KeyboardEvent): void {
-  if (event.key !== 'Escape') return
-  if (accountOpen.value) accountOpen.value = false
-  if (mobileOpen.value) mobileOpen.value = false
+  if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+    event.preventDefault()
+    paletteOpen.value = !paletteOpen.value
+    if (paletteOpen.value) accountOpen.value = false
+    return
+  }
+  if (event.key === 'Escape') {
+    // Esc 优先关命令面板；CommandPalette 自身也处理输入框内的 Esc，重复置 false 无副作用。
+    if (paletteOpen.value) {
+      paletteOpen.value = false
+      return
+    }
+    if (accountOpen.value) accountOpen.value = false
+    if (mobileOpen.value) mobileOpen.value = false
+    return
+  }
+  if (
+    event.key === '/' &&
+    !event.metaKey &&
+    !event.ctrlKey &&
+    !event.altKey &&
+    !paletteOpen.value &&
+    !isEditableTarget(event.target)
+  ) {
+    event.preventDefault()
+    openPalette()
+  }
 }
 
 onMounted(() => {
@@ -239,6 +282,21 @@ onUnmounted(() => {
         </p>
         <div class="topbar-tools">
           <button
+            ref="searchButtonRef"
+            type="button"
+            class="topbar-search"
+            aria-label="搜索管理台（Ctrl+K 或 /）"
+            aria-haspopup="dialog"
+            :aria-expanded="paletteOpen"
+            aria-keyshortcuts="Control+K Meta+K Slash"
+            @click="openPalette"
+          >
+            <AppIcon name="search" />
+            <span class="topbar-search-label">搜索</span>
+            <!-- 快捷键提示用 CSS 内容渲染：避免进入可访问名计算触发 WCAG 2.5.3 的 label-content-name-mismatch。 -->
+            <kbd class="topbar-search-kbd" aria-hidden="true"></kbd>
+          </button>
+          <button
             type="button"
             class="icon-btn"
             :aria-label="theme === 'dark' ? '切换到浅色' : '切换到深色'"
@@ -288,5 +346,69 @@ onUnmounted(() => {
         <RouterView />
       </main>
     </div>
+
+    <CommandPalette
+      :open="paletteOpen"
+      mode="admin"
+      :return-focus-to="searchButtonRef"
+      @close="closePalette"
+    />
   </div>
 </template>
+
+<style scoped>
+.topbar-search {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 29px;
+  padding: 0 8px;
+  border: 1px solid var(--line-2);
+  border-radius: 5px;
+  background: var(--surface-2);
+  color: var(--ink-3);
+  font-size: 11px;
+  transition:
+    background 0.12s,
+    color 0.12s,
+    border-color 0.12s;
+}
+
+.topbar-search:hover {
+  background: var(--surface);
+  border-color: var(--line);
+  color: var(--ink);
+}
+
+.topbar-search .ic {
+  flex: none;
+  width: 14px;
+  height: 14px;
+}
+
+.topbar-search-kbd {
+  padding: 0 4px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  line-height: 15px;
+}
+
+.topbar-search-kbd::before {
+  content: 'Ctrl K';
+}
+
+@media (max-width: 720px) {
+  .topbar-search {
+    justify-content: center;
+    width: 29px;
+    padding: 0;
+  }
+
+  .topbar-search-label,
+  .topbar-search-kbd {
+    display: none;
+  }
+}
+</style>

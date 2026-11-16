@@ -53,6 +53,8 @@ export interface ApprovalOutcome {
 export type ChatConnection = 'idle' | 'connecting' | 'open' | 'reconnecting' | 'degraded'
 
 const HISTORY_PAGE_SIZE = 100
+/** 审批备注前端上限（与审批卡 textarea 的 maxlength 一致，避免绕过 UI 的超长提交）。 */
+const APPROVAL_NOTE_MAX_LENGTH = 500
 const RUN_POLL_INTERVAL_MS = 2500
 const TERMINAL_RUN_STATUSES: readonly RunStatus[] = ['succeeded', 'failed', 'canceled']
 const ACTIVE_RUN_STATUSES: readonly RunStatus[] = ['queued', 'running', 'interrupted']
@@ -1208,6 +1210,8 @@ export const useChatStore = defineStore('chat', () => {
     note = '',
   ): Promise<ApprovalOutcome> {
     const decision = approve ? 'approve' : 'reject'
+    // 备注可选：空串不提交；超长截断兜底（正常路径 UI 已 maxlength 限制）。
+    const decisionNote = note.trim().slice(0, APPROVAL_NOTE_MAX_LENGTH)
     if (resolvingApproval.value) {
       return {
         approvalId,
@@ -1225,9 +1229,9 @@ export const useChatStore = defineStore('chat', () => {
     try {
       const result = await approvalsApi.decide(approvalId, {
         decision,
-        ...(note ? { note } : {}),
+        ...(decisionNote ? { note: decisionNote } : {}),
       })
-      state.value = markApprovalResolved(state.value, approvalId, decision)
+      state.value = markApprovalResolved(state.value, approvalId, decision, decisionNote)
 
       if (result.resumed) {
         // 流可能已经先发出 message.done（尤其是 mock/快速路径）；终态优先，
@@ -1432,6 +1436,25 @@ export const useChatStore = defineStore('chat', () => {
       }
       historyHasMore.value = page.has_more
       historyCursor.value = page.next_cursor
+
+      // 历史会话重开：回放该 run 已落库的过程事件，重建右侧运行轨迹、
+      // 审批卡与用量；否则 process 只有实时事件时为空（重开后侧栏清空）。
+      // 回放内部已容错，失败不阻断历史加载。
+      if (lastRun) {
+        await replayPersistedEvents(lastRun.id, 0)
+        if (seq !== loadConversationSeq) return
+        // 事件流只有 require/interrupted/resumed，无法区分批准与拒绝；
+        // 用服务端审批记录补齐最终决定（已批准/已拒绝与备注）。
+        await syncPendingApprovals(lastRun.id)
+        if (seq !== loadConversationSeq) return
+        // 回放会把状态推进到 run.started/running；按 last_run 的权威状态收尾，
+        // 避免旧数据缺 message.done 时输入栏误显示为运行中。
+        state.value = {
+          ...state.value,
+          runStatus: lastRunStatus ?? state.value.runStatus,
+          streaming: lastRunStatus ? ACTIVE_RUN_STATUSES.includes(lastRunStatus) : false,
+        }
+      }
 
       if (lastRun && lastRunStatus && ACTIVE_RUN_STATUSES.includes(lastRunStatus)) {
         const interrupted = lastRunStatus === 'interrupted'

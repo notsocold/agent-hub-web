@@ -20,7 +20,7 @@ export const conversationsApi = {
     return data
   },
 
-  async create(title = '新会话'): Promise<Conversation> {
+  async create(title = '新对话'): Promise<Conversation> {
     const { data } = await apiClient.post<Conversation>('/conversations', { title })
     return data
   },

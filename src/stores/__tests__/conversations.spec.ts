@@ -94,6 +94,33 @@ describe('conversations store', () => {
     expect(store.items[0]?.status).toBe('archived')
   })
 
+  it('refresh 刷新已加载范围，不回滚分页并保留本地空会话', async () => {
+    vi.mocked(conversationsApi.list).mockResolvedValue({
+      items: [conversation('a', { title: '新标题' }), conversation('b')],
+      next_cursor: null,
+      has_more: false,
+      stats: { total: 2 },
+    })
+
+    const store = useConversationsStore()
+    await store.load()
+    store.items.unshift(conversation('local', { message_count: 0, title: '新会话' }))
+    vi.mocked(conversationsApi.list).mockResolvedValue({
+      items: [conversation('a', { title: '首轮消息标题' }), conversation('c')],
+      next_cursor: null,
+      has_more: false,
+      stats: { total: 2 },
+    })
+
+    await store.refresh()
+
+    expect(conversationsApi.list).toHaveBeenLastCalledWith(
+      expect.objectContaining({ limit: 30, status: 'all' }),
+    )
+    expect(store.items.map((item) => item.id)).toEqual(['local', 'a', 'c'])
+    expect(store.items[1]?.title).toBe('首轮消息标题')
+  })
+
   it('remove 成功后从列表移除', async () => {
     vi.mocked(conversationsApi.list).mockResolvedValue({
       items: [conversation('a'), conversation('b')],

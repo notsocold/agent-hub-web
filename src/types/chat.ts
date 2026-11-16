@@ -393,6 +393,8 @@ export interface ApprovalProcess extends ProcessBase {
   payloadPreview?: string
   expiresAt: string | null
   decision: 'approve' | 'reject' | null
+  /** 审批决定备注（后端 `Approval.decision_note`；仅已决卡片有值）。 */
+  decisionNote?: string
 }
 
 /** M9 时间线步骤卡：主键由 ``step_id`` 派生（reducer 拼 ``workflow:{step_id}``）。 */

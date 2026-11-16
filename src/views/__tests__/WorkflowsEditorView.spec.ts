@@ -277,4 +277,54 @@ describe('WorkflowsEditorView 步骤编辑器', () => {
     expect(cards(wrapper)).toHaveLength(1)
     expect(routerMock.replace).not.toHaveBeenCalled()
   })
+
+  it('直达系统模板时只读：徽标、保存禁用、字段与步骤均不可编辑', async () => {
+    routerState.params = { id: 'wf-system' }
+    workflowsApiMock.get.mockResolvedValue(
+      workflow('wf-system', {
+        scope: 'system',
+        name: '客服系统模板',
+        description: '内置模板',
+        steps: [
+          step('s1', 'knowledge_search', { title: '检索复盘', instruction: '检索本周工单' }),
+          step('s2', 'tool', { title: '查询订单', config: { tools: ['mcp.orders'] } }),
+        ],
+      }),
+    )
+    const wrapper = await mountEditor()
+
+    const banner = wrapper.find('[data-testid="system-readonly-banner"]')
+    expect(banner.exists()).toBe(true)
+    expect(banner.text()).toContain('系统模板只读')
+    expect(banner.text()).toContain('复制为我的模板')
+    expect(wrapper.text()).toContain('系统模板（只读）')
+
+    expect(inputOf(wrapper, 'editor-save').attributes('disabled')).toBeDefined()
+    expect(inputOf(wrapper, 'editor-name').attributes('readonly')).toBeDefined()
+    expect(inputOf(wrapper, 'editor-description').attributes('readonly')).toBeDefined()
+
+    // 只读步骤视图：不渲染可编辑输入、删除/上移下移，也不渲染添加步骤。
+    expect(wrapper.findAll('[data-testid="readonly-step"]')).toHaveLength(2)
+    expect(wrapper.findAll('[data-testid="step-title"]')).toHaveLength(0)
+    expect(wrapper.findAll('[data-testid="step-remove"]')).toHaveLength(0)
+    expect(wrapper.find('[data-testid="step-add"]').exists()).toBe(false)
+
+    // 保存守卫兜底：即使按键被程序化触发，也不发请求。
+    await inputOf(wrapper, 'editor-save').trigger('click')
+    await flushPromises()
+    expect(workflowsApiMock.update).not.toHaveBeenCalled()
+    expect(workflowsApiMock.create).not.toHaveBeenCalled()
+    expect(messageMock.success).not.toHaveBeenCalled()
+  })
+
+  it('系统模板无改动直接离开，不弹未保存确认', async () => {
+    routerState.params = { id: 'wf-system' }
+    workflowsApiMock.get.mockResolvedValue(workflow('wf-system', { scope: 'system' }))
+    await mountEditor()
+
+    const guard = routerState.leaveGuard
+    expect(guard).toBeTruthy()
+    await expect(guard!()).resolves.toBe(true)
+    expect(messageBoxMock.confirm).not.toHaveBeenCalled()
+  })
 })

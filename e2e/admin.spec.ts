@@ -4,7 +4,7 @@ import { login } from './fixtures'
 
 /**
  * M8 管理台 E2E：mock 沙盒下 admin@example.com 登录即为管理员。
- * 覆盖：入口与守卫、七页导航、用户页自己的行禁用、系统设置五分区、无权限页。
+ * 覆盖：入口与守卫、七页导航、用户页自己的行禁用、系统设置七分区（含只读平台信息/能力开关）、无权限页。
  */
 
 /** mock 沙盒普通账号（非 admin@example.com 即 user 角色）。 */
@@ -93,7 +93,7 @@ test.describe('M8 管理台', () => {
     await expect(page.getByText('账号已停用')).toBeVisible()
   })
 
-  test('系统设置页展示五个分区', async ({ page }) => {
+  test('系统设置页展示七分区（含只读平台信息/能力开关）', async ({ page }) => {
     await login(page)
     await page.goto('/admin/settings')
     await waitReady(page)
@@ -104,6 +104,15 @@ test.describe('M8 管理台', () => {
     await expect(page.getByRole('heading', { name: '全局 Agent', level: 2 })).toBeVisible()
     // SecretPanel 的分区标题（M5 平台密钥）。
     await expect(page.getByRole('heading', { name: '平台密钥' })).toBeVisible()
+    // M8 B 路径新增的两个只读面板。
+    await expect(page.getByRole('heading', { name: '平台信息', level: 2 })).toBeVisible()
+    await expect(page.getByRole('heading', { name: '能力开关', level: 2 })).toBeVisible()
+    await expect(page.locator('.settings-nav button')).toHaveCount(7)
+    await expect(
+      page.getByText(
+        '平台运维类配置（认证策略/配额/数据保留/功能开关/危险操作）为目标形态，未排期',
+      ),
+    ).toBeVisible()
   })
 
   test('三个无契约页展示只读提示', async ({ page }) => {

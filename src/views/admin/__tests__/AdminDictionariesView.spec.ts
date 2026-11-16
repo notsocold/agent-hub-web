@@ -11,6 +11,11 @@ describe('AdminDictionariesView', () => {
     expect(text).toContain('字典管理')
     expect(text).toContain('后端无对应管理接口')
     expect(text).toContain('只读字典')
+    expect(text).toContain('字典为内置枚举，当前只读；字典项变更需发版')
+    expect(text).toContain('目标形态（未排期）')
+    expect(
+      wrapper.findAll('button').filter((button) => /新建|删除|保存/.test(button.text())),
+    ).toHaveLength(0)
     // A2A 任务 8 状态键中至少 submitted/completed/canceled 出现
     expect(text).toContain('submitted')
     expect(text).toContain('completed')

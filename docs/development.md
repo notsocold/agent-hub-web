@@ -1,7 +1,7 @@
 # 开发指南
 
-> **当前状态：M0–M8 前端已实现（M0–M7 已真实联调；M8 管理台待后端启动补验），F1 体验与可访问性已收口；M9 工作流已实现（2026-11-12）：后端 T1–T9 已交付、`smoke:m9` 67 项真实后端全绿。开发环境默认使用内置 mock。**
-> 登录/注册、应用布局（单侧栏）、对话工作台（对话内审批、常驻运行轨迹、工作流 chip 与 `workflow.step` 步骤卡）、个人能力设置、智能体/任务/知识库页、审计/平台密钥、工作流（列表/编辑器/运行历史）可用；管理台为 M8 规划页。
+> **当前状态（2026-11-16）：前端 M0–M9 已完成**（M3「A2A 入站」取消）；M8 管理台七页在位、角色/菜单/字典只读、系统设置为能力配置 + 平台信息（只读）形态；M9 工作流五类步骤已交付。**M8 已用真实后端 `smoke:m8` 取证（2026-11-16，69/69 通过）**；最终门禁 561 单测 / 88 files、E2E 44 passed + 1 skipped、axe 10 个扫描面 0、`pnpm build` 通过。开发环境默认使用内置 mock。
+> 登录/注册、应用布局（单侧栏）、对话工作台（对话内审批、常驻运行轨迹、工作流 chip 与 `workflow.step` 步骤卡）、个人能力设置、智能体/任务/知识库页、审计/平台密钥、工作流（列表/编辑器/运行历史）可用；管理台七页可用（角色/菜单/字典为只读呈现）。
 > 后端联调时在 `.env.development.local` 设置 `VITE_USE_MOCK=false`（`.env.development` 会覆盖 `.env.local`）。
 
 ## 1. 环境要求
@@ -20,9 +20,9 @@
 | `pnpm install` | 安装依赖 |
 | `pnpm dev` | 开发服务器（5173，热更新） |
 | `pnpm build` | 类型检查 + 生产构建 |
-| `pnpm test` | Vitest 单测（475 个用例，无需后端） |
+| `pnpm test` | Vitest 单测（561 个用例 / 88 files，无需后端） |
 | `pnpm test:watch` | Vitest 监听模式 |
-| `pnpm e2e` | Playwright E2E（mock 构建，42 例 + 1 条条件跳过） |
+| `pnpm e2e` | Playwright E2E（mock 构建，44 passed + 1 skipped） |
 | `pnpm size` | 构建产物体积门禁（gzip） |
 | `pnpm verify:nginx` | Nginx SSE 代理对照验证（需已有 nginx 容器） |
 | `pnpm preview` | 预览构建产物 |

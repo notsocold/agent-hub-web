@@ -9,6 +9,12 @@ export interface AuditLog {
   detail: Record<string, unknown>
   request_id: string
   created_at: string
+  /**
+   * M7 前向兼容字段：后端 `AuditLogOut` 当前尚未输出 ip / result。
+   * 可选、无默认值；前端只在有值时渲染，无值显示 —，不伪造数据。
+   */
+  ip?: string | null
+  result?: string | null
 }
 
 export interface AuditLogQuery {

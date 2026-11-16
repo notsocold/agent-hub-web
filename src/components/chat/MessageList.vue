@@ -24,11 +24,20 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  approve: [id: string]
-  reject: [id: string]
+  approve: [id: string, note: string]
+  reject: [id: string, note: string]
   loadOlder: []
   'open-output': [item: A2aProcess]
 }>()
+
+/** 审批备注随决定逐层透传（默认空串，兼容无备注调用点）。 */
+function onApprovalApprove(id: string, note = ''): void {
+  emit('approve', id, note)
+}
+
+function onApprovalReject(id: string, note = ''): void {
+  emit('reject', id, note)
+}
 
 const listRef = ref<InstanceType<typeof VList> | null>(null)
 const pinned = ref(true)
@@ -238,8 +247,8 @@ defineExpose({ scrollToBottom, scrollToMessage })
               :busy="resolvingApproval"
               :resolving-approval-id="resolvingApprovalId ?? null"
               :reasoning-ms="reasoningMs"
-              @approve="emit('approve', $event)"
-              @reject="emit('reject', $event)"
+              @approve="onApprovalApprove"
+              @reject="onApprovalReject"
               @open-output="emit('open-output', $event)"
             />
             <MessageBubble v-else :message="item.message" />

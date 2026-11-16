@@ -11,12 +11,19 @@ vi.mock('virtua/vue', async () => {
     VList: defineComponent({
       name: 'VList',
       props: { data: { type: Array, default: () => [] } },
-      setup(_props, { expose }) {
+      setup(props, { expose, slots }) {
         expose({
           scrollToIndex: () => undefined,
           scrollTo: () => undefined,
         })
-        return () => h('div', { class: 'vlist-stub' })
+        return () =>
+          h(
+            'div',
+            { class: 'vlist-stub' },
+            (props.data as Array<{ id: string; kind: string }>)
+              .filter((row) => row.kind === 'process')
+              .map((row) => h('div', { key: row.id }, slots.default?.({ item: row }))),
+          )
       },
     }),
   }
@@ -142,5 +149,19 @@ describe('MessageList 流式状态播报', () => {
       messages: [message({ status: 'failed', error: { code: 'stream_error', message: '失败' } })],
     })
     expect(liveText(wrapper)).toBe('生成失败')
+  })
+
+  it('审批备注经 ProcessTimeline 透传为 (id, note)', async () => {
+    const wrapper = mountList({
+      messages: [message()],
+      process: [waitingApproval()],
+      currentRunId: 'run-1',
+    })
+
+    await wrapper.get('textarea').setValue('确认风险后执行')
+    await wrapper.get('[data-approval-approve]').trigger('click')
+
+    expect(wrapper.emitted('approve')?.[0]).toEqual(['approval-1', '确认风险后执行'])
+    wrapper.unmount()
   })
 })

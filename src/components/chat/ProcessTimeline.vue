@@ -20,8 +20,8 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  approve: [id: string]
-  reject: [id: string]
+  approve: [id: string, note: string]
+  reject: [id: string, note: string]
   'open-output': [item: A2aProcess]
 }>()
 
@@ -101,8 +101,8 @@ function focusApproval(): void {
           v-else-if="item.kind === 'approval'"
           :item="item"
           :busy="busy || resolvingApprovalId === item.approvalId"
-          @approve="emit('approve', item.approvalId)"
-          @reject="emit('reject', item.approvalId)"
+          @approve="emit('approve', item.approvalId, $event)"
+          @reject="emit('reject', item.approvalId, $event)"
         />
       </template>
     </ol>

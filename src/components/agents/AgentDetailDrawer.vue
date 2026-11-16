@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
+import AgentEditDialog from '@/components/agents/AgentEditDialog.vue'
 import AppIcon from '@/components/common/AppIcon.vue'
 import ErrorState from '@/components/common/ErrorState.vue'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
@@ -22,6 +23,8 @@ const props = withDefaults(
 const emit = defineEmits<{
   'update:modelValue': [value: boolean]
   changed: []
+  /** 编辑保存成功：携带后端返回的最新详情，供列表页展示成功提示。 */
+  edited: [agent: AgentDetail]
   removed: [id: string]
 }>()
 
@@ -34,6 +37,20 @@ const detail = ref<AgentDetail | null>(null)
 const loading = ref(false)
 const error = ref<string | null>(null)
 const busy = ref<'health' | 'refresh' | 'toggle' | 'delete' | null>(null)
+const editOpen = ref(false)
+
+/**
+ * 后端 AgentDetailOut 目前没有系统内置标记（全局注册表，owner_user_id 也不在响应里），
+ * 这里对可能的只读标记做防御性判断；字段出现时自动禁用编辑。
+ */
+function isBuiltinAgent(agent: AgentDetail): boolean {
+  const raw = agent as AgentDetail & { is_builtin?: boolean; builtin?: boolean; system?: boolean }
+  return raw.is_builtin === true || raw.builtin === true || raw.system === true
+}
+
+const canEdit = computed(
+  () => props.canManage && detail.value !== null && !isBuiltinAgent(detail.value),
+)
 
 const HEALTH_LABELS: Record<AgentHealthStatus, string> = {
   unknown: '未检查',
@@ -181,6 +198,13 @@ async function removeAgent(): Promise<void> {
     busy.value = null
   }
 }
+
+/** 编辑保存成功：用响应刷新详情；changed 驱动列表刷新，edited 供页面提示成功。 */
+function onAgentSaved(updated: AgentDetail): void {
+  detail.value = { ...(detail.value ?? updated), ...updated }
+  emit('changed')
+  emit('edited', updated)
+}
 </script>
 
 <template>
@@ -266,6 +290,16 @@ async function removeAgent(): Promise<void> {
 
       <div v-if="props.canManage" class="actions">
         <button
+          v-if="canEdit"
+          type="button"
+          class="btn btn-outline btn-sm"
+          data-testid="agent-edit-open"
+          :disabled="busy !== null"
+          @click="editOpen = true"
+        >
+          编辑
+        </button>
+        <button
           type="button"
           class="btn btn-outline btn-sm"
           :disabled="busy !== null"
@@ -298,6 +332,13 @@ async function removeAgent(): Promise<void> {
           {{ busy === 'delete' ? '删除中…' : '删除' }}
         </button>
       </div>
+
+      <AgentEditDialog
+        v-if="detail"
+        v-model="editOpen"
+        :agent="detail"
+        @saved="onAgentSaved"
+      />
     </div>
   </el-drawer>
 </template>

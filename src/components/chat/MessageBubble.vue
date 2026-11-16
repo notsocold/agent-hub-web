@@ -162,7 +162,7 @@ async function copy(text: string): Promise<void> {
               type="button"
               class="text-btn"
               disabled
-              title="受控下载端点将在 M1.5 提供"
+              title="下载附件"
             >
               下载
             </button>

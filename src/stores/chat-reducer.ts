@@ -263,6 +263,8 @@ export function approvalToProcess(approval: Approval): ApprovalProcess {
     expiresAt: approval.expires_at,
     decision:
       approval.status === 'approved' ? 'approve' : approval.status === 'rejected' ? 'reject' : null,
+    // 备注是后端已有字段：空串不写入，避免对账时用 undefined 覆盖本地刚写入的备注。
+    ...(approval.decision_note ? { decisionNote: approval.decision_note } : {}),
   }
 }
 
@@ -423,9 +425,14 @@ export function reduceChat(state: ChatState, event: ChatEventName, raw: unknown)
       const messageId = str(data.message_id)
       if (!messageId) return next
       const clientId = str(data.client_message_id)
-      const index = clientId
-        ? next.messages.findIndex((message) => message.client_message_id === clientId)
-        : -1
+      // 历史回放时消息可能已由历史接口加载：先按 id 命中，避免 client_message_id
+      // 缺失的旧数据被重复插入。
+      const byId = next.messages.findIndex((message) => message.id === messageId)
+      const index = byId >= 0
+        ? byId
+        : clientId
+          ? next.messages.findIndex((message) => message.client_message_id === clientId)
+          : -1
       if (index >= 0) {
         const existing = next.messages[index]
         if (existing) {
@@ -589,6 +596,8 @@ export function reduceChat(state: ChatState, event: ChatEventName, raw: unknown)
     case 'approval.required': {
       const approvalId = str(data.approval_id)
       if (!approvalId) return next
+      // 服务端事件若补充 decision_note（如回放已决审批），一并回填到卡片。
+      const decisionNote = str(data.decision_note)
       const item: ApprovalProcess = {
         kind: 'approval',
         id: `approval:${approvalId}`,
@@ -608,6 +617,7 @@ export function reduceChat(state: ChatState, event: ChatEventName, raw: unknown)
         payloadPreview: str(data.payload_preview) || undefined,
         expiresAt: str(data.expires_at) || null,
         decision: null,
+        ...(decisionNote ? { decisionNote } : {}),
       }
       next.process = upsertProcess(next.process, item)
       // 一轮可能有多个审批；run 状态等后端 `run.interrupted` 再收敛。
@@ -832,6 +842,7 @@ export function markApprovalResolved(
   state: ChatState,
   approvalId: string,
   decision: 'approve' | 'reject',
+  note = '',
 ): ChatState {
   const items = state.process.map((item) => {
     if (item.kind !== 'approval' || item.approvalId !== approvalId) return item
@@ -839,6 +850,7 @@ export function markApprovalResolved(
       ...item,
       decision,
       status: decision === 'approve' ? 'ok' : 'canceled',
+      ...(note ? { decisionNote: note } : {}),
     } satisfies ApprovalProcess
   })
   const pending = (state.pendingApprovalIds ?? []).filter((id) => id !== approvalId)

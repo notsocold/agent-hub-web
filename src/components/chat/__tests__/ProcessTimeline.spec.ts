@@ -115,4 +115,19 @@ describe('ProcessTimeline 摘要栏', () => {
     expect(first?.id).toBe('a1')
     wrapper.unmount()
   })
+
+  it('审批备注随批准/拒绝透传为 (id, note) 两参数', async () => {
+    const wrapper = mount(ProcessTimeline, {
+      props: { items: [approval('p1')] },
+      global: { stubs: { RouterLink: RouterLinkStub } },
+    })
+
+    await wrapper.get('textarea').setValue('确认执行')
+    await wrapper.get('[data-approval-approve]').trigger('click')
+    expect(wrapper.emitted('approve')?.[0]).toEqual(['p1', '确认执行'])
+
+    await wrapper.get('.btn-outline').trigger('click')
+    expect(wrapper.emitted('reject')?.[0]).toEqual(['p1', '确认执行'])
+    wrapper.unmount()
+  })
 })

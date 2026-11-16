@@ -1,8 +1,8 @@
 # 前端架构
 
 - 项目：Agent Hub Web（`agent-hub-web`）
-- 状态：M0–M7 已完成（M7 续流/事件回放/RBAC/审批字段已真实联调）；F1 体验与可访问性已收口；M8 管理台已实现（真实联调待后端启动）；M9 工作流已实现（2026-11-12，后端 T1–T9 已交付、`smoke:m9` 全绿）；M3「A2A 入站」已取消（仅出站）
-- 更新时间：2026-11-11
+- 状态：**前端 M0–M9 已完成**；M8 管理台七页在位、角色/菜单/字典只读、系统设置为能力配置 + 平台信息（只读）形态；M9 工作流五类步骤已交付；后端 **M0–M9 已交付**（M3 取消，OpenAPI 78 路径 / 109 操作）。`smoke:m8` **69/69** 真实后端通过（2026-11-16，[留档](handoff/2026-11-16-m8-smoke.md)）；最终门禁 561 单测 / 88 files、E2E 44 passed + 1 skipped、axe 10 个扫描面 0、`pnpm build` 通过（2026-11-16）。
+- 更新时间：2026-11-16（原 2026-11-11）
 
 ## 1. 目标
 
@@ -132,7 +132,7 @@ sequenceDiagram
 | `system` | 系统信息、能力开关、模型/推理目录 | M1 |
 | —（无独立 store） | 智能体/任务/知识库页面局部 `ref` + `api/` 模块 | M2/M4 当前实现；不强行抽 store |
 | `workflows` | 工作流列表、启停/删除中状态 | M9 已实现（2026-11-12）：列表卡片 + 启停/删除动作；编辑器/运行历史为页面局部状态 + `api/workflows.ts` 直连 |
-| `admin` | 管理台概览、用户、系统项 | M8 已立项；有契约页接真实 API，无契约页只读 |
+| `admin` | 管理台概览、用户、系统项 | M8 已交付（2026-11-11）；有契约页接真实 API，角色/菜单/字典只读 |
 
 约定：
 
@@ -152,7 +152,7 @@ sequenceDiagram
 | `/settings` | `SettingsView` | AppLayout |
 | `/approvals` | **已删除**（PA-1：审批只在对话内完成） | — |
 | `/workflows`（含 `/new`、`/:id`、`/:id/runs`） | `WorkflowsView` / `WorkflowsEditorView` / `WorkflowsRunsView` | AppLayout；M9 已实现，`meta.capability: 'workflows'` 守卫门控 |
-| `/admin` | `AdminLayout` + 七页 | 独立管理布局；M8 规划，`meta.requiresAdmin` |
+| `/admin` | `AdminLayout` + 七页 | 独立管理布局；M8 已交付（七页），`meta.requiresAdmin` |
 | `/login` | `LoginView`（M1） | 独立布局 |
 
 > 工作流页（M9）已实现真实契约页面（列表/编辑器/运行历史/对话接入），`capabilities.workflows=false` 时侧栏导航置灰、路由退回对话页。管理台（M8）有契约页接真实 API，角色权限/菜单/字典三页无契约，只读呈现并明确提示。两者均不伪造写成功。

@@ -2,8 +2,19 @@
 import { computed, ref, watch } from 'vue'
 
 import AppIcon from '@/components/common/AppIcon.vue'
+import TraceOverview from './trace/TraceOverview.vue'
+import TraceRow from './trace/TraceRow.vue'
+import TraceToolbar from './trace/TraceToolbar.vue'
 import { runsApi } from '@/api/runs'
 import { formatDuration, formatTokens } from '@/utils/format'
+import {
+  TRACE_EVENTS_LIMIT,
+  buildTraceEntries,
+  countByKind,
+  filterEntries,
+  isTraceEventsTruncated,
+  type TraceFilter,
+} from '@/utils/trace'
 import type { Citation, ProcessItem, Run, RunEvent, Usage } from '@/types'
 
 const props = withDefaults(
@@ -14,7 +25,7 @@ const props = withDefaults(
     usage: Usage | null
     finishReason: string | null
     conversationTitle: string
-    /** panel：常驻右栏；drawer：窄屏抽屉，额外展示服务端事件回放。 */
+    /** panel：常驻右栏；drawer：窄屏抽屉，额外展示可筛选的服务端事件。 */
     mode?: 'panel' | 'drawer'
   }>(),
   { mode: 'panel' },
@@ -26,6 +37,11 @@ const serverRun = ref<Run | null>(null)
 const serverEvents = ref<RunEvent[]>([])
 const eventsLoading = ref(false)
 const eventsError = ref<string | null>(null)
+const eventsTruncated = ref(false)
+
+const filterKind = ref<TraceFilter>('all')
+const searchQuery = ref('')
+const expandedIds = ref<Set<string>>(new Set())
 
 const totalTokens = computed(() => {
   const usage = props.usage
@@ -39,17 +55,31 @@ const serverTotalTokens = computed(() => {
   return usage.total_tokens ?? usage.input_tokens + usage.output_tokens
 })
 
+const traceEntries = computed(() => buildTraceEntries(props.items, serverEvents.value))
+const visibleEntries = computed(() =>
+  filterEntries(traceEntries.value, filterKind.value, searchQuery.value),
+)
+const kindCounts = computed(() => countByKind(traceEntries.value))
+
 let loadSeq = 0
+let observedRunId: string | null = null
 
 /** 只有抽屉模式需要服务端事件回放，常驻面板不额外拉接口。 */
 watch(
   () => [props.runId, props.streaming, props.mode] as const,
   async ([runId, , mode]) => {
     if (mode !== 'drawer') return
+    if (runId !== observedRunId) {
+      observedRunId = runId
+      filterKind.value = 'all'
+      searchQuery.value = ''
+      expandedIds.value = new Set()
+    }
     const seq = ++loadSeq
     serverRun.value = null
     serverEvents.value = []
     eventsError.value = null
+    eventsTruncated.value = false
     if (!runId) {
       eventsLoading.value = false
       return
@@ -58,11 +88,13 @@ watch(
     try {
       const [run, page] = await Promise.all([
         runsApi.get(runId),
-        runsApi.events(runId, { limit: 200 }),
+        runsApi.events(runId, { limit: TRACE_EVENTS_LIMIT }),
       ])
       if (seq !== loadSeq) return
       serverRun.value = run
       serverEvents.value = page.items
+      // 返回满一页（或后端明确 has_more）即提示只展示最近 200 条。
+      eventsTruncated.value = isTraceEventsTruncated(page.items.length, page.has_more)
     } catch (error) {
       if (seq !== loadSeq) return
       eventsError.value = error instanceof Error ? error.message : '加载运行事件失败'
@@ -73,11 +105,24 @@ watch(
   { immediate: true },
 )
 
-function eventTokens(event: RunEvent): string {
-  const input = event.tokens?.input_tokens
-  const output = event.tokens?.output_tokens
-  if (typeof input !== 'number' && typeof output !== 'number') return '—'
-  return `${formatTokens(input ?? 0)} / ${formatTokens(output ?? 0)}`
+function toggleEntry(id: string): void {
+  const next = new Set(expandedIds.value)
+  if (next.has(id)) next.delete(id)
+  else next.add(id)
+  expandedIds.value = next
+}
+
+function expandAll(): void {
+  expandedIds.value = new Set(visibleEntries.value.map((entry) => entry.id))
+}
+
+function collapseAll(): void {
+  expandedIds.value = new Set()
+}
+
+function resetFilters(): void {
+  filterKind.value = 'all'
+  searchQuery.value = ''
 }
 
 /** 执行轨道不展示思考/提示/错误这三类，它们不构成可执行步骤。 */
@@ -217,19 +262,70 @@ function durationOf(item: ProcessItem): string {
 </script>
 
 <template>
-  <div class="trace-scroll" tabindex="0" aria-label="运行轨迹滚动区">
-    <section class="trace-section">
+  <div
+    class="trace-scroll"
+    :class="{ 'is-drawer': mode === 'drawer' }"
+    tabindex="0"
+    aria-label="运行轨迹滚动区"
+  >
+    <template v-if="mode === 'drawer'">
+      <TraceOverview :entries="traceEntries" />
+
+      <TraceToolbar
+        :counts="kindCounts"
+        :kind="filterKind"
+        :query="searchQuery"
+        @update:kind="filterKind = $event"
+        @update:query="searchQuery = $event"
+        @expand-all="expandAll"
+        @collapse-all="collapseAll"
+      />
+
+      <p v-if="eventsTruncated" class="trace-limit-hint" role="status">
+        事件数量已达 {{ TRACE_EVENTS_LIMIT }} 条上限，仅显示最近 {{ TRACE_EVENTS_LIMIT }} 条。
+      </p>
+
+      <div class="traj-ledger trace-ledger">
+        <p v-if="eventsLoading" class="trace-hint" role="status">正在加载服务端事件…</p>
+        <p v-if="eventsError" class="trace-hint is-error" role="alert">
+          服务端事件加载失败：{{ eventsError }}。以下仅显示实时过程。
+        </p>
+
+        <template v-if="traceEntries.length === 0">
+          <p v-if="!eventsLoading" class="trace-empty traj-empty">
+            {{ runId ? '该运行暂无可展示的运行事件。' : '本轮还没有可展示的运行轨迹。' }}
+          </p>
+        </template>
+        <div v-else-if="visibleEntries.length === 0" class="trace-empty traj-empty">
+          <p>没有匹配的运行事件。</p>
+          <button class="text-link" type="button" @click="resetFilters">清除筛选条件</button>
+        </div>
+        <template v-else>
+          <ul class="trace-rows" aria-label="运行事件列表">
+            <TraceRow
+              v-for="(entry, index) in visibleEntries"
+              :key="entry.id"
+              :entry="entry"
+              :index="index"
+              :expanded="expandedIds.has(entry.id)"
+              @toggle="toggleEntry"
+            />
+          </ul>
+          <p v-if="visibleEntries.length < traceEntries.length" class="trace-visible-count">
+            显示 {{ visibleEntries.length }} / {{ traceEntries.length }} 个事件
+          </p>
+        </template>
+      </div>
+    </template>
+
+    <section v-if="mode === 'panel'" class="trace-section">
       <div class="trace-section-head">
         <h3>执行轨道</h3>
         <span class="spacer"></span>
         <span class="count">{{ trackItems.length }}</span>
       </div>
       <ol v-if="trackItems.length > 0" class="track">
-        <li
-          v-for="item in trackItems"
-          :key="item.id"
-          :class="[kindClass(item), stateClass(item)]"
-        >
+        <li v-for="item in trackItems" :key="item.id" :class="[kindClass(item), stateClass(item)]">
           <span class="marker">
             <AppIcon v-if="item.status === 'ok'" name="check" />
           </span>
@@ -286,27 +382,8 @@ function durationOf(item: ProcessItem): string {
 
     <section v-if="mode === 'drawer'" class="trace-section">
       <div class="trace-section-head">
-        <h3>服务端事件回放</h3>
-        <span class="spacer"></span>
-        <span class="count">{{ serverEvents.length }}</span>
+        <h3>运行元信息</h3>
       </div>
-      <p v-if="eventsLoading" class="trace-empty">正在加载运行事件…</p>
-      <p v-else-if="eventsError" class="trace-empty is-error">{{ eventsError }}</p>
-      <ol v-else-if="serverEvents.length > 0" class="server-events">
-        <li v-for="event in serverEvents" :key="event.id">
-          <span class="seq mono">#{{ event.seq }}</span>
-          <span class="event-name mono" :class="{ 'is-unknown': !event.event }">
-            {{ event.event || event.type }}
-          </span>
-          <span class="title">{{ event.title || event.subtitle || event.id }}</span>
-          <span class="status mono">{{ event.status }}</span>
-          <span class="duration mono">{{ formatDuration(event.duration_ms) }}</span>
-          <span class="tokens mono">{{ eventTokens(event) }}</span>
-          <span v-if="event.error" class="event-error">{{ event.error }}</span>
-        </li>
-      </ol>
-      <p v-else class="trace-empty">该运行暂无可回放事件。</p>
-
       <dl class="run-meta">
         <div>
           <dt>状态</dt>
@@ -345,68 +422,70 @@ function durationOf(item: ProcessItem): string {
 </template>
 
 <style scoped>
+.trace-scroll.is-drawer {
+  padding: 0;
+}
+
+.trace-scroll.is-drawer > .trace-section {
+  margin-top: 0;
+  padding: 14px 20px;
+  border-top: 1px solid var(--line-2);
+}
+
+.trace-hint {
+  margin: 0;
+  padding: 8px 20px;
+  border-bottom: 1px solid var(--line-2);
+  color: var(--ink-3);
+  font-size: 10px;
+}
+
+.trace-hint.is-error {
+  color: var(--red);
+}
+
+.trace-limit-hint {
+  margin: 0;
+  padding: 8px 20px;
+  border-bottom: 1px solid var(--line-2);
+  background: var(--amber-soft);
+  color: var(--amber-text);
+  font-size: 10px;
+}
+
+.trace-ledger {
+  padding-top: 0;
+}
+
+.trace-rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.trace-visible-count {
+  margin: 8px 0 0;
+  color: var(--ink-3);
+  font-size: 9.5px;
+}
+
+.trace-scroll.is-drawer .trace-ledger .trace-empty {
+  padding: 26px 0;
+}
+
+.trace-empty p {
+  margin: 0 0 6px;
+}
+
+.trace-empty .text-link {
+  margin-top: 2px;
+}
+
 .trace-empty {
   margin: 2px 0 0;
   color: var(--ink-3);
   font-size: 11px;
   line-height: 1.6;
-}
-
-.trace-empty.is-error {
-  color: var(--red);
-}
-
-.server-events li {
-  display: grid;
-  grid-template-columns: 34px 1fr auto auto auto;
-  gap: 6px;
-  align-items: baseline;
-  padding: 6px 0;
-  border-bottom: 1px solid var(--line-2);
-  font-size: 11px;
-}
-
-.server-events li:last-child {
-  border-bottom: 0;
-}
-
-.server-events .seq {
-  color: var(--ink-3);
-  font-size: 9.5px;
-}
-
-.server-events .event-name {
-  color: var(--ink-2);
-  font-size: 10px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.server-events .event-name.is-unknown {
-  color: var(--amber-text);
-}
-
-.server-events .title {
-  grid-column: 2 / -1;
-  color: var(--ink-3);
-  font-size: 10px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.server-events .status,
-.server-events .duration,
-.server-events .tokens {
-  color: var(--ink-3);
-  font-size: 9.5px;
-}
-
-.server-events .event-error {
-  grid-column: 2 / -1;
-  color: var(--red);
-  font-size: 10px;
 }
 
 .run-meta {

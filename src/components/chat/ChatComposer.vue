@@ -199,6 +199,19 @@ const WORKFLOW_STEP_LABELS: Record<WorkflowStepType, string> = {
 /** 面板只列 enabled === true 的模板（系统 + 本人）。 */
 const enabledWorkflows = computed(() => props.workflows.filter((item) => item.enabled === true))
 
+/** D4：对话页按契约上限一次拉 100 条；达到上限说明可能还有更多模板未展示。 */
+const WORKFLOW_OPTION_LIMIT = 100
+const workflowsTruncated = computed(() => props.workflows.length >= WORKFLOW_OPTION_LIMIT)
+
+/** D4：本地搜索（名称/描述），避免候选被截断后只能去工作流页找。 */
+const filteredWorkflows = computed(() => {
+  const keyword = search.value.trim().toLowerCase()
+  if (!keyword) return enabledWorkflows.value
+  return enabledWorkflows.value.filter((item) =>
+    `${item.name} ${item.description}`.toLowerCase().includes(keyword),
+  )
+})
+
 /** chip 文案：工作流名 · v{version} · {steps.length} 步。 */
 const workflowChipLabel = computed(() => {
   const workflow = selectedWorkflow.value
@@ -880,9 +893,17 @@ onUnmounted(() => {
                   <span>选择工作流</span>
                   <span class="ctx-stage">{{ selectedWorkflow ? '已选' : '单选' }}</span>
                 </div>
+                <input
+                  v-model="search"
+                  class="ctx-search"
+                  type="search"
+                  data-testid="workflow-search"
+                  placeholder="搜索工作流名称或描述"
+                  @click.stop
+                />
                 <div class="ctx-list">
                   <button
-                    v-for="workflow in enabledWorkflows"
+                    v-for="workflow in filteredWorkflows"
                     :key="workflow.id"
                     type="button"
                     class="ctx-row"
@@ -901,8 +922,17 @@ onUnmounted(() => {
                       {{ selectedWorkflow?.id === workflow.id ? '已选' : '' }}
                     </span>
                   </button>
-                  <p v-if="enabledWorkflows.length === 0" class="ctx-empty">没有可用工作流</p>
+                  <p v-if="filteredWorkflows.length === 0" class="ctx-empty">
+                    {{ enabledWorkflows.length === 0 ? '没有可用工作流' : '没有匹配的工作流' }}
+                  </p>
                 </div>
+                <p
+                  v-if="workflowsTruncated"
+                  class="ctx-truncated"
+                  data-testid="workflow-truncated"
+                >
+                  仅显示前 {{ WORKFLOW_OPTION_LIMIT }} 条模板，更多请到工作流页
+                </p>
                 <p class="ctx-foot">工作流与技能/MCP/知识库互斥；发送后清空。</p>
               </template>
 
@@ -1251,6 +1281,15 @@ onUnmounted(() => {
   padding: 5px 7px 2px;
   border-top: 1px solid var(--line-2);
   color: var(--ink-3);
+  font-size: 9.5px;
+  line-height: 1.5;
+}
+
+/* D4：候选达到契约上限（100）时提示可能被截断。 */
+.ctx-truncated {
+  margin-top: 2px;
+  padding: 4px 7px 2px;
+  color: var(--amber-text);
   font-size: 9.5px;
   line-height: 1.5;
 }

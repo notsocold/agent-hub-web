@@ -14,7 +14,7 @@ import { agentsApi } from '@/api/agents'
 import { useAuthStore } from '@/stores/auth'
 import { useSystemStore } from '@/stores/system'
 import { formatDateTime, formatDuration, formatTime } from '@/utils/format'
-import type { Agent, AgentHealthStatus } from '@/types'
+import type { Agent, AgentDetail, AgentHealthStatus } from '@/types'
 
 const auth = useAuthStore()
 const system = useSystemStore()
@@ -144,6 +144,11 @@ function onCreated(): void {
 
 function onChanged(): void {
   void load()
+}
+
+/** 详情抽屉编辑保存成功：详情已由抽屉用响应刷新，这里刷新列表并提示。 */
+function onEdited(agent: AgentDetail): void {
+  ElMessage.success(`已保存「${agent.name}」`)
 }
 
 function onRemoved(id: string): void {
@@ -473,6 +478,7 @@ onMounted(() => {
       :agent-id="activeAgentId"
       :can-manage="auth.isAdmin"
       @changed="onChanged"
+      @edited="onEdited"
       @removed="onRemoved"
     />
   </PageShell>

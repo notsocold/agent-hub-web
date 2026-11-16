@@ -377,7 +377,7 @@ class MockDb {
     }
   }
 
-  createConversation(title = '新会话'): Conversation {
+  createConversation(title = '新对话'): Conversation {
     const timestamp = new Date().toISOString()
     const conversation: Conversation = {
       id: crypto.randomUUID(),

@@ -82,7 +82,7 @@ function resolveConversation(payload: ChatStreamRequest): {
       return { id: existing.id, title: existing.title, created: false }
     }
   }
-  const title = payload.message.trim().slice(0, 20) || '新会话'
+  const title = payload.message.trim().slice(0, 20) || '新对话'
   const conversation = mockDb.createConversation(title)
   return { id: conversation.id, title, created: true }
 }

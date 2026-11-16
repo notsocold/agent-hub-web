@@ -67,3 +67,30 @@ test.describe('命令面板', () => {
     await expect(page.getByRole('dialog', { name: '全局搜索' })).toBeVisible()
   })
 })
+
+test.describe('管理台命令面板', () => {
+  test('顶栏搜索：用户与审计动作跳转、快捷键打开', async ({ page }) => {
+    await login(page)
+    await page.goto('/admin')
+    await expect(page.getByRole('heading', { name: '管理概览', level: 1 })).toBeVisible()
+
+    await page.getByRole('button', { name: '搜索管理台（Ctrl+K 或 /）' }).click()
+    const dialog = page.getByRole('dialog', { name: '管理台搜索' })
+    await expect(dialog).toBeVisible()
+
+    const input = page.getByRole('combobox', { name: '搜索管理台页面、用户或审计动作' })
+    await input.fill('alice')
+    // 用户搜索走 400ms 防抖，等结果出现再点。
+    const userOption = page.getByRole('option', { name: /Alice Chen/ })
+    await expect(userOption).toBeVisible()
+    await userOption.click()
+    await expect(page).toHaveURL(/\/admin\/users\?q=alice$/)
+
+    // 关闭后焦点回到搜索按钮；'/' 可重新打开。
+    await page.keyboard.press('/')
+    await expect(dialog).toBeVisible()
+    await input.fill('approval.decide')
+    await page.getByRole('option', { name: /审批决定/ }).click()
+    await expect(page).toHaveURL(/\/admin\/audit\?action=approval\.decide$/)
+  })
+})

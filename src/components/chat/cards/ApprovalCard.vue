@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, useId } from 'vue'
 
 import AppIcon from '@/components/common/AppIcon.vue'
 import { formatClock, formatDateTime } from '@/utils/format'
@@ -12,9 +12,24 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  approve: []
-  reject: []
+  approve: [note: string]
+  reject: [note: string]
 }>()
+
+/** 备注上限与后端 `ApprovalDecisionRequest.note` 的展示约定一致。 */
+const NOTE_MAX_LENGTH = 500
+const note = ref('')
+const noteId = useId()
+
+/** 已决备注展示前再过一次字符串级遮罩（备注可能来自其他客户端/历史数据）。 */
+const decisionNoteText = computed(() =>
+  props.item.decisionNote ? redactText(props.item.decisionNote) : '',
+)
+
+/** 提交时截断兜底：即使浏览器未执行 maxlength，也不把超长备注发给后端。 */
+function currentNote(): string {
+  return note.value.slice(0, NOTE_MAX_LENGTH).trim()
+}
 
 const now = ref(Date.now())
 let timer: ReturnType<typeof setInterval> | null = null
@@ -36,7 +51,17 @@ const expiresAtMs = computed(() => {
   return Number.isNaN(ms) ? null : ms
 })
 
-const expired = computed(() => expiresAtMs.value !== null && now.value >= expiresAtMs.value)
+/**
+ * 只有仍待用户决定的卡才按截止时间判过期；已批准/已拒绝/已处理的历史卡
+ * （如历史会话回放重建的卡）即使超过了 expires_at 也只展示结果。
+ */
+const expired = computed(
+  () =>
+    props.item.status === 'waiting' &&
+    !props.item.decision &&
+    expiresAtMs.value !== null &&
+    now.value >= expiresAtMs.value,
+)
 
 const remainingLabel = computed(() => {
   if (expiresAtMs.value === null) return ''
@@ -62,9 +87,9 @@ const riskLabel = computed(
 const decidedLabel = computed(() => {
   if (props.item.decision === 'approve') return '已批准'
   if (props.item.decision === 'reject') return '已拒绝'
-  if (expired.value) return '已过期'
-  if (props.item.status === 'canceled') return '已取消'
   if (props.item.status === 'ok') return '已处理'
+  if (props.item.status === 'canceled') return '已取消'
+  if (expired.value) return '已过期'
   return '待审批'
 })
 
@@ -134,7 +159,13 @@ const payloadJson = computed(() => {
             <dd :class="`risk risk-${item.risk}`">{{ riskLabel }}</dd>
             <dt v-if="item.expiresAt">超时</dt>
             <dd v-if="item.expiresAt" class="mono" :class="{ 'is-expired': expired }">
-              {{ expired ? `已过期 · ${formatDateTime(item.expiresAt)}` : remainingLabel }}
+              {{
+                expired
+                  ? `已过期 · ${formatDateTime(item.expiresAt)}`
+                  : item.status === 'waiting' && !item.decision
+                    ? remainingLabel
+                    : formatDateTime(item.expiresAt)
+              }}
             </dd>
           </dl>
 
@@ -152,9 +183,30 @@ const payloadJson = computed(() => {
           <p v-else class="payload-empty">参数预览不可用</p>
         </div>
 
+        <div v-if="canDecide" class="approval-note">
+          <label :for="noteId" class="approval-note-label">审批备注（可选）</label>
+          <textarea
+            :id="noteId"
+            v-model="note"
+            class="approval-note-input"
+            :maxlength="NOTE_MAX_LENGTH"
+            rows="2"
+            placeholder="填写批准/拒绝理由，会记录到审批历史"
+          ></textarea>
+          <div class="approval-note-meta">
+            <span>备注可选，不影响批准/拒绝</span>
+            <span class="mono">{{ note.length }} / {{ NOTE_MAX_LENGTH }}</span>
+          </div>
+        </div>
+
         <div v-if="canDecide" class="approval-actions">
           <span class="spacer"></span>
-          <button type="button" class="btn btn-outline" :disabled="busy" @click="emit('reject')">
+          <button
+            type="button"
+            class="btn btn-outline"
+            :disabled="busy"
+            @click="emit('reject', currentNote())"
+          >
             拒绝
           </button>
           <button
@@ -162,7 +214,7 @@ const payloadJson = computed(() => {
             class="btn btn-primary"
             data-approval-approve
             :disabled="busy"
-            @click="emit('approve')"
+            @click="emit('approve', currentNote())"
           >
             {{ busy ? '处理中…' : '批准并执行' }}
           </button>
@@ -175,6 +227,9 @@ const payloadJson = computed(() => {
           <span v-else-if="item.status === 'canceled'">审批已取消。</span>
           <span v-else>审批已处理，运行将继续。</span>
         </div>
+        <p v-if="!canDecide && decisionNoteText" class="approval-decision-note">
+          <strong>备注：</strong>{{ decisionNoteText }}
+        </p>
       </div>
     </div>
   </li>
@@ -233,6 +288,66 @@ const payloadJson = computed(() => {
 }
 
 .risk {
+  font-weight: 600;
+}
+
+.approval-note {
+  padding: 9px 15px 10px;
+  border-top: 1px solid var(--line-2);
+  background: var(--surface-2);
+}
+
+.approval-note-label {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--ink-2);
+  font-size: 10.5px;
+  font-weight: 600;
+}
+
+.approval-note-input {
+  display: block;
+  width: 100%;
+  min-height: 46px;
+  padding: 6px 8px;
+  resize: vertical;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: 11.5px;
+  line-height: 1.6;
+}
+
+.approval-note-input:focus {
+  outline: none;
+  border-color: var(--prussian);
+}
+
+.approval-note-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 4px;
+  color: var(--ink-3);
+  font-size: 9.5px;
+}
+
+.approval-decision-note {
+  margin: 0;
+  padding: 8px 15px 10px;
+  border-top: 1px dashed var(--line-2);
+  background: var(--surface-2);
+  color: var(--ink-2);
+  font-size: 11.5px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.approval-decision-note strong {
+  color: var(--ink-3);
   font-weight: 600;
 }
 

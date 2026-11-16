@@ -6,21 +6,130 @@ import EmptyState from '@/components/common/EmptyState.vue'
 import ErrorState from '@/components/common/ErrorState.vue'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton.vue'
 import { ApiRequestError } from '@/api/client'
+import { adminApi } from '@/api/admin'
 import { conversationsApi } from '@/api/conversations'
 import { useChatStore } from '@/stores/chat'
 import { filterPalettePages, matchMessages, type PalettePage } from '@/utils/commandPalette'
-import type { Conversation, SystemCapabilities } from '@/types'
+import { AUDIT_ACTIONS } from '@/types'
+import type { AdminUser, Conversation, SystemCapabilities } from '@/types'
 
-const props = defineProps<{
-  open: boolean
-  capabilities?: SystemCapabilities | null
-}>()
+const props = withDefaults(
+  defineProps<{
+    open: boolean
+    capabilities?: SystemCapabilities | null
+    /**
+     * app：对话工作台（页面 / 会话 / 当前会话消息）；
+     * admin：管理台（页面 / 用户 / 审计动作），由 AdminLayout 使用。
+     */
+    mode?: 'app' | 'admin'
+    /** 关闭后优先把焦点还给该元素（管理台搜索触发按钮）。 */
+    returnFocusTo?: HTMLElement | null
+  }>(),
+  { capabilities: null, mode: 'app', returnFocusTo: null },
+)
 
 const emit = defineEmits<{ close: [] }>()
 
 const route = useRoute()
 const router = useRouter()
 const chat = useChatStore()
+
+const isAdminMode = computed(() => props.mode === 'admin')
+
+/** 管理台七个页面（与 AdminLayout 侧栏一致）。 */
+interface AdminPalettePage {
+  id: string
+  label: string
+  description: string
+  route: string
+}
+
+const ADMIN_PAGES: AdminPalettePage[] = [
+  {
+    id: 'overview',
+    label: '管理概览',
+    description: '系统状态、最近管理操作与待处理',
+    route: 'admin-overview',
+  },
+  {
+    id: 'users',
+    label: '用户管理',
+    description: '搜索用户、调整角色与账号状态',
+    route: 'admin-users',
+  },
+  {
+    id: 'roles',
+    label: '角色与权限',
+    description: '内置角色与权限映射（只读）',
+    route: 'admin-roles',
+  },
+  {
+    id: 'menus',
+    label: '菜单管理',
+    description: '管理台导航结构镜像（只读）',
+    route: 'admin-menus',
+  },
+  {
+    id: 'dictionaries',
+    label: '字典管理',
+    description: '系统字典与枚举项（只读）',
+    route: 'admin-dictionaries',
+  },
+  {
+    id: 'settings',
+    label: '系统设置',
+    description: '指令、技能、MCP、Agent 与平台密钥',
+    route: 'admin-settings',
+  },
+  {
+    id: 'audit',
+    label: '审计日志',
+    description: '按动作、资源与操作者筛选审计记录',
+    route: 'admin-audit',
+  },
+]
+
+/** 审计动作中文名；与 AdminAuditView 的 ACTION_LABELS 保持一致（动作全集来自 AUDIT_ACTIONS）。 */
+const AUDIT_ACTION_LABELS: Record<string, string> = {
+  'agent.created': '注册智能体',
+  'agent.deleted': '删除智能体',
+  'agent.health_check': '智能体健康检查',
+  'agent.refresh_failed': '智能体刷新失败',
+  'agent.refreshed': '刷新智能体',
+  'agent.updated': '更新智能体',
+  'approval.decide': '审批决定',
+  'approval.timeout_canceled': '审批超时取消',
+  'attachment.delete': '删除附件',
+  'attachment.upload': '上传附件',
+  'attachment.upload_deduplicated': '附件去重上传',
+  'capability.override': '能力覆盖',
+  'instruction.update': '更新平台指令',
+  'mcp.server.check': '检查 MCP Server',
+  'mcp.server.create': '新建 MCP Server',
+  'mcp.server.delete': '删除 MCP Server',
+  'mcp.server.enable': '启停 MCP Server',
+  'mcp.server.update': '更新 MCP Server',
+  'mcp.tool.update': '更新 MCP 工具',
+  'memory.clear': '清空记忆',
+  'memory.create': '创建记忆',
+  'memory.delete': '删除记忆',
+  'memory.update': '更新记忆',
+  'secret.create': '新建平台密钥',
+  'secret.delete': '删除平台密钥',
+  'secret.update': '更新平台密钥',
+  'security.injection_suspected': '疑似提示词注入',
+  'security.output_redacted': '输出脱敏',
+  'skill.create': '创建技能',
+  'skill.delete': '删除技能',
+  'skill.enable': '启停技能',
+  'skill.import': '导入技能',
+  'skill.update': '更新技能',
+  'task.authorized': '任务授权',
+  'task.canceled': '取消任务',
+  'task.expired': '任务过期',
+  'task.rejected': '拒绝任务',
+  'task.resumed': '恢复任务',
+}
 
 const inputRef = ref<HTMLInputElement | null>(null)
 const query = ref('')
@@ -31,13 +140,21 @@ const conversationError = ref<string | null>(null)
 const conversationErrorCode = ref<string | null>(null)
 const conversationErrorRequestId = ref<string | null>(null)
 
+const adminUsers = ref<AdminUser[]>([])
+const adminUserLoading = ref(false)
+const adminUserError = ref<string | null>(null)
+const adminUserErrorCode = ref<string | null>(null)
+const adminUserErrorRequestId = ref<string | null>(null)
+
 let debounceTimer: ReturnType<typeof setTimeout> | null = null
+let adminDebounceTimer: ReturnType<typeof setTimeout> | null = null
 let searchSeq = 0
+let adminSearchSeq = 0
 let lastFocused: HTMLElement | null = null
 
 interface PaletteItem {
   id: string
-  group: 'page' | 'conversation' | 'message'
+  group: 'page' | 'conversation' | 'message' | 'admin-page' | 'admin-user' | 'admin-audit'
   label: string
   hint?: string
   run: () => void
@@ -46,9 +163,23 @@ interface PaletteItem {
 const hasQuery = computed(() => query.value.trim().length > 0)
 
 const messages = computed(() => {
-  if (route.name !== 'chat' || !chat.state.conversationId) return []
+  if (isAdminMode.value || route.name !== 'chat' || !chat.state.conversationId) return []
   return matchMessages(chat.messages, query.value)
 })
+
+/** 搜索结果加载/错误状态：app 模式查会话，admin 模式查用户。 */
+const searchLoading = computed(() =>
+  isAdminMode.value ? adminUserLoading.value : conversationLoading.value,
+)
+const searchError = computed(() =>
+  isAdminMode.value ? adminUserError.value : conversationError.value,
+)
+const searchErrorCode = computed(() =>
+  isAdminMode.value ? adminUserErrorCode.value : conversationErrorCode.value,
+)
+const searchErrorRequestId = computed(() =>
+  isAdminMode.value ? adminUserErrorRequestId.value : conversationErrorRequestId.value,
+)
 
 /** 结果项展示命中关键词附近的片段，而不是固定截取开头（关键词常常不在开头）。 */
 function messageSnippet(content: string, keyword: string): string {
@@ -62,6 +193,44 @@ function messageSnippet(content: string, keyword: string): string {
 
 const items = computed<PaletteItem[]>(() => {
   const list: PaletteItem[] = []
+  if (isAdminMode.value) {
+    const keyword = query.value.trim().toLowerCase()
+    for (const page of ADMIN_PAGES) {
+      if (keyword && !`${page.label} ${page.description}`.toLowerCase().includes(keyword)) {
+        continue
+      }
+      list.push({
+        id: `admin-page-${page.id}`,
+        group: 'admin-page',
+        label: page.label,
+        hint: page.description,
+        run: () => goAdminPage(page.route),
+      })
+    }
+    // 空查询只展示管理台页面；用户与审计动作需要关键词触发，避免一屏塞满。
+    if (!keyword) return list
+    for (const user of adminUsers.value) {
+      list.push({
+        id: `admin-user-${user.id}`,
+        group: 'admin-user',
+        label: user.display_name || user.email,
+        hint: `${user.email} · ${user.role === 'admin' ? '管理员' : '普通用户'}`,
+        run: () => goAdminUser(keyword),
+      })
+    }
+    for (const action of AUDIT_ACTIONS) {
+      const label = AUDIT_ACTION_LABELS[action] ?? action
+      if (!`${label} ${action}`.toLowerCase().includes(keyword)) continue
+      list.push({
+        id: `admin-audit-${action}`,
+        group: 'admin-audit',
+        label,
+        hint: action,
+        run: () => goAuditAction(action),
+      })
+    }
+    return list
+  }
   for (const page of filterPalettePages(query.value, props.capabilities)) {
     list.push({
       id: `page-${page.id}`,
@@ -93,11 +262,17 @@ const items = computed<PaletteItem[]>(() => {
 })
 
 const groups = computed(() => {
-  const order: Array<{ key: PaletteItem['group']; label: string }> = [
-    { key: 'page', label: '页面' },
-    { key: 'conversation', label: '会话' },
-    { key: 'message', label: '当前会话消息' },
-  ]
+  const order: Array<{ key: PaletteItem['group']; label: string }> = isAdminMode.value
+    ? [
+        { key: 'admin-page', label: '管理台页面' },
+        { key: 'admin-user', label: '用户' },
+        { key: 'admin-audit', label: '审计动作' },
+      ]
+    : [
+        { key: 'page', label: '页面' },
+        { key: 'conversation', label: '会话' },
+        { key: 'message', label: '当前会话消息' },
+      ]
   let cursor = 0
   return order
     .map(({ key, label }) => {
@@ -111,8 +286,21 @@ const groups = computed(() => {
 
 const activeItemId = computed(() => items.value[activeIndex.value]?.id ?? null)
 const showEmpty = computed(
-  () => hasQuery.value && !conversationLoading.value && !conversationError.value && !items.value.length,
+  () => hasQuery.value && !searchLoading.value && !searchError.value && !items.value.length,
 )
+
+const paletteTitle = computed(() => (isAdminMode.value ? '管理台搜索' : '全局搜索'))
+const paletteInputLabel = computed(() =>
+  isAdminMode.value
+    ? '搜索管理台页面、用户或审计动作'
+    : '搜索页面、会话或当前会话消息',
+)
+const palettePlaceholder = computed(() =>
+  isAdminMode.value
+    ? '搜索管理台页面、用户或审计动作…'
+    : '搜索页面、会话或当前会话消息…',
+)
+const listAriaLabel = computed(() => (isAdminMode.value ? '管理台搜索结果' : '搜索结果'))
 
 watch(items, (list) => {
   if (activeIndex.value >= list.length) activeIndex.value = Math.max(0, list.length - 1)
@@ -122,7 +310,7 @@ watch(
   () => props.open,
   async (open) => {
     if (!open) {
-      const target = lastFocused
+      const target = props.returnFocusTo ?? lastFocused
       lastFocused = null
       if (target) void nextTick(() => target.focus())
       return
@@ -134,6 +322,11 @@ watch(
     conversationLoading.value = false
     conversationErrorCode.value = null
     conversationErrorRequestId.value = null
+    adminUsers.value = []
+    adminUserError.value = null
+    adminUserLoading.value = false
+    adminUserErrorCode.value = null
+    adminUserErrorRequestId.value = null
     lastFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null
     await nextTick()
     inputRef.value?.focus()
@@ -143,11 +336,33 @@ watch(
 watch(query, (value) => {
   activeIndex.value = 0
   conversationError.value = null
+  adminUserError.value = null
   if (debounceTimer) {
     clearTimeout(debounceTimer)
     debounceTimer = null
   }
+  if (adminDebounceTimer) {
+    clearTimeout(adminDebounceTimer)
+    adminDebounceTimer = null
+  }
   const keyword = value.trim()
+  if (isAdminMode.value) {
+    if (!keyword) {
+      adminSearchSeq += 1
+      adminUsers.value = []
+      adminUserLoading.value = false
+      return
+    }
+    // 关键词变化立即丢弃旧结果：防抖窗口内按 Enter 不能进入不匹配的结果。
+    adminUsers.value = []
+    adminUserLoading.value = true
+    const seq = ++adminSearchSeq
+    adminDebounceTimer = setTimeout(() => {
+      adminDebounceTimer = null
+      void searchAdminUsers(keyword, seq)
+    }, 400)
+    return
+  }
   if (!keyword) {
     searchSeq += 1
     conversations.value = []
@@ -176,6 +391,21 @@ async function searchConversations(keyword: string, seq: number): Promise<void> 
     conversationErrorRequestId.value = error instanceof ApiRequestError ? error.requestId : null
   } finally {
     if (seq === searchSeq) conversationLoading.value = false
+  }
+}
+
+async function searchAdminUsers(keyword: string, seq: number): Promise<void> {
+  try {
+    const page = await adminApi.users({ q: keyword, limit: 8 })
+    if (seq !== adminSearchSeq) return
+    adminUsers.value = page.items
+  } catch (error) {
+    if (seq !== adminSearchSeq) return
+    adminUserError.value = error instanceof Error ? error.message : '用户搜索失败'
+    adminUserErrorCode.value = error instanceof ApiRequestError ? error.code : null
+    adminUserErrorRequestId.value = error instanceof ApiRequestError ? error.requestId : null
+  } finally {
+    if (seq === adminSearchSeq) adminUserLoading.value = false
   }
 }
 
@@ -226,6 +456,12 @@ function onInputKeydown(event: KeyboardEvent): void {
 function retrySearch(): void {
   const keyword = query.value.trim()
   if (!keyword) return
+  if (isAdminMode.value) {
+    adminUserError.value = null
+    adminUserLoading.value = true
+    void searchAdminUsers(keyword, ++adminSearchSeq)
+    return
+  }
   conversationError.value = null
   conversationLoading.value = true
   void searchConversations(keyword, ++searchSeq)
@@ -234,6 +470,23 @@ function retrySearch(): void {
 function goPage(page: PalettePage): void {
   close()
   void router.push({ name: page.route })
+}
+
+function goAdminPage(routeName: string): void {
+  close()
+  void router.push({ name: routeName })
+}
+
+function goAdminUser(keyword: string): void {
+  close()
+  // AdminUsersView 读取 q 需要 T4 配合；这里先保留 query，页面不消费也不会报错。
+  void router.push({ name: 'admin-users', query: { q: keyword } })
+}
+
+function goAuditAction(action: string): void {
+  close()
+  // 同理：AdminAuditView 读取 action query 由 T4 负责，跳转链接先保持契约。
+  void router.push({ name: 'admin-audit', query: { action } })
 }
 
 function goConversation(id: string): void {
@@ -252,7 +505,9 @@ function goMessage(id: string): void {
 
 onBeforeUnmount(() => {
   if (debounceTimer) clearTimeout(debounceTimer)
+  if (adminDebounceTimer) clearTimeout(adminDebounceTimer)
   searchSeq += 1
+  adminSearchSeq += 1
 })
 </script>
 
@@ -262,7 +517,7 @@ onBeforeUnmount(() => {
       class="palette"
       role="dialog"
       aria-modal="true"
-      aria-label="全局搜索"
+      :aria-label="paletteTitle"
       @keydown.esc="close"
       @keydown.tab.prevent
     >
@@ -277,24 +532,24 @@ onBeforeUnmount(() => {
           class="palette-input"
           type="text"
           role="combobox"
-          aria-label="搜索页面、会话或当前会话消息"
+          :aria-label="paletteInputLabel"
           aria-autocomplete="list"
           aria-controls="palette-listbox"
           aria-expanded="true"
           :aria-activedescendant="activeItemId ? `palette-item-${activeItemId}` : undefined"
-          placeholder="搜索页面、会话或当前会话消息…"
+          :placeholder="palettePlaceholder"
           @keydown="onInputKeydown"
         />
         <kbd class="esc-hint">Esc</kbd>
       </div>
 
-      <LoadingSkeleton v-if="conversationLoading" variant="text" :count="3" />
+      <LoadingSkeleton v-if="searchLoading" variant="text" :count="3" />
 
       <ErrorState
-        v-else-if="conversationError"
-        :message="conversationError"
-        :code="conversationErrorCode ?? undefined"
-        :request-id="conversationErrorRequestId ?? undefined"
+        v-else-if="searchError"
+        :message="searchError"
+        :code="searchErrorCode ?? undefined"
+        :request-id="searchErrorRequestId ?? undefined"
         class="palette-error"
         @retry="retrySearch"
       />
@@ -303,8 +558,8 @@ onBeforeUnmount(() => {
         id="palette-listbox"
         class="palette-list"
         role="listbox"
-        aria-label="搜索结果"
-        :aria-busy="conversationLoading"
+        :aria-label="listAriaLabel"
+        :aria-busy="searchLoading"
       >
         <div v-for="group in groups" :key="group.key" role="group" :aria-label="group.label">
           <p class="group-label" aria-hidden="true">{{ group.label }}</p>
@@ -331,7 +586,11 @@ onBeforeUnmount(() => {
         v-if="showEmpty"
         size="sm"
         title="没有匹配结果"
-        description="换个关键词，或确认对应页面是否已开放。"
+        :description="
+          isAdminMode
+            ? '换个关键词，或确认对应页面/用户/审计动作存在。'
+            : '换个关键词，或确认对应页面是否已开放。'
+        "
       />
 
       <p class="palette-foot">

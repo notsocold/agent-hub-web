@@ -334,7 +334,7 @@ onUnmounted(() => {
           </div>
 
           <div class="field-row">
-            <div class="field-label">语言<small>多语言将在后续版本评估</small></div>
+            <div class="field-label">语言<small>多语言未启用（未排期）</small></div>
             <select class="select" aria-label="语言" disabled>
               <option selected>简体中文（zh-CN）</option>
             </select>

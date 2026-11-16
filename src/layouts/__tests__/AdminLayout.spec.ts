@@ -2,10 +2,11 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
+import { nextTick } from 'vue'
 
 import AdminLayout from '@/layouts/AdminLayout.vue'
 import { useAuthStore } from '@/stores/auth'
-import type { User } from '@/types'
+import type { AdminUserPage, User } from '@/types'
 
 const ElMessageBoxMock = vi.hoisted(() => ({ confirm: vi.fn() }))
 
@@ -13,6 +14,21 @@ vi.mock('element-plus', async (importOriginal) => {
   const actual = await importOriginal<typeof import('element-plus')>()
   return { ...actual, ElMessageBox: ElMessageBoxMock }
 })
+
+const adminApiMock = vi.hoisted(() => ({
+  users: vi.fn(),
+}))
+
+vi.mock('@/api/admin', () => ({ adminApi: adminApiMock }))
+
+function adminUserPage(): AdminUserPage {
+  return {
+    items: [],
+    next_cursor: null,
+    has_more: false,
+    stats: { total: 3, active: 2, disabled: 1, admins: 1 },
+  }
+}
 
 function admin(): User {
   return {
@@ -44,7 +60,10 @@ function makeRouter() {
   })
 }
 
-async function mountLayout(routeName = 'admin-overview') {
+async function mountLayout(
+  routeName = 'admin-overview',
+  options: { attachTo?: HTMLElement } = {},
+) {
   setActivePinia(createPinia())
   const auth = useAuthStore()
   auth.user = admin()
@@ -53,17 +72,25 @@ async function mountLayout(routeName = 'admin-overview') {
   await router.push({ name: routeName })
   await router.isReady()
   const wrapper = mount(AdminLayout, {
+    attachTo: options.attachTo,
     global: {
       plugins: [router],
       stubs: { RouterView: true },
     },
   })
+  await flushPromises()
   return { wrapper, router }
+}
+
+function pressOnDocument(key: string, init: KeyboardEventInit = {}): void {
+  document.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, ...init }))
 }
 
 describe('AdminLayout', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    adminApiMock.users.mockResolvedValue(adminUserPage())
+    document.body.innerHTML = ''
   })
 
   it('渲染深墨侧栏的七个管理入口与账号区', async () => {
@@ -113,6 +140,85 @@ describe('AdminLayout', () => {
     await wrapper.get('.rail-back').trigger('click')
     await flushPromises()
     expect(router.currentRoute.value.name).toBe('chat')
+    wrapper.unmount()
+  })
+
+  it('顶栏搜索入口带快捷键提示，点击打开管理台搜索', async () => {
+    const { wrapper } = await mountLayout()
+    const trigger = wrapper.get('[aria-label="搜索管理台（Ctrl+K 或 /）"]')
+
+    expect(trigger.text()).toContain('搜索')
+    // 快捷键提示由 CSS 内容渲染（不进入可访问名，避免 WCAG 2.5.3 label-content-name-mismatch）。
+    expect(trigger.find('kbd').text()).toBe('')
+    expect(trigger.find('kbd').attributes('aria-hidden')).toBe('true')
+    expect(trigger.attributes('aria-keyshortcuts')).toContain('Control+K')
+
+    await trigger.trigger('click')
+    await nextTick()
+    expect(wrapper.get('[role="dialog"]').attributes('aria-label')).toBe('管理台搜索')
+    expect(wrapper.get('[role="combobox"]').attributes('aria-label')).toBe(
+      '搜索管理台页面、用户或审计动作',
+    )
+    wrapper.unmount()
+  })
+
+  it('Ctrl+K 打开、Esc 关闭并把焦点还给搜索按钮', async () => {
+    const { wrapper } = await mountLayout('admin-overview', { attachTo: document.body })
+    const trigger = wrapper.get<HTMLButtonElement>('[aria-label="搜索管理台（Ctrl+K 或 /）"]')
+    trigger.element.focus()
+
+    pressOnDocument('k', { ctrlKey: true })
+    await flushPromises()
+    await nextTick()
+    expect(wrapper.find('[role="dialog"]').exists()).toBe(true)
+    expect(document.activeElement).toBe(wrapper.get('[role="combobox"]').element)
+
+    pressOnDocument('Escape')
+    await flushPromises()
+    await nextTick()
+    await nextTick()
+    expect(wrapper.find('[role="dialog"]').exists()).toBe(false)
+    expect(document.activeElement).toBe(trigger.element)
+    wrapper.unmount()
+  })
+
+  it("'/' 打开搜索；焦点在输入控件内时不触发", async () => {
+    const { wrapper } = await mountLayout('admin-overview', { attachTo: document.body })
+
+    pressOnDocument('/')
+    await flushPromises()
+    await nextTick()
+    expect(wrapper.find('[role="dialog"]').exists()).toBe(true)
+
+    pressOnDocument('Escape')
+    await flushPromises()
+    await nextTick()
+
+    const outside = document.createElement('input')
+    document.body.appendChild(outside)
+    outside.focus()
+    outside.dispatchEvent(new KeyboardEvent('keydown', { key: '/', bubbles: true }))
+    await flushPromises()
+    expect(wrapper.find('[role="dialog"]').exists()).toBe(false)
+    outside.remove()
+    wrapper.unmount()
+  })
+
+  it('键盘选择结果并按 Enter 进入管理页面', async () => {
+    const { wrapper, router } = await mountLayout()
+
+    await wrapper.get('[aria-label="搜索管理台（Ctrl+K 或 /）"]').trigger('click')
+    await nextTick()
+    const input = wrapper.get('[role="combobox"]')
+    await input.setValue('审计')
+    await flushPromises()
+
+    const options = wrapper.findAll('[role="option"]')
+    expect(options.length).toBeGreaterThan(0)
+    await input.trigger('keydown', { key: 'Enter' })
+    await flushPromises()
+
+    expect(router.currentRoute.value.name).toBe('admin-audit')
     wrapper.unmount()
   })
 })

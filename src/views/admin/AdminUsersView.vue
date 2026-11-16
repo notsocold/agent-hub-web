@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import dayjs from 'dayjs'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
@@ -10,6 +11,7 @@ import { adminApi } from '@/api/admin'
 import { ApiRequestError } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
 import { formatDateTime } from '@/utils/format'
+import { buildCsv, csvFilename, downloadCsv } from '@/views/admin/csv'
 import type { AdminUser, AdminUserPage, AdminUserRole, AdminUserStatus } from '@/types'
 
 /**
@@ -21,13 +23,18 @@ import type { AdminUser, AdminUserPage, AdminUserRole, AdminUserStatus } from '@
  * - 错误一律按 `error.code` 分支：cannot_change_own_role / cannot_disable_self /
  *   last_admin_protected / validation_error / not_found；
  * - cursor 不透明：非法游标 422 时回到第一页，不用本地值重试；
- * - M8 不提供创建用户/重置密码，仍走注册流程与运维脚本。
+ * - M8 不提供创建用户/重置密码，仍走注册流程与运维脚本；
+ * - M3：仅导出当前筛选条件下的当前页；会话数后端无字段，不导出假列。
  */
 
 const PAGE_SIZE = 20
 const SEARCH_DEBOUNCE_MS = 400
 
+/** M3 导出列：与当前表格口径一致；会话数后端未提供，刻意不占列。 */
+const USER_CSV_HEADER = ['邮箱', '展示名', '角色', '状态', '最近登录', '创建时间'] as const
+
 const auth = useAuthStore()
+const route = useRoute()
 
 const page = ref<AdminUserPage | null>(null)
 const loading = ref(false)
@@ -84,6 +91,27 @@ function formatLastLogin(iso: string | null): string {
 function initials(user: AdminUser): string {
   const name = user.display_name?.trim() || user.email
   return name.slice(0, 2).toUpperCase()
+}
+
+/**
+ * 导出当前筛选条件下的当前页（游标分页，只导出眼前这一页）。
+ * 时间用完整 `YYYY-MM-DD HH:mm`，比表格里的「今天 / 昨天」更适合二次处理。
+ */
+function exportCsv(): void {
+  if (users.value.length === 0) {
+    ElMessage.warning('当前没有可导出的用户')
+    return
+  }
+  const rows = users.value.map((user) => [
+    user.email,
+    user.display_name?.trim() || '—',
+    roleMeta(user.role).label,
+    user.status === 'active' ? '启用' : '停用',
+    formatDateTime(user.last_login_at),
+    formatDateTime(user.created_at),
+  ])
+  downloadCsv(csvFilename('agent-hub-users'), buildCsv([...USER_CSV_HEADER], rows))
+  ElMessage.success(`已导出当前页 ${users.value.length} 条用户`)
 }
 
 function openEdit(user: AdminUser): void {
@@ -263,8 +291,21 @@ async function editStatus(user: AdminUser): Promise<void> {
   closeEdit()
 }
 
+/**
+ * M9 搜索深链：命令面板跳 `/admin/users?q=关键词` 时，首屏预填搜索框。
+ * 只在 onMounted 读取一次，用户后续手动清空/修改搜索不反向写 URL；
+ * 这里改 ref 不会触发 `@input` 防抖，随后只由下面的 load() 发一次首屏请求。
+ */
+function prefillKeywordFromQuery(): void {
+  const value = route.query.q
+  if (typeof value !== 'string') return
+  const query = value.trim()
+  if (query) keyword.value = query.slice(0, 100)
+}
+
 onMounted(() => {
   document.addEventListener('keydown', onKeydown)
+  prefillKeywordFromQuery()
   void load()
 })
 </script>
@@ -277,6 +318,16 @@ onMounted(() => {
         <p class="page-sub">管理工作台账号、角色与启用状态。角色权限由「角色与权限」统一控制。</p>
       </div>
       <div class="head-actions">
+        <button
+          type="button"
+          class="btn btn-outline"
+          :disabled="users.length === 0"
+          title="导出当前筛选条件下的当前页（邮箱 / 展示名 / 角色 / 状态 / 最近登录 / 创建时间）"
+          @click="exportCsv"
+        >
+          <AppIcon name="download" />
+          导出 CSV
+        </button>
         <button type="button" class="btn btn-outline" :disabled="loading" @click="resetAndLoad">
           <AppIcon name="refresh" />
           {{ loading ? '刷新中…' : '刷新' }}

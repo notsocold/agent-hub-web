@@ -35,6 +35,12 @@ describe('AdminRolesView', () => {
     expect(text).toContain('后端无对应管理接口')
     expect(text).toContain('只读呈现')
     expect(text).toContain('不做新建角色或权限编辑')
+    expect(text).toContain('v1 仅内置 user/admin 两种角色')
+    expect(text).toContain('多角色与权限矩阵为目标形态，未排期')
+    expect(text).toContain('docs/handoff/2026-11-13-accepted-deviations.md')
+    expect(
+      wrapper.findAll('button').filter((button) => /新建|删除|保存/.test(button.text())),
+    ).toHaveLength(0)
     expect(text).toContain('user · 普通用户')
     expect(text).toContain('admin · 管理员')
     expect(text).toContain('内置能力矩阵')

@@ -211,15 +211,15 @@ curl -N -X POST http://localhost:8000/api/v1/chat/stream \
 
 ## 11. 契约缺口（按里程碑）
 
-以下元素尚无后端契约或尚未实现，接入前需先补设计；归属以[路线图](roadmap.md)为准：
+以下记录里程碑契约状态与剩余缺口；归属以[路线图](roadmap.md)为准：
 
 | 归属 | 缺口 | 当前处理 |
 |---|---|---|
 | M3（已取消） | A2A 入站不实施：Agent Card 发布、JSON-RPC 入站端点、入站任务/会话、API Key 管理 | 服务仅出站；前端已移除设置页入站分区，`system/info.a2a` 不再读取（建议后端移除该字段） |
 | M4（已对齐） | 知识库端点、citations、`knowledge_categories` | 已实现并联调；仅剩「单文档重建 / 分类目录」缺口，前端用 retry 与文档聚合替代 |
 | M7（已完成） | 运行事件回放 `event`；`GET /runs/{id}/stream?after_seq=`；agents/tasks 写操作 403；`approval.required` 5 字段；A2A `authorization_url` 白名单 | 前后端 2026-11-11 已完成并联调：续流/回放/RBAC/审批字段/授权链接/401/503 文案/Nginx 续流 location；详见 [`handoff/2026-11-11-m7-frontend-report.md`](handoff/2026-11-11-m7-frontend-report.md) |
-| M8（已立项） | 管理端用户/角色、系统指令/技能/MCP/Agent、概览 | 后端已立项、未开始（依赖 M7-2 RBAC）；前端 v8 全量，无契约三页只读 |
-| M9（已立项） | 工作流 `workflows`/`workflow_runs`、`chat/stream.workflow_id`、`workflow.step` | 后端已立项（先 spike）；前端保持骨架 + mock，契约冻结后再升级 |
+| M8（已交付，2026-11-11） | 管理端用户/角色、系统指令/技能/MCP/Agent、概览 | 已交付：七页在位，角色/菜单/字典三页只读（无后端契约）；系统设置为能力配置 + 平台信息（只读）形态；OpenAPI 78 路径 / 109 操作；`smoke:m8` 69/69（2026-11-16） |
+| M9（已交付，2026-11-12） | 工作流 `workflows`/`workflow_runs`、`chat/stream.workflow_id`、`workflow.step` | 已交付：后端 T1–T9，`capabilities.workflows=true`；前端已消费七方法；五类步骤，详情见 §13.7 |
 
 已由后端补齐、不再列为缺口：附件上传/受控下载、审批列表/详情/决定、会话搜索 `q`、`message_count`、`chat/stream` 的 `model`/`reasoning_effort` 与 reasoning SSE 事件。
 
@@ -279,7 +279,7 @@ approval.required ──> run.interrupted(非终态，SSE 保持) ──决定�
 
 ## 13. M7–M9 契约增量（2026-11-11）
 
-> 状态：**M7 后端已落地（2026-11-11），前端已接入并完成真实联调**；M8/M9 仍为已立项、未开始的草案，落地以后端 handoff 与 OpenAPI 为准。对照设计见 [`superpowers/specs/2026-11-11-m7-m9-frontend-alignment-design.md`](superpowers/specs/2026-11-11-m7-m9-frontend-alignment-design.md)。
+> 状态：**M7 后端已落地（2026-11-11），前端已接入并完成真实联调**；**M8 已交付（2026-11-11）、M9 已交付（2026-11-12）**，前端均已消费；实际契约以后端 `openapi.json` / `handoff` 为准。对照设计见 [`superpowers/specs/2026-11-11-m7-m9-frontend-alignment-design.md`](superpowers/specs/2026-11-11-m7-m9-frontend-alignment-design.md)。
 
 ### 13.1 事件回放补 `event`
 
@@ -361,7 +361,9 @@ await fetchEventSource(`/api/v1/runs/${runId}/stream?after_seq=${lastSeq}`, {
 - 后端只允许 `https`，dev/test 额外允许 `http://localhost`、`http://127.0.0.1`；非法协议、内网/回环（prod）、超长（>2000）置 `authorization_url=null`；
 - 前端已有「仅 https/本地 http」判断；无链接时显示「授权链接不可用，请联系管理员」。
 
-### 13.6 M8 管理台端点（草案）
+### 13.6 M8 管理台端点（已实装，2026-11-11）
+
+> 已交付；前端管理台七页均已消费，角色/菜单/字典无后端契约、只读呈现并标注；2026-11-16 增补只读“平台信息 / 能力开关”分区（不新增端点，复用 `/system/info` 与能力开关响应）。
 
 | 能力 | 端点 |
 |---|---|

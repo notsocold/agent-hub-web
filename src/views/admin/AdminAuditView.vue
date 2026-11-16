@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import dayjs from 'dayjs'
 import { ElMessage } from 'element-plus'
 
@@ -21,6 +22,7 @@ import type { AuditLog, AuditLogQuery, PageResult } from '@/types'
 const PAGE_SIZE = 20
 
 const auth = useAuthStore()
+const route = useRoute()
 
 type AuditScope = 'all' | 'own'
 type RangeKey = '24h' | '7d' | '30d' | 'all' | 'custom'
@@ -311,6 +313,30 @@ function resourceText(log: AuditLog): string {
   return `${type} · ${id}`
 }
 
+/**
+ * M7：`AuditLog.ip/result` 是前向兼容的可选字段，后端补齐后自动显示；
+ * 无值时保持「—」，不伪造数据。
+ */
+function auditIp(log: AuditLog): string {
+  const value = log.ip
+  return typeof value === 'string' && value.trim() ? value.trim() : '—'
+}
+
+function auditResult(log: AuditLog): string {
+  const value = log.result
+  return typeof value === 'string' && value.trim() ? value.trim() : '—'
+}
+
+/** 结果字段补齐后按常见值着色，未知值用中性徽标，不做语义猜测。 */
+function auditResultTone(result: string): string {
+  const normalized = result.trim().toLowerCase()
+  if (['success', 'succeeded', 'ok'].includes(normalized)) return 'st-ok'
+  if (['failure', 'failed', 'error', 'denied', 'rejected'].includes(normalized)) {
+    return 'st-error'
+  }
+  return 'st-muted'
+}
+
 function openDetail(log: AuditLog): void {
   activeLog.value = log
 }
@@ -372,8 +398,28 @@ function onKeydown(event: KeyboardEvent): void {
   if (event.key === 'Escape' && activeLog.value) closeDetail()
 }
 
+/**
+ * M9 搜索深链：命令面板跳 `/admin/audit?action=<动作>` 时预填动作筛选。
+ * - query 可能是单值或多值，现有筛选状态是单选，取第一个合法动作；
+ * - 非字符串 / 不在 AUDIT_ACTIONS 的动作视为非法值，忽略并保留「全部操作」；
+ * - 只在 onMounted 读取一次，改 ref 不会触发 select 的 @change；
+ *   随后 `resetAndLoad()` 同样只发一次首屏请求，不存在重复加载。
+ */
+function prefillActionFromQuery(): void {
+  const raw = route.query.action
+  const candidates = Array.isArray(raw) ? raw : [raw]
+  for (const candidate of candidates) {
+    if (typeof candidate !== 'string') continue
+    const action = candidate.trim()
+    if (!action || !AUDIT_ACTIONS.includes(action)) continue
+    actionFilter.value = action
+    return
+  }
+}
+
 onMounted(() => {
   document.addEventListener('keydown', onKeydown)
+  prefillActionFromQuery()
   resetAndLoad()
 })
 
@@ -402,6 +448,15 @@ onUnmounted(() => {
         </button>
       </div>
     </header>
+
+    <div class="prototype-note" role="note">
+      <AppIcon name="alert" />
+      <span>
+        <b>字段说明</b>：IP 与结果字段后端暂未输出，显示为 —。
+        <br />
+        管理端契约补齐后本页会自动渲染真实值，前端不伪造数据。
+      </span>
+    </div>
 
     <form class="toolbar" @submit.prevent="resetAndLoad">
       <label class="search-field">
@@ -536,8 +591,8 @@ onUnmounted(() => {
             <th scope="col">操作者</th>
             <th scope="col">操作</th>
             <th scope="col">对象</th>
-            <th scope="col">IP</th>
-            <th scope="col">结果</th>
+            <th scope="col" title="后端接口暂未输出该字段，待契约补齐">IP</th>
+            <th scope="col" title="后端接口暂未输出该字段，待契约补齐">结果</th>
             <th scope="col" class="actions">详情</th>
           </tr>
         </thead>
@@ -559,8 +614,12 @@ onUnmounted(() => {
             <td>
               <span class="audit-resource" :title="resourceText(log)">{{ resourceText(log) }}</span>
             </td>
-            <td class="audit-ip">—</td>
-            <td><span class="st st-muted">—</span></td>
+            <td class="audit-ip">{{ auditIp(log) }}</td>
+            <td>
+              <span class="st" :class="auditResultTone(auditResult(log))">
+                {{ auditResult(log) }}
+              </span>
+            </td>
             <td class="actions">
               <button type="button" class="text-link" @click="openDetail(log)">查看</button>
             </td>
@@ -619,6 +678,10 @@ onUnmounted(() => {
               <dd class="mono">{{ activeLog.resource_type || '—' }}</dd>
               <dt>资源 ID</dt>
               <dd class="mono">{{ activeLog.resource_id || '—' }}</dd>
+              <dt>IP</dt>
+              <dd class="mono">{{ auditIp(activeLog) }}</dd>
+              <dt>结果</dt>
+              <dd>{{ auditResult(activeLog) }}</dd>
               <dt>request_id</dt>
               <dd class="mono">{{ activeLog.request_id || '—' }}</dd>
             </dl>

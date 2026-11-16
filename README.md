@@ -4,10 +4,10 @@
 
 后端项目：[agent-hub](../../PythonProjects/agent-hub)（FastAPI + LangGraph + A2A + pgvector）。
 
-> **当前状态：前端 M0–M7 已完成（M7 于 2026-11-11 完成真实联调），F1 体验与可访问性已完成，第一次向 v7/v8 原型靠拢（阶段 1）已完成；M8 管理台、M9 工作流待后端契约。**
-> 已实现登录/注册、路由守卫、应用布局与主题、对话工作台（SSE 流式、工具/技能/A2A/审批过程卡片、停止、历史会话）、单侧栏（导航 + 会话，移动端抽屉）、对话内审批、常驻运行轨迹、个人能力（输入栏「+」上下文、附件上传/下载、指令/记忆/技能/MCP 设置页）、智能体与任务、知识库与引用、审计/平台密钥，以及 M6 生产化（分包体积门禁、生产 mock 门禁、SSE 自动重连、诊断抽屉与 Web Vitals、Playwright E2E、Nginx SSE 配置）。
-> 仓库默认 `.env.development` 开启 `VITE_USE_MOCK=true`，按 `docs/handoff/fixtures.md` 回放 REST 与 SSE；本机联调用 `.env.development.local` 覆盖为 `VITE_USE_MOCK=false` 即走真实接口。真实联调覆盖 M1/M1.5/M2/M4/M5；本机 LLM key 为占位符，真实长流与审批恢复暂无 HTTP 证据。
-> **路线对齐（2026-11-11）**：前端 M 编号与后端 M0–M9 同名同义；**M3「A2A 入站」已取消（需求变更：本服务仅出站 A2A Client）**；M5=审批与安全加固；M7=契约补齐（增量续流/写操作 RBAC/审批字段），**前端已完成**；M8=管理台（v8 全量）、M9=工作流（轻量步骤模板）待后端。详见[路线图](docs/roadmap.md)与[M7–M9 对齐设计](docs/superpowers/specs/2026-11-11-m7-m9-frontend-alignment-design.md)。
+> **当前状态（2026-11-16）：前端 M0–M9 已完成**（M3「A2A 入站」取消；M7 于 2026-11-11 完成真实联调）。F1 体验与可访问性、PA-1 第一次原型靠拢（2026-11-11）、阶段 2 像素级对齐（2026-11-12）均已完成。**M8 管理台统一口径：七页在位（概览/用户/角色权限/菜单/字典/审计/系统设置）；角色/菜单/字典只读；系统设置为能力配置 + 平台信息（只读）形态。** **M9 工作流已交付**（五类步骤）。治理口径按 2026-11-16 决策走路径 B（缩范围 + 补真实数据 + 修前端交互），见[治理决策 ADR](docs/superpowers/specs/2026-11-16-governance-decision.md)与[接受清单](docs/handoff/2026-11-13-accepted-deviations.md)。
+> 已实现登录/注册、路由守卫、应用布局与主题、对话工作台（SSE 流式、工具/技能/A2A/审批过程卡片、停止、历史会话）、单侧栏（导航 + 会话，移动端抽屉）、对话内审批、常驻运行轨迹、个人能力（输入栏「+」上下文、附件上传/下载、指令/记忆/技能/MCP 设置页）、智能体与任务、知识库与引用、审计/平台密钥、M8 管理台七页（角色/菜单/字典只读；系统设置为能力配置 + 平台信息（只读）形态）、M9 工作流（列表/线性编辑器/运行历史/对话 `workflow_id` 与 `workflow.step`），以及 M6 生产化（分包体积门禁、生产 mock 门禁、SSE 自动重连、诊断抽屉与 Web Vitals、Playwright E2E、Nginx SSE 配置）。
+> 仓库默认 `.env.development` 开启 `VITE_USE_MOCK=true`，按 `docs/handoff/fixtures.md` 回放 REST 与 SSE；本机联调用 `.env.development.local` 覆盖为 `VITE_USE_MOCK=false` 即走真实接口。真实联调覆盖 M1/M1.5/M2/M4/M5/M8/M9（`smoke:m8` 69/69 于 2026-11-16 真实后端留档，见[M8 冒烟留档](docs/handoff/2026-11-16-m8-smoke.md)）；本机 LLM key 为占位符，真实长流与审批恢复暂无 HTTP 证据。
+> **路线对齐（2026-11-11，2026-11-16 更新）**：前端 M 编号与后端 M0–M9 同名同义；**M3「A2A 入站」已取消（需求变更：本服务仅出站 A2A Client）**；M5=审批与安全加固；M7=契约补齐（增量续流/写操作 RBAC/审批字段），**前端已完成**；**M8=管理台（七页在位，角色/菜单/字典只读）、M9=工作流（五类步骤模板）已交付**；后端 M0–M9 已交付（M3 取消），OpenAPI 78 路径 / 109 操作。详见[路线图](docs/roadmap.md)与[M7–M9 对齐设计](docs/superpowers/specs/2026-11-11-m7-m9-frontend-alignment-design.md)。
 > 单文件 HTML 原型见 [docs/prototypes](docs/prototypes/README.md)；后端交接包见 [docs/handoff](docs/handoff/README.md)；第一次原型靠拢规划见 [PA-1](docs/superpowers/plans/2026-11-11-prototype-alignment-phase1.md)。
 
 ## 1. 规划定位
@@ -19,7 +19,7 @@
 - **智能体**：注册远程 A2A 智能体，查看 Agent Card 与技能，做健康检查；
 - **任务**：跟踪主智能体发起的远程 A2A 任务，处理补充信息与授权；
 - **知识库**：上传/删除文档、查看入库状态、检索调试、按分类引用来源（M4，已联调）；
-- **工作流**：把技能、检索、A2A、MCP 与审批编排成有序步骤模板（**M9 已立项；当前仅页面骨架与 mock**）；
+- **工作流**：把检索、工具、A2A、审批与回答编排成有序步骤模板（**M9 已交付**：列表、线性步骤编辑器（五类步骤）、启停、运行历史、对话接入）；
 - **设置**：账号、模型参数、界面偏好与个人能力（A2A 端点分区已随 M3 取消移除）。
 
 ## 2. 技术栈
@@ -36,7 +36,7 @@
 | SSE | `@microsoft/fetch-event-source` | 已实现，支持 POST + Bearer |
 | Markdown | `marked` + DOMPurify + highlight.js | 已实现 |
 | 时间 | dayjs（zh-cn） | 已实现 |
-| 测试 | Vitest 5 + @vue/test-utils + jsdom + Playwright | 已配置，281 个单测 + E2E 28 例（mock 构建）+ 真实后端联调用例与冒烟脚本 |
+| 测试 | Vitest 5 + @vue/test-utils + jsdom + Playwright | 已配置，**561 个单测（2026-11-16 23:52，88 files）** + E2E 44 passed + 1 skipped（2026-11-16；2026-11-12 基线 42 例）+ 真实后端联调用例与冒烟脚本 |
 | 代码质量 | ESLint + Oxlint + Prettier | 已配置 |
 | 包管理 | pnpm | 已使用（项目内 `.npmrc` 指定 store） |
 
@@ -86,7 +86,7 @@ pnpm smoke:real   # 真实后端 M1 协议冒烟（需后端，可走 Vite 代�
 pnpm smoke:m15    # 真实后端 M1.5 能力层冒烟（附件/指令/记忆/技能/MCP/审批 + SSE）
 pnpm smoke:m4     # 真实后端 M4 知识库冒烟（管理员/普通用户）
 pnpm smoke:m5     # 真实后端 M5 审批/审计/密钥/限流冒烟
-pnpm e2e          # Playwright E2E（mock 构建，28 例）
+pnpm e2e          # Playwright E2E（mock 构建，44 passed + 1 skipped；2026-11-12 基线 42 例）
 pnpm size         # 构建产物体积门禁（gzip）
 pnpm verify:nginx # Nginx SSE 代理对照验证（需已有 nginx 容器）
 pnpm type-check   # 仅类型检查
@@ -117,7 +117,9 @@ VITE_API_BASE_URL=
 
 mock 登录：任意邮箱 + 8 位以上密码；密码为 `wrong-password` 时返回 401。用 `admin@example.com` 登录会得到管理员沙盒账号（agents/tasks 写入口、平台密钥与全局审计可见）。
 
-## 6. 当前状态（M0–M7 + F1 + PA-1 已完成，M8/M9 待后端）
+## 6. 当前状态（前端 M0–M9 已完成；M3 取消）
+
+> **完成口径**（与[路线图](docs/roadmap.md) §0 一致）：`契约先行` → `前端完成` → `联调完成` 三档；mock/E2E(mock) 通过只算「前端完成」，真实后端 smoke + 一条真实 HTTP/浏览器证据 + 文档勾选才算「联调完成」。
 
 已完成：
 
@@ -131,20 +133,20 @@ mock 登录：任意邮箱 + 8 位以上密码；密码为 `wrong-password` 时�
 - [x] **M2**：智能体列表/筛选/统计、两段式注册、详情抽屉、健康检查/刷新/启停/删除；任务列表/详情/取消/补充信息/授权/拒绝；对话内 A2A 卡片
 - [x] **M4**：知识库页（上传/拖拽/粘贴、筛选与游标分页、统计、状态轮询、重试/删除、管理员重建）；检索调试；输入栏知识库分类；引用深链
 - [x] **M5**：审批状态机与对话内审批卡、审计查询、平台密钥、429/遮罩/外链等安全 UX；`smoke:m5` 163 项。**PA-1 后审批页与 `/approvals` 路由已删除，审批只在对话内完成**
-- [x] **M6 生产化**：分包与体积门禁、生产 mock 双层门禁、SSE 断线自动重连（回填 + `lastSeq` 去重）、诊断抽屉/Web Vitals、Playwright E2E（M6 首版 10 例，当前 28 例）+ CI、Nginx SSE 配置与对照验证
-- [x] **F1**：长会话虚拟滚动、⌘K 命令面板、三态统一、可访问性（axe 0 critical/serious）、消息密度偏好、Markdown LRU 缓存
+- [x] **M6 生产化**：分包与体积门禁、生产 mock 双层门禁、SSE 断线自动重连（回填 + `lastSeq` 去重）、诊断抽屉/Web Vitals、Playwright E2E（M6 首版 10 例，当前 44 passed + 1 skipped，2026-11-16）+ CI、Nginx SSE 配置与对照验证
+- [x] **F1**：长会话虚拟滚动、⌘K 命令面板、三态统一、可访问性（axe 10 个扫描面 0 critical/serious）、消息密度偏好、Markdown LRU 缓存
 - [x] **PA-1 第一次原型靠拢**：单侧栏（所有页面含会话，移动端可切换）、删除审批页改为对话内审批、>1180px 运行轨迹常驻右栏、设置页长滚动 + 修改密码、过程摘要/检索与 MCP 色卡/Agent 输出抽屉
 - [x] **M7 契约补齐**：`runsApi.stream` 增量续流（续流优先、400/404/失败回退轮询）、`event` 驱动事件回放补卡、agents/tasks 写入口按管理员显隐、审批 5 字段与脱敏预览、授权链接白名单容错、登录 401 与 403/503 文案、Nginx 续流 location；`smoke:m7` 48 项 + `test:real` M7 5 例
-- [x] `pnpm type-check`、`pnpm test`（325）、`pnpm build`、`pnpm lint`、`pnpm e2e`（28 例）、`pnpm size`、`pnpm verify:nginx` 通过
-- [x] 真实后端联调：`smoke:real`（M1）、`smoke:m15` 68 项、`smoke:m4`、`smoke:m5` 163 项、`smoke:m7` 48 项、`test:real`（含 M2/M4/M5/M7）；M1/M4 部分用例在本机因 LLM key 占位与 embedding 不可用受限，属环境限制
+- [x] `pnpm type-check`、`pnpm test`（561 passed / 88 files，2026-11-16 23:52）、`pnpm build`、`pnpm lint`、`pnpm e2e`（44 passed + 1 skipped）、`pnpm size`、`pnpm verify:nginx` 通过
+- [x] 真实后端联调：`smoke:real`（M1）、`smoke:m15` 68 项、`smoke:m4`、`smoke:m5` 163 项、`smoke:m7` 48 项、`smoke:m8` 69/69（2026-11-16）、`smoke:m9` 67 项、`test:real`（含 M2/M4/M5/M7）；M1/M4 部分用例在本机因 LLM key 占位与 embedding 不可用受限，属环境限制
 
-已立项、未开始（与后端同名同义）：
+M8/M9 交付记录（与后端同名同义）：
 
 - [x] ~~**M7 前端适配**~~（已交付，见上）
-- [ ] **M8 前端管理台**：v8 全量七页（概览/用户/角色权限/菜单/字典/审计/系统设置）；无契约的角色权限/菜单/字典为只读 + 明确提示
-- [ ] **M9 前端工作流**：工作流 CRUD、线性步骤编辑器、启停、运行历史、对话 `workflow_id` 与 `workflow.step`；依赖后端 spike
+- [x] **M8 前端管理台**：七页在位（概览/用户/角色权限/菜单/字典/审计/系统设置）；角色/菜单/字典只读（目标形态，未排期）；系统设置为能力配置 + 平台信息（只读）形态；`smoke:m8` 69/69 真实后端通过（2026-11-16，[留档](docs/handoff/2026-11-16-m8-smoke.md)）
+- [x] **M9 前端工作流**：工作流 CRUD、线性步骤编辑器（五类步骤）、启停、运行历史、对话 `workflow_id` 与 `workflow.step`；`smoke:m9` 67 项真实后端通过（2026-11-12）
 
-待后续（不占 M 编号）：v7 像素级视觉还原、服务端偏好同步（需后端接口）、真实 LLM key 下的长流/审批恢复取证、真实后端 E2E 取证（当前维持 mock 构建）。
+待后续（不占 M 编号）：管理台信任数据（概览运行量、用户会话数、审计 IP/结果）与 S2 服务端偏好同步、K1/K2 知识库端点等后端增量（B 路径下按需排期，见[整改方案](docs/superpowers/plans/2026-11-13-gap-remediation.md)）；真实 LLM key 下的长流/审批恢复取证；真实后端 E2E 取证（当前维持 mock 构建）。
 
 ## 7. 文档索引
 
@@ -158,8 +160,16 @@ mock 登录：任意邮箱 + 8 位以上密码；密码为 `wrong-password` 时�
 | [M1 实施计划](docs/superpowers/plans/2026-11-09-m1-chat-workbench.md) | 任务拆分、文件与验收 |
 | [M6 生产化设计](docs/superpowers/specs/2026-11-11-m6-frontend-production-design.md) | 分包、门禁、重连、可观测、E2E |
 | [F1 体验与可访问性设计](docs/superpowers/specs/2026-11-11-f1-experience-a11y-design.md) | 虚拟滚动、⌘K、三态、a11y、密度偏好 |
-| [M7–M9 前端对齐设计](docs/superpowers/specs/2026-11-11-m7-m9-frontend-alignment-design.md) | 续流/RBAC/审批字段、管理台 v8 全量、工作流规划 |
+| [M7–M9 前端对齐设计](docs/superpowers/specs/2026-11-11-m7-m9-frontend-alignment-design.md) | 续流/RBAC/审批字段、管理台七页（三页只读）、工作流规划 |
 | [第一次原型靠拢规划](docs/superpowers/plans/2026-11-11-prototype-alignment-phase1.md) | PA-1：单侧栏/对话内审批/常驻轨迹/设置页长滚动/对话内还原 |
+| [差异审计报告](docs/handoff/2026-11-13-gap-audit-report.md) | 30 项差异、5 处文档偏差与 4 项验证缺口（2026-11-13 历史基线） |
+| [差异整改方案](docs/superpowers/plans/2026-11-13-gap-remediation.md) | A/B/C 治理路径、WP0–WP7 工作包与验收口径；**已于 2026-11-16 执行（路径 B）** |
+| [差异整改报告](docs/handoff/2026-11-16-gap-remediation-report.md) | B 路径执行结果：30 项归宿、561 单测 / 88 files、44+1 E2E、`smoke:m8` 69/69 |
+| [30 项关闭台账](docs/handoff/assets/2026-11-16-gap-closure.csv) | 逐项处置状态、整改后状态与证据 |
+| [治理决策 ADR](docs/superpowers/specs/2026-11-16-governance-decision.md) | 2026-11-16 选定路径 B；有效期至 2027-02-16 复核 |
+| [接受清单](docs/handoff/2026-11-13-accepted-deviations.md) | 12 条正式接受项（含 M3 邀请、M9 通知两个部分项）及重开条件 |
+| [文档修订记录](docs/handoff/2026-11-16-doc-sync.md) | Doc1–Doc5 修正、两轮修订清单、口径基线与自检 |
+| [M8 真实后端冒烟留档](docs/handoff/2026-11-16-m8-smoke.md) | `smoke:m8` 69/69（2026-11-16） |
 | [HTML 原型索引](docs/prototypes/README.md) | v7 工作台 / v7 页面样例 / v8 管理控制台 |
 | [原型自检报告](docs/prototypes/review-2026-11-08.md) | 前后端契约对照、可行性风险、已修复问题 |
 | [后端交接包](docs/handoff/README.md) | 契约增量、工作流/管理端方案、后端工作包与 fixtures |
@@ -173,9 +183,9 @@ mock 登录：任意邮箱 + 8 位以上密码；密码为 `wrong-password` 时�
 - 后端契约：[agent-hub/docs/api.md](../../PythonProjects/agent-hub/docs/api.md)、[A2A 设计](../../PythonProjects/agent-hub/docs/a2a.md)；
 - 前端类型按 `docs/handoff/contract-delta.md` 编写，mock 数据按 `fixtures.md` 复刻；
 - **交接包是 2026-11-08 的提案**：其中的「M5+」编号已被[路线图](docs/roadmap.md)的 M 编号取代；X1/X2 已于 2026-11-11 升级为 M9/M8。契约与 fixtures 仍然有效，字段冲突时以 `contract-delta.md` 和当前 OpenAPI 为准；
-- 交接包中的 8 项决策（D1–D8）尚未全部拍板；前端按推荐项实现并在类型/降级处保留兼容：
+- 交接包中的 8 项决策（D1–D8）已按路线图收敛：D1、D2 已分别交付为 M9、M8；D3/D4/D8 已按推荐项落地，D5/D6/D7 仍按推荐项保留在类型/降级处：
   - D3 模型/推理等级：`/system/info` 为空时隐藏选择器；
   - D4 知识库选择：请求字段为 `knowledge_categories`；
   - D8 HITL：按“保持流 + 超时”处理，审批后同一流继续；
-- 后端状态以 `agent-hub/docs/feedback/` 的实现报告与 OpenAPI 为准；后端 M0–M7 已完成，M8/M9 已立项未开始；
-- M7 已交付：运行事件回放 `event`、SSE 续流、写操作 RBAC 403、审批事件 5 字段、A2A 授权 URL 白名单（前端已全部消费）；M8/M9 契约待后端交付。
+- 后端状态以 `agent-hub/docs/feedback/` 的实现报告与 OpenAPI 为准；后端 M0–M9 已交付（M3 取消），OpenAPI 78 路径 / 109 操作；
+- M7 已交付：运行事件回放 `event`、SSE 续流、写操作 RBAC 403、审批事件 5 字段、A2A 授权 URL 白名单（前端已全部消费）；M8/M9 契约已交付并全部消费（M8 管理台七页、其中角色/菜单/字典只读；M9 工作流五类步骤）。文档口径以[治理决策 ADR](docs/superpowers/specs/2026-11-16-governance-decision.md)与[接受清单](docs/handoff/2026-11-13-accepted-deviations.md)为准。

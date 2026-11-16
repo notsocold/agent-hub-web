@@ -11,7 +11,7 @@ import WorkflowStepCard from '@/components/workflows/WorkflowStepCard.vue'
 import { ApiRequestError } from '@/api/client'
 import { workflowsApi } from '@/api/workflows'
 import { WORKFLOW_STEP_TYPES, validateWorkflowSteps } from '@/types'
-import type { Workflow, WorkflowStep, WorkflowStepType } from '@/types'
+import type { Workflow, WorkflowScope, WorkflowStep, WorkflowStepType } from '@/types'
 
 /**
  * M9 线性步骤编辑器：新建（/workflows/new）与编辑（/workflows/:id）共用。
@@ -30,10 +30,28 @@ const isNew = computed(() => workflowId.value === null)
 const name = ref('')
 const description = ref('')
 const steps = ref<WorkflowStep[]>([])
+const scope = ref<WorkflowScope>('user')
 const loading = ref(false)
 const saving = ref(false)
 const loadError = ref('')
 const errors = ref<string[]>([])
+
+/**
+ * W4：系统模板（scope='system'）只读。
+ * 后端 PATCH 对系统模板返回 403/404，直达编辑 URL 时不能给出可编辑表单再在保存时报错。
+ */
+const systemReadOnly = computed(() => scope.value === 'system')
+
+const pageTitle = computed(() => {
+  if (isNew.value) return '新建工作流'
+  return systemReadOnly.value ? '系统模板（只读）' : '编辑工作流'
+})
+
+const pageDescription = computed(() =>
+  systemReadOnly.value
+    ? '系统内置模板为只读；如需调整，请在模板列表复制为我的模板后编辑。'
+    : '按顺序编排检索、工具、远程智能体、审批与回答；步骤顺序通过上移/下移调整，保存后在对话中使用。',
+)
 
 /**
  * 干净基线快照：进入页面与保存成功后刷新。用规范化 JSON 比较
@@ -67,6 +85,7 @@ onMounted(async () => {
     const workflow: Workflow = await workflowsApi.get(workflowId.value!)
     name.value = workflow.name
     description.value = workflow.description
+    scope.value = workflow.scope
     steps.value = workflow.steps.map((step) => ({
       ...step,
       config: step.config ? { tools: [...step.config.tools] } : undefined,
@@ -81,6 +100,7 @@ onMounted(async () => {
 
 /** 有改动未保存时拦截离开：确认离开放行，取消停留。 */
 onBeforeRouteLeave(async () => {
+  if (systemReadOnly.value) return true
   if (!isDirty.value) return true
   try {
     await ElMessageBox.confirm('当前工作流有未保存的修改，离开将丢失这些更改。', '未保存的修改', {
@@ -107,8 +127,14 @@ const STEP_META: Record<WorkflowStepType, { label: string }> = {
 
 const addType = ref<WorkflowStepType>('knowledge_search')
 
+/** 只读步骤视图的类型文案；未知类型回退原始值，避免脏数据导致渲染崩。 */
+function stepLabel(type: WorkflowStepType): string {
+  return STEP_META[type]?.label ?? type
+}
+
 /** 添加步骤：五类字段严格固定——tool 只有标题 + 工具清单，其余四类标题 + 指令。 */
 function addStep(): void {
+  if (systemReadOnly.value) return
   const type = addType.value
   const step: WorkflowStep = { id: `s${steps.value.length + 1}`, type, title: '' }
   if (type !== 'tool') step.instruction = ''
@@ -123,11 +149,13 @@ function renumberSteps(): void {
 }
 
 function removeStep(index: number): void {
+  if (systemReadOnly.value) return
   steps.value = steps.value.filter((_, offset) => offset !== index)
   renumberSteps()
 }
 
 function moveStep(index: number, direction: -1 | 1): void {
+  if (systemReadOnly.value) return
   const target = index + direction
   if (target < 0 || target >= steps.value.length) return
   const next = [...steps.value]
@@ -136,6 +164,7 @@ function moveStep(index: number, direction: -1 | 1): void {
 }
 
 function updateStep(index: number, next: WorkflowStep): void {
+  if (systemReadOnly.value) return
   steps.value = steps.value.map((step, offset) => (offset === index ? next : step))
 }
 
@@ -172,6 +201,7 @@ function validateForm(): string[] {
 }
 
 async function save(): Promise<void> {
+  if (systemReadOnly.value) return
   const found = validateForm()
   errors.value = found
   if (found.length > 0) return
@@ -206,10 +236,7 @@ async function save(): Promise<void> {
 
 <template>
   <PageShell>
-    <PageHeader
-      :title="isNew ? '新建工作流' : '编辑工作流'"
-      description="按顺序编排检索、工具、远程智能体、审批与回答；步骤顺序通过上移/下移调整，保存后在对话中使用。"
-    >
+    <PageHeader :title="pageTitle" :description="pageDescription">
       <template #actions>
         <button type="button" class="btn btn-outline" data-testid="editor-back" @click="router.push('/workflows')">
           <AppIcon name="back" />返回列表
@@ -218,7 +245,7 @@ async function save(): Promise<void> {
           type="button"
           class="btn btn-primary"
           data-testid="editor-save"
-          :disabled="saving || loading"
+          :disabled="saving || loading || systemReadOnly"
           @click="save"
         >
           <AppIcon name="check" />{{ saving ? '保存中…' : '保存' }}
@@ -233,6 +260,16 @@ async function save(): Promise<void> {
     <LoadingSkeleton v-else-if="loading" />
 
     <div v-else class="editor-form">
+      <div
+        v-if="systemReadOnly"
+        class="readonly-banner"
+        role="note"
+        data-testid="system-readonly-banner"
+      >
+        <AppIcon name="lock" />
+        <span><b>系统模板只读</b>，如需调整请复制为我的模板。</span>
+      </div>
+
       <section class="panel">
         <header class="panel-head">
           <h2>基本信息</h2>
@@ -246,6 +283,7 @@ async function save(): Promise<void> {
               type="text"
               data-testid="editor-name"
               :value="name"
+              :readonly="systemReadOnly"
               aria-label="工作流名称"
               @input="onNameInput"
             />
@@ -257,6 +295,7 @@ async function save(): Promise<void> {
               rows="3"
               data-testid="editor-description"
               :value="description"
+              :readonly="systemReadOnly"
               aria-label="工作流描述"
               @input="onDescriptionInput"
             ></textarea>
@@ -278,9 +317,41 @@ async function save(): Promise<void> {
           <h2>执行步骤</h2>
           <span class="count">{{ steps.length }}</span>
           <span class="spacer"></span>
-          <span class="note">按顺序执行 · 最多 12 步</span>
+          <span class="note">{{ systemReadOnly ? '只读' : '按顺序执行 · 最多 12 步' }}</span>
         </header>
-        <div class="step-list">
+        <div v-if="systemReadOnly" class="step-list">
+          <p v-if="steps.length === 0" class="wf-edit-empty">该模板没有执行步骤。</p>
+          <article
+            v-for="(step, index) in steps"
+            :key="step.id"
+            class="readonly-step"
+            data-testid="readonly-step"
+            :data-step-type="step.type"
+          >
+            <header class="readonly-step-head">
+              <span class="mono readonly-step-no">{{ String(index + 1).padStart(2, '0') }}</span>
+              <b>{{ stepLabel(step.type) }}</b>
+              <span class="mono readonly-step-code">{{ step.type }}</span>
+            </header>
+            <dl class="kv readonly-step-kv">
+              <dt>标题</dt>
+              <dd>{{ step.title || '—' }}</dd>
+              <template v-if="step.instruction">
+                <dt>执行指令</dt>
+                <dd class="readonly-instruction">{{ step.instruction }}</dd>
+              </template>
+              <template v-if="step.config?.tools?.length">
+                <dt>工具清单</dt>
+                <dd class="readonly-tools">
+                  <span v-for="tool in step.config.tools" :key="tool" class="readonly-tool">
+                    {{ tool }}
+                  </span>
+                </dd>
+              </template>
+            </dl>
+          </article>
+        </div>
+        <div v-else class="step-list">
           <p v-if="steps.length === 0" class="wf-edit-empty">还没有步骤，从下方选择类型添加第一步。</p>
           <WorkflowStepCard
             v-for="(step, index) in steps"
@@ -294,7 +365,7 @@ async function save(): Promise<void> {
             @move-down="moveStep(index, 1)"
           />
         </div>
-        <footer class="step-add-row">
+        <footer v-if="!systemReadOnly" class="step-add-row">
           <span class="step-add-label">添加步骤</span>
           <select v-model="addType" class="select" data-testid="step-add-type" aria-label="选择步骤类型">
             <option v-for="type in WORKFLOW_STEP_TYPES" :key="type" :value="type">
@@ -324,6 +395,89 @@ async function save(): Promise<void> {
   display: flex;
   flex-direction: column;
   gap: 14px;
+}
+
+.readonly-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--amber-soft);
+  border-radius: 6px;
+  background: var(--amber-soft);
+  color: var(--amber-text);
+  font-size: 11.5px;
+  line-height: 1.6;
+}
+
+.readonly-banner .ic {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  margin-top: 1px;
+}
+
+.readonly-banner b {
+  font-weight: 650;
+}
+
+.readonly-step {
+  border: 1px solid var(--line-2);
+  border-left: 2px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+}
+
+.readonly-step-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line-2);
+  background: var(--surface-2);
+}
+
+.readonly-step-head b {
+  color: var(--ink-2);
+  font-size: 10.5px;
+  font-weight: 600;
+}
+
+.readonly-step-no,
+.readonly-step-code {
+  color: var(--ink-3);
+  font-size: 9px;
+}
+
+.readonly-step-kv {
+  grid-template-columns: 92px minmax(0, 1fr);
+  gap: 5px 14px;
+  margin: 0;
+  padding: 10px 12px;
+}
+
+.readonly-instruction {
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.readonly-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.readonly-tool {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 7px;
+  border: 1px solid var(--line-2);
+  border-radius: 4px;
+  background: var(--surface-2);
+  color: var(--ink-2);
+  font-family: var(--font-mono);
+  font-size: 9.5px;
 }
 
 .panel-body {

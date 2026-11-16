@@ -245,7 +245,7 @@ export async function handleMockRequest(req: MockRequest): Promise<MockResult> {
   }
 
   if (method === 'POST' && path === '/conversations') {
-    const title = String(body.title ?? '').trim() || '新会话'
+    const title = String(body.title ?? '').trim() || '新对话'
     return ok(mockDb.createConversation(title), 201)
   }
 

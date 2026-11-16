@@ -58,7 +58,8 @@ export interface AgentPreviewRequest {
 }
 
 export interface AgentAuthInput {
-  type: 'none' | 'api_key'
+  /** 与后端 AgentAuthType 对齐：none / api_key / oauth2。 */
+  type: AgentAuthType
   /** 只保存引用（如 `env:DATA_AGENT_KEY`），前端不回填密钥。 */
   secret_ref?: string
 }

@@ -119,6 +119,44 @@ describe('M5 审批决定语义（store）', () => {
     expect(cardOf(chat, 'a-1')?.decision).toBe('approve')
   })
 
+  it('带备注批准：note 随 decision 提交并写入卡片 decisionNote', async () => {
+    const chat = useChatStore()
+    seedPending(chat)
+    mocks.decide.mockResolvedValue({
+      id: 'a-1',
+      status: 'approved',
+      run_id: 'r-1',
+      resumed: false,
+      resume_error: '本轮还有其他审批待处理',
+    })
+
+    const outcome = await chat.resolveApprovalById('a-1', true, '确认执行')
+
+    expect(outcome.kind).toBe('waiting_others')
+    expect(mocks.decide).toHaveBeenCalledWith('a-1', {
+      decision: 'approve',
+      note: '确认执行',
+    })
+    expect(cardOf(chat, 'a-1')?.decisionNote).toBe('确认执行')
+  })
+
+  it('空备注不提交 note 键，卡片不出现 decisionNote', async () => {
+    const chat = useChatStore()
+    seedPending(chat)
+    mocks.decide.mockResolvedValue({
+      id: 'a-2',
+      status: 'rejected',
+      run_id: 'r-1',
+      resumed: false,
+      resume_error: '本轮还有其他审批待处理',
+    })
+
+    await chat.resolveApprovalById('a-2', false)
+
+    expect(mocks.decide).toHaveBeenCalledWith('a-2', { decision: 'reject' })
+    expect(cardOf(chat, 'a-2')?.decisionNote).toBeUndefined()
+  })
+
   it('409 审批过期时标记卡片不可操作并移除指针', async () => {
     const chat = useChatStore()
     seedPending(chat)
@@ -166,6 +204,8 @@ describe('M5 审批决定语义（store）', () => {
     expect(chat.state.pendingApprovalIds).toEqual(['a-2'])
     expect(cardOf(chat, 'a-1')?.decision).toBe('reject')
     expect(cardOf(chat, 'a-1')?.status).toBe('ok')
+    // 服务端 decision_note 回填到已决卡片。
+    expect(cardOf(chat, 'a-1')?.decisionNote).toBe('在审批中心拒绝')
   })
 
   it('决定响应迟到时不会覆盖已到达的终态', async () => {

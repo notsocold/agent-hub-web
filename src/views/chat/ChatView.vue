@@ -127,7 +127,8 @@ async function loadConversation(id: string): Promise<void> {
 /** M9：加载输入栏工作流候选；失败不阻断对话，仅面板为空。 */
 async function loadWorkflowOptions(): Promise<void> {
   try {
-    const page = await workflowsApi.list()
+    // 后端/ mock 的 limit 契约上限为 100（默认 20）；一次拉满，面板再本地搜索。
+    const page = await workflowsApi.list({ limit: 100 })
     workflowOptions.value = page.items
   } catch (error) {
     console.warn('[chat] 加载工作流候选失败', error)
@@ -136,7 +137,7 @@ async function loadWorkflowOptions(): Promise<void> {
 
 /**
  * M9 T6：`/chat?workflow_id&workflow_version&workflow_name` 预选工作流。
- * 调详情接口校验：无效 id / 请求失败静默忽略并 console.warn；停用模板不预选。
+ * 调详情接口校验：无效 id / 请求失败静默忽略并 console.warn；停用模板 toast 提示后不预选。
  * query 缺 version 时用返回模板的当前 version；带 version 时以列表页展示版本为准。
  * workflow_name 仅作展示提示，chip 文案以 get(id) 返回为准，故不读取。
  */
@@ -148,7 +149,8 @@ async function seedWorkflowFromQuery(): Promise<void> {
   try {
     const workflow = await workflowsApi.get(id)
     if (!workflow.enabled) {
-      console.warn(`[chat] 工作流 ${id} 已停用，忽略预选`)
+      // D5：停用模板是用户可理解的正常情况，显式提示而不是静默忽略。
+      ElMessage.warning('该模板已停用，未预选')
       return
     }
     const rawVersion = route.query.workflow_version
@@ -231,7 +233,9 @@ watch(
   () => chat.state.streaming,
   (streaming, previous) => {
     if (previous === true && !streaming) {
-      void conversations.load()
+      // 刷新已加载范围而不是重置到第一页：保留用户「加载更多」翻过的会话，
+      // 同时把后端生成的新标题带回侧栏。
+      void conversations.refresh()
     }
   },
 )
@@ -278,8 +282,8 @@ function useSuggestion(text: string): void {
   void chat.send(text, withModelSelection({}, modelSelection.value))
 }
 
-async function handleApproval(id: string, approve: boolean): Promise<void> {
-  const outcome = await chat.resolveApprovalById(id, approve)
+async function handleApproval(id: string, approve: boolean, note = ''): Promise<void> {
+  const outcome = await chat.resolveApprovalById(id, approve, note)
   switch (outcome.kind) {
     case 'resumed':
       ElMessage.success(outcome.message)
@@ -298,6 +302,15 @@ async function handleApproval(id: string, approve: boolean): Promise<void> {
     default:
       ElMessage.error(outcome.message)
   }
+}
+
+/** 审批卡事件带可选备注；保持默认空串以兼容无备注调用点。 */
+function handleApprovalApprove(id: string, note = ''): void {
+  void handleApproval(id, true, note)
+}
+
+function handleApprovalReject(id: string, note = ''): void {
+  void handleApproval(id, false, note)
 }
 
 /** 审批只在对话内完成：定位到待审批卡（没有 pending 时定位最后一张审批结果卡）。 */
@@ -498,8 +511,8 @@ function handleRecoveryRefresh(): void {
         :loading-older="chat.loadingOlder"
         :current-run-id="chat.state.runId"
         :conversation-id="chat.state.conversationId ?? activeId ?? null"
-        @approve="handleApproval($event, true)"
-        @reject="handleApproval($event, false)"
+        @approve="handleApprovalApprove"
+        @reject="handleApprovalReject"
         @load-older="chat.loadOlder()"
         @open-output="openAgentOutput"
       />

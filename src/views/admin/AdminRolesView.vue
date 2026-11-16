@@ -125,7 +125,10 @@ onMounted(() => {
     <div class="prototype-note" role="note">
       <AppIcon name="alert" />
       <span>
-        <b>只读呈现</b>：后端无对应管理接口，仅内置 user / admin 两个角色，不做新建角色或权限编辑；
+        <b>范围说明</b>：v1 仅内置 user/admin 两种角色；多角色与权限矩阵为目标形态，未排期（见
+        docs/handoff/2026-11-13-accepted-deviations.md）。
+        <br />
+        <b>只读呈现</b>：后端无对应管理接口，不做新建角色或权限编辑；
         下列矩阵来自前端路由守卫与现有接口权限口径。
       </span>
     </div>
